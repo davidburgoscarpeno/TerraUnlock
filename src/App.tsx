@@ -71,7 +71,13 @@ export function App() {
     const [progress, setProgress] = useState<Progress>(loadProgress);
     const progressRef = useRef(progress); progressRef.current = progress;
     const [view, setView] = useState(() => {
-        try { const v = JSON.parse(localStorage.getItem(VIEW_KEY) || ''); if (v && typeof v.lon === 'number') return v as { lon: number; lat: number; z: number }; } catch { /* sin vista guardada */ }
+        try {
+            const v = JSON.parse(localStorage.getItem(VIEW_KEY) || '');
+            if (v && typeof v.lon === 'number' && typeof v.lat === 'number' && typeof v.z === 'number'
+                && v.lon >= -180 && v.lon <= 180 && v.lat >= -80 && v.lat <= 80 && v.z >= 2 && v.z <= 16) {
+                return v as { lon: number; lat: number; z: number };
+            }
+        } catch { /* sin vista guardada */ }
         return { lon: -3.7, lat: 40.2, z: 5 };
     });
     const viewRef = useRef(view); viewRef.current = view;
