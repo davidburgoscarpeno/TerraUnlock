@@ -16,7 +16,7 @@ const PEAK_M = 250;
 const STORE_KEY = 'terraunlock.progress.v1';
 const VIEW_KEY = 'terraunlock.view.v1';
 const SPAIN_BBOX = [-9.7, 35.0, 4.5, 44.2];
-const ALL_PEAKS: Peak[] = [...PEAKS_ES, ...PEAKS_WORLD];
+const BASE_PEAKS: Peak[] = [...PEAKS_ES, ...PEAKS_WORLD];
 
 // Modelo pensado para multiusuario en fase 2: todo el progreso cuelga de un perfil.
 interface Progress { cells: string[]; points: [number, number][]; countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; }
@@ -151,15 +151,34 @@ export function App() {
         tileRaf.current = requestAnimationFrame(() => { tileRaf.current = 0; setTileTick((t) => t + 1); });
     };
 
+    // Cimas del mundo completas (Geonames, top 400 por pais): carga perezosa y cacheada por el SW
+    const [worldPeaks, setWorldPeaks] = useState<Peak[]>([]);
+    useEffect(() => {
+        let dead = false;
+        fetch('./data/peaks-world.json')
+            .then((r) => (r.ok ? r.json() : []))
+            .then((rows: Peak[]) => { if (!dead && Array.isArray(rows)) setWorldPeaks(rows); })
+            .catch(() => { /* sin red: se quedan las cimas base */ });
+        return () => { dead = true; };
+    }, []);
+    const allPeaks = useMemo(() => {
+        if (!worldPeaks.length) return BASE_PEAKS;
+        const seen = new Set(BASE_PEAKS.map(peakId));
+        return [...BASE_PEAKS, ...worldPeaks.filter((p) => !seen.has(peakId(p)))];
+    }, [worldPeaks]);
+    const allPeaksRef = useRef(allPeaks);
+    useEffect(() => { allPeaksRef.current = allPeaks; }, [allPeaks]);
+    const [selectedPeak, setSelectedPeak] = useState<Peak | null>(null);
+
     const peakGrid = useMemo(() => {
         const g = new Map<string, Peak[]>();
-        for (const p of ALL_PEAKS) {
+        for (const p of allPeaks) {
             const k = Math.floor(p[1] * 2) + ',' + Math.floor(p[2] * 2);
             const arr = g.get(k); if (arr) arr.push(p); else g.set(k, [p]);
         }
         return g;
-    }, []);
-    const peakById = useMemo(() => { const m = new Map<string, Peak>(); for (const p of ALL_PEAKS) m.set(peakId(p), p); return m; }, []);
+    }, [allPeaks]);
+    const peakById = useMemo(() => { const m = new Map<string, Peak>(); for (const p of allPeaks) m.set(peakId(p), p); return m; }, [allPeaks]);
 
     const setViewPersist = (v: { lon: number; lat: number; z: number }) => {
         setView(v);
@@ -436,25 +455,39 @@ export function App() {
             ctx.restore();
         }
 
-        // Cimas
+        // Cimas: solo las visibles; si hay muchas juntas, se dibuja la mas alta de cada celda de pantalla
         if (z >= 5.5) {
-            let drawn = 0;
-            const step = z < 7 ? 3 : 1;
-            for (let i = 0; i < ALL_PEAKS.length && drawn < 500; i += step) {
-                const pk = ALL_PEAKS[i];
+            const cellPx = 26;
+            const grid = new Map<string, { pk: Peak; x: number; y: number; won: boolean }>();
+            for (const pk of allPeaks) {
                 if (pk[2] < tl.lon || pk[2] > br.lon || pk[1] < br.lat || pk[1] > tl.lat) continue;
                 const pt = project(pk[2], pk[1], z);
                 const x = sx(pt.x), y = sy(pt.y);
-                const won = pkSet.has(peakId(pk));
+                const key = Math.floor(x / cellPx) + ',' + Math.floor(y / cellPx);
+                const cur = grid.get(key);
+                if (!cur || pk[3] > cur.pk[3]) grid.set(key, { pk, x, y, won: pkSet.has(peakId(pk)) });
+            }
+            const shown = [...grid.values()];
+            for (const m of shown) {
                 ctx.beginPath();
-                ctx.moveTo(x, y - 5); ctx.lineTo(x - 4.5, y + 3.5); ctx.lineTo(x + 4.5, y + 3.5); ctx.closePath();
-                ctx.fillStyle = won ? '#f0b429' : 'rgba(200,212,222,0.6)';
+                ctx.moveTo(m.x, m.y - 5); ctx.lineTo(m.x - 4.5, m.y + 3.5); ctx.lineTo(m.x + 4.5, m.y + 3.5); ctx.closePath();
+                ctx.fillStyle = m.won ? '#f0b429' : 'rgba(200,212,222,0.6)';
                 ctx.fill();
-                if (z >= 10.5 && (won || pk[3] >= 3000)) {
-                    ctx.font = '10px sans-serif'; ctx.fillStyle = won ? '#f0b429' : 'rgba(220,228,235,0.75)';
-                    ctx.fillText(pk[0] + ' ' + pk[3] + 'm', x, y - 11);
+            }
+            if (z >= 9) {
+                ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+                const labeled = shown.slice().sort((a, b) => b.pk[3] - a.pk[3]).slice(0, 30);
+                for (const m of labeled) {
+                    ctx.fillStyle = m.won ? '#f0b429' : 'rgba(220,228,235,0.75)';
+                    ctx.fillText(m.pk[0] + ' ' + m.pk[3] + 'm', m.x, m.y - 11);
                 }
-                drawn++;
+                ctx.textAlign = 'start';
+            }
+            if (selectedPeak) {
+                const pt = project(selectedPeak[2], selectedPeak[1], z);
+                const x = sx(pt.x), y = sy(pt.y);
+                ctx.beginPath(); ctx.arc(x, y - 1, 10, 0, 7);
+                ctx.lineWidth = 2; ctx.strokeStyle = '#f0b429'; ctx.stroke();
             }
         }
 
@@ -466,7 +499,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick, importTrack]);
+    }, [view, progress, lastPos, tileTick, importTrack, allPeaks, selectedPeak]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -535,13 +568,31 @@ export function App() {
         const wasTap = pointers.current.size === 1 && dragStart.current && !dragStart.current.moved;
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinchStart.current = null;
-        if (wasTap && simMode) {
-            const wrap = wrapRef.current; if (!wrap) return;
-            const rect = wrap.getBoundingClientRect();
-            const v = viewRef.current;
-            const pc = project(v.lon, v.lat, v.z);
-            const ll = unproject(pc.x + (e.clientX - rect.left - wrap.clientWidth / 2), pc.y + (e.clientY - rect.top - wrap.clientHeight / 2), v.z);
-            addPoint(ll.lat, ll.lon);
+        if (wasTap) {
+            const wrap = wrapRef.current;
+            if (wrap) {
+                const rect = wrap.getBoundingClientRect();
+                const v = viewRef.current;
+                const pc = project(v.lon, v.lat, v.z);
+                const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+                const w = wrap.clientWidth, h = wrap.clientHeight;
+                // Hit-test de cimas: la mas cercana al toque dentro de 20 px
+                if (v.z >= 5.5) {
+                    let best: Peak | null = null, bestD = 20;
+                    for (const pk of allPeaksRef.current) {
+                        const pt = project(pk[2], pk[1], v.z);
+                        const x = pt.x - pc.x + w / 2, y = pt.y - pc.y + h / 2;
+                        if (x < -20 || x > w + 20 || y < -20 || y > h + 20) continue;
+                        const d = Math.hypot(x - mx, y - (my - 1));
+                        if (d < bestD) { bestD = d; best = pk; }
+                    }
+                    if (best) { setSelectedPeak(best); dragStart.current = null; return; }
+                }
+                if (simMode) {
+                    const ll = unproject(pc.x + (mx - w / 2), pc.y + (my - h / 2), v.z);
+                    addPoint(ll.lat, ll.lon);
+                } else if (selectedPeak) setSelectedPeak(null);
+            }
         }
         dragStart.current = null;
     };
@@ -602,6 +653,19 @@ export function App() {
                 <div className="tu-controls">
                     <button className="file-button is-compact" data-variant="primary" onClick={applyTrack}>Aplicar ruta</button>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportTrack(null)}>Cancelar</button>
+                </div>
+            </div>
+        ) : null}
+
+        {selectedPeak ? (
+            <div className="tu-callout">
+                <strong>{selectedPeak[0]} <small style={{ fontWeight: 400, opacity: 0.75 }}>{selectedPeak[3]} m</small></strong>
+                <p>{progress.peaks.includes(peakId(selectedPeak))
+                    ? 'Cima conquistada. Buen trabajo.'
+                    : 'Aun sin conquistar: pasa a menos de 1 km de la cima para que cuente.'}</p>
+                <div className="tu-controls">
+                    <a className="file-button is-compact" data-variant="primary" href={'https://es.wikiloc.com/rutas?q=' + encodeURIComponent(selectedPeak[0])} target="_blank" rel="noopener noreferrer">Rutas en Wikiloc</a>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedPeak(null)}>Cerrar</button>
                 </div>
             </div>
         ) : null}
