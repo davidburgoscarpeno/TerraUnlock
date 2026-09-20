@@ -4,8 +4,14 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
-## Estado (v0.8)
+## Estado (v0.9)
 
+- App shell con estructura de app: barra de navegacion inferior fija con 4 pestanas (Mapa, Progreso, Cimas, Ajustes), con soporte de safe-area para moviles con notch.
+- Pantalla de bienvenida en el primer arranque (que es TerraUnlock, como se revela el mapa, que datos se guardan) y re-mostrable desde Ajustes.
+- Pestana Progreso: stats por nivel con % conquistado (paises, CCAA, provincias, cimas) y territorio revelado.
+- Pestana Cimas: contador global y lista completa de cimas conquistadas con altitud.
+- Pestana Ajustes (todo funcional): Perfil (avatar con inicial, nombre visible editable que saluda en el header, estado "sin cuenta" y boton "Crear cuenta (proximamente)" ya preparado para la fase 2), Mapa (oscuridad de la niebla 0.4-0.9, etiquetas de cimas on/off, re-mostrar bienvenida), Unidades (km/mi aplicadas a toda la app), Datos (exportar/importar progreso, importar rutas, reiniciar).
+- Preferencias persistentes en localStorage (terraunlock.prefs.v1): nombre, niebla, etiquetas, unidades, bienvenida vista.
 - Mapa vectorial propio en canvas (Web Mercator, sin librerías de mapas).
 - Niebla revelada en círculos de ~1,3 km alrededor de cada punto visitado.
 - Desbloqueo automático: 177 países (Natural Earth), 19 CCAA y 52 provincias (España), ~58.000 cimas en todo el mundo (Geonames por pais, top 400 por altitud, mas el curado de 2.169 de España) conquistables a <1 km.
