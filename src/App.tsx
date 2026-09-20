@@ -67,6 +67,23 @@ function regionAt(regions: Region[], lon: number, lat: number) {
 }
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
+// Cache de region por celda: en un lote de tracks, los puntos contiguos caen en la misma celda
+const regionCache = new Map<string, { c: string | null; a: string | null; pv: string | null }>();
+function regionsCached(lon: number, lat: number) {
+    const key = Math.round(lat / CELL) + ',' + Math.round(lon / CELL);
+    let r = regionCache.get(key);
+    if (!r) {
+        r = { c: regionAt(COUNTRIES, lon, lat), a: null, pv: null };
+        if (lon >= SPAIN_BBOX[0] && lon <= SPAIN_BBOX[2] && lat >= SPAIN_BBOX[1] && lat <= SPAIN_BBOX[3]) {
+            r.a = regionAt(CCAA, lon, lat);
+            r.pv = regionAt(PROV, lon, lat);
+        }
+        if (regionCache.size > 500000) regionCache.clear();
+        regionCache.set(key, r);
+    }
+    return r;
+}
+
 type TrackScan = {
     name: string; pts: [number, number][]; km: number;
     countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; cells: string[];
@@ -97,14 +114,10 @@ function scanTrack(name: string, raw: [number, number][], p: Progress, peakGrid:
     const nCountries: string[] = [], nCcaa: string[] = [], nProv: string[] = [], nPeaks: string[] = [];
     for (const q of pts) {
         cells.add(Math.round(q[0] / CELL) + ',' + Math.round(q[1] / CELL));
-        const ctry = regionAt(COUNTRIES, q[1], q[0]);
-        if (ctry && !countries.has(ctry)) { countries.add(ctry); nCountries.push(ctry); }
-        if (q[1] >= SPAIN_BBOX[0] && q[1] <= SPAIN_BBOX[2] && q[0] >= SPAIN_BBOX[1] && q[0] <= SPAIN_BBOX[3]) {
-            const a = regionAt(CCAA, q[1], q[0]);
-            if (a && !ccaa.has(a)) { ccaa.add(a); nCcaa.push(a); }
-            const pv = regionAt(PROV, q[1], q[0]);
-            if (pv && !prov.has(pv)) { prov.add(pv); nProv.push(pv); }
-        }
+        const rg = regionsCached(q[1], q[0]);
+        if (rg.c && !countries.has(rg.c)) { countries.add(rg.c); nCountries.push(rg.c); }
+        if (rg.a && !ccaa.has(rg.a)) { ccaa.add(rg.a); nCcaa.push(rg.a); }
+        if (rg.pv && !prov.has(rg.pv)) { prov.add(rg.pv); nProv.push(rg.pv); }
         const gi = Math.floor(q[0] * 2), gj = Math.floor(q[1] * 2);
         for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
             const arr = peakGrid.get((gi + di) + ',' + (gj + dj)); if (!arr) continue;
@@ -138,7 +151,9 @@ export function App() {
     const [toast, setToast] = useState('');
     const [ioText, setIoText] = useState('');
     const [confirmReset, setConfirmReset] = useState(false);
-    const [importTrack, setImportTrack] = useState<TrackScan | null>(null);
+    type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress };
+    const [importBatch, setImportBatch] = useState<ImportBatch | null>(null);
+    const [batchBusy, setBatchBusy] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
     const fogRef = useRef<HTMLCanvasElement | null>(null);
@@ -224,40 +239,98 @@ export function App() {
         setLastPos([lat, lon]);
     };
 
-    const onGpxFile = async (f: File | undefined) => {
-        if (!f) return;
+    // Importacion de actividades: GPX, FIT, ZIP de exportacion de Strava, .gpx.gz/.fit.gz sueltos; multiple y en lote
+    const onImportFiles = async (filesIn: FileList | File[] | null | undefined) => {
+        const files = filesIn ? [...filesIn] : [];
+        if (!files.length) return;
+        setBatchBusy(true);
         try {
-            const { name, pts } = parseGpx(await f.text());
-            const scan = scanTrack(name, pts, progressRef.current, peakGrid);
-            setImportTrack(scan);
-            // Encuadrar el track
+            const tracks: { name: string; pts: [number, number][] }[] = [];
+            let failed = 0;
+            const pushGpx = (text: string, fallback: string) => {
+                try { const g = parseGpx(text); tracks.push({ name: g.name === 'Ruta GPX' ? fallback : g.name, pts: g.pts }); }
+                catch { failed++; }
+            };
+            const pushFit = async (buf: ArrayBuffer, fallback: string) => {
+                try {
+                    const { default: FitParser } = await import('fit-file-parser');
+                    const parser = new FitParser({ mode: 'list' });
+                    const data = await parser.parseAsync(buf) as { records?: { position_lat?: number; position_long?: number }[] };
+                    const pts: [number, number][] = [];
+                    for (const r of data.records || []) {
+                        if (typeof r.position_lat === 'number' && typeof r.position_long === 'number') pts.push([r.position_lat, r.position_long]);
+                    }
+                    if (pts.length < 2) throw new Error('sin puntos');
+                    tracks.push({ name: fallback, pts });
+                } catch { failed++; }
+            };
+            const handleEntry = async (entryName: string, bytes: Uint8Array) => {
+                let data = bytes, ext = entryName.toLowerCase();
+                if (ext.endsWith('.gz')) {
+                    const { gunzipSync } = await import('fflate');
+                    try { data = gunzipSync(bytes); ext = ext.slice(0, -3); } catch { failed++; return; }
+                }
+                const base = entryName.split('/').pop() || entryName;
+                if (ext.endsWith('.gpx')) pushGpx(new TextDecoder().decode(data), base);
+                else if (ext.endsWith('.fit')) await pushFit(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer, base);
+            };
+            for (const f of files.slice(0, 20)) {
+                if (f.name.toLowerCase().endsWith('.zip')) {
+                    try {
+                        const { unzipSync } = await import('fflate');
+                        const entries = unzipSync(new Uint8Array(await f.arrayBuffer()), { filter: (e) => /\.(gpx|fit)(\.gz)?$/i.test(e.name) });
+                        for (const n of Object.keys(entries).slice(0, 2000)) await handleEntry(n, entries[n]);
+                    } catch { failed++; }
+                } else {
+                    await handleEntry(f.name, new Uint8Array(await f.arrayBuffer()));
+                }
+            }
+            if (!tracks.length) { setToast(failed ? 'No se pudo leer ninguna actividad (' + failed + ' con error)' : 'No se encontraron actividades GPX/FIT'); return; }
+            // Escanear en lote contra una copia del progreso que se actualiza entre tracks
+            const p0 = progressRef.current;
+            const work: Progress = { cells: [...p0.cells], points: [...p0.points], countries: [...p0.countries], ccaa: [...p0.ccaa], prov: [...p0.prov], peaks: [...p0.peaks] };
+            const scans: TrackScan[] = [];
+            let totalKm = 0;
             let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-            for (const q of scan.pts) { if (q[0] < minLat) minLat = q[0]; if (q[0] > maxLat) maxLat = q[0]; if (q[1] < minLon) minLon = q[1]; if (q[1] > maxLon) maxLon = q[1]; }
+            for (const t of tracks) {
+                const sc = scanTrack(t.name, t.pts, work, peakGrid);
+                scans.push(sc); totalKm += sc.km;
+                work.cells = sc.cells;
+                work.countries = [...work.countries, ...sc.countries];
+                work.ccaa = [...work.ccaa, ...sc.ccaa];
+                work.prov = [...work.prov, ...sc.prov];
+                work.peaks = [...work.peaks, ...sc.peaks];
+                for (const q of sc.pts) { if (q[0] < minLat) minLat = q[0]; if (q[0] > maxLat) maxLat = q[0]; if (q[1] < minLon) minLon = q[1]; if (q[1] > maxLon) maxLon = q[1]; }
+            }
             const w = wrapRef.current?.clientWidth || 800, h = wrapRef.current?.clientHeight || 500;
             const spanLon = Math.max(0.001, maxLon - minLon), spanLat = Math.max(0.001, maxLat - minLat);
             const zx = Math.log2((w * 0.7 * 360) / (256 * spanLon));
             const zy = Math.log2((h * 0.7 * 360) / (256 * spanLat * 1.4));
             setViewPersist({ lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2, z: Math.max(3, Math.min(14, Math.min(zx, zy))) });
-        } catch (e) { setToast('GPX no valido: ' + (e instanceof Error ? e.message : 'error')); }
+            setImportBatch({ scans, files: files.length, tracksOk: tracks.length, failed, totalKm, work });
+        } catch (e) { setToast('Importacion fallida: ' + (e instanceof Error ? e.message : 'error')); }
+        finally { setBatchBusy(false); }
     };
 
-    const applyTrack = () => {
-        const t = importTrack; if (!t) return;
-        const p = progressRef.current;
-        const next: Progress = {
-            cells: t.cells, points: [...p.points, ...t.pts],
-            countries: [...p.countries, ...t.countries],
-            ccaa: [...p.ccaa, ...t.ccaa],
-            prov: [...p.prov, ...t.prov],
-            peaks: [...p.peaks, ...t.peaks],
+    const applyBatch = () => {
+        const b = importBatch; if (!b) return;
+        const p0 = progressRef.current;
+        const news = {
+            countries: b.work.countries.slice(p0.countries.length),
+            ccaa: b.work.ccaa.slice(p0.ccaa.length),
+            prov: b.work.prov.slice(p0.prov.length),
+            peaks: b.work.peaks.slice(p0.peaks.length),
         };
-        setProgress(next); saveProgress(next); setImportTrack(null);
+        const newPts: [number, number][] = [];
+        for (const sc of b.scans) newPts.push(...sc.pts);
+        const next: Progress = { ...b.work, points: [...b.work.points, ...newPts].slice(-50000) };
+        setProgress(next); saveProgress(next); setImportBatch(null);
         const parts: string[] = [];
-        if (t.countries.length) parts.push(t.countries.length + ' paises');
-        if (t.ccaa.length) parts.push(t.ccaa.length + ' CCAA');
-        if (t.prov.length) parts.push(t.prov.length + ' provincias');
-        if (t.peaks.length) parts.push(t.peaks.length + ' cimas');
-        setToast('Ruta aplicada (' + t.km.toFixed(1) + ' km): ' + (parts.length ? '+' + parts.join(', +') : 'zona ya desbloqueada'));
+        if (news.countries.length) parts.push(news.countries.length + ' paises');
+        if (news.ccaa.length) parts.push(news.ccaa.length + ' CCAA');
+        if (news.prov.length) parts.push(news.prov.length + ' provincias');
+        if (news.peaks.length) parts.push(news.peaks.length + ' cimas');
+        setToast((b.tracksOk > 1 ? 'Lote aplicado (' + b.tracksOk + ' actividades, ' : 'Ruta aplicada (') + b.totalKm.toFixed(1) + ' km): ' + (parts.length ? '+' + parts.join(', +') : 'zona ya desbloqueada'));
     };
 
     // GPS real
@@ -438,20 +511,26 @@ export function App() {
         for (const rg of CCAA) if (aSet.has(rg.n)) drawLabel(rg.n, rg.c, 4.5, 8, 12, '#7ee0c8');
         for (const rg of PROV) if (pSet.has(rg.n)) drawLabel(rg.n, rg.c, 7, 20, 11, '#9fe8d4');
 
-        // Track GPX en preview
-        if (importTrack) {
+        // Tracks del lote en preview (adelgazados si son muchos puntos)
+        if (importBatch) {
+            let totalPts = 0;
+            for (const sc of importBatch.scans) totalPts += sc.pts.length;
+            const step = Math.max(1, Math.ceil(totalPts / 60000));
             ctx.save();
             ctx.strokeStyle = '#f0b429'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
             ctx.shadowColor = 'rgba(240,180,41,0.55)'; ctx.shadowBlur = 9;
-            ctx.beginPath();
-            let started = false;
-            for (const q of importTrack.pts) {
-                const pt = project(q[1], q[0], z);
-                const x = sx(pt.x), y = sy(pt.y);
-                if (x < -60 || x > w + 60 || y < -60 || y > h + 60) { started = false; continue; }
-                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            for (const sc of importBatch.scans) {
+                ctx.beginPath();
+                let started = false;
+                for (let i = 0; i < sc.pts.length; i += step) {
+                    const q = sc.pts[i];
+                    const pt = project(q[1], q[0], z);
+                    const x = sx(pt.x), y = sy(pt.y);
+                    if (x < -60 || x > w + 60 || y < -60 || y > h + 60) { started = false; continue; }
+                    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
             }
-            ctx.stroke();
             ctx.restore();
         }
 
@@ -499,7 +578,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick, importTrack, allPeaks, selectedPeak]);
+    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -646,13 +725,18 @@ export function App() {
         {gpsMsg ? <div className="tu-callout tu-warn"><strong>GPS</strong><p>{gpsMsg}</p></div> : null}
         {simMode ? <div className="tu-callout"><strong>Modo prueba</strong><p>Toca cualquier punto del mapa para simular que has estado ahi: revela niebla y desbloquea igual que el GPS.</p></div> : null}
 
-        {importTrack ? (
+        {importBatch ? (
             <div className="tu-callout">
-                <strong>{importTrack.name}</strong>
-                <p>{importTrack.pts.length} puntos, {importTrack.km.toFixed(1)} km. Va a revelar la niebla de todo el recorrido y desbloqueara: {(() => { const names = [...new Set([...importTrack.countries, ...importTrack.ccaa, ...importTrack.prov])]; return names.length + importTrack.peaks.length ? names.join(', ') + (importTrack.peaks.length ? ' y ' + importTrack.peaks.length + ' cimas' : '') : 'nada nuevo (zona ya desbloqueada)'; })()}.</p>
+                <strong>{importBatch.tracksOk > 1 ? importBatch.tracksOk + ' actividades listas' : importBatch.scans[0]?.name}</strong>
+                <p>{importBatch.tracksOk > 1 ? importBatch.totalKm.toFixed(1) + ' km en total' : importBatch.scans[0] ? importBatch.scans[0].pts.length + ' puntos, ' + importBatch.scans[0].km.toFixed(1) + ' km' : ''}. Va a revelar la niebla de todo el recorrido y desbloqueara: {(() => {
+                    const p0 = progress;
+                    const names = [...new Set([...importBatch.work.countries.slice(p0.countries.length), ...importBatch.work.ccaa.slice(p0.ccaa.length), ...importBatch.work.prov.slice(p0.prov.length)])];
+                    const pk = importBatch.work.peaks.length - p0.peaks.length;
+                    return names.length + pk ? names.join(', ') + (pk ? ' y ' + pk + ' cimas' : '') : 'nada nuevo (zona ya desbloqueada)';
+                })()}.{importBatch.failed ? ' (' + importBatch.failed + ' archivos no se pudieron leer)' : ''}</p>
                 <div className="tu-controls">
-                    <button className="file-button is-compact" data-variant="primary" onClick={applyTrack}>Aplicar ruta</button>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportTrack(null)}>Cancelar</button>
+                    <button className="file-button is-compact" data-variant="primary" onClick={applyBatch}>{importBatch.tracksOk > 1 ? 'Aplicar lote' : 'Aplicar ruta'}</button>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportBatch(null)}>Cancelar</button>
                 </div>
             </div>
         ) : null}
@@ -709,8 +793,8 @@ export function App() {
                         } catch { setToast('Formato no valido'); }
                     }}>Importar</button>
                     <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
-                        Importar GPX
-                        <input type="file" accept=".gpx,application/gpx+xml" aria-label="Importar GPX" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const input = e.currentTarget; void onGpxFile(input.files?.[0]).finally(() => { input.value = ''; }); }} />
+                        {batchBusy ? 'Leyendo...' : 'Importar rutas'}
+                        <input type="file" multiple accept=".gpx,.fit,.zip,.gz,application/gpx+xml" aria-label="Importar rutas" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const input = e.currentTarget; void onImportFiles(input.files).finally(() => { input.value = ''; }); }} />
                     </label>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                         if (!confirmReset) { setConfirmReset(true); return; }
