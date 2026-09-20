@@ -67,6 +67,56 @@ function regionAt(regions: Region[], lon: number, lat: number) {
 }
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
+type TrackScan = {
+    name: string; pts: [number, number][]; km: number;
+    countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; cells: string[];
+};
+
+function parseGpx(text: string): { name: string; pts: [number, number][] } {
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('XML no valido');
+    const name = doc.querySelector('trk > name')?.textContent || doc.querySelector('metadata > name')?.textContent || 'Ruta GPX';
+    const pts: [number, number][] = [];
+    doc.querySelectorAll('trkpt, rtept, wpt').forEach((el) => {
+        const lat = parseFloat(el.getAttribute('lat') || ''), lon = parseFloat(el.getAttribute('lon') || '');
+        if (isFinite(lat) && isFinite(lon)) pts.push([lat, lon]);
+    });
+    if (pts.length < 2) throw new Error('Sin puntos de track');
+    return { name, pts };
+}
+
+// Escanea un track contra el progreso actual: que celdas revela y que desbloquea (sin mutar nada)
+function scanTrack(name: string, raw: [number, number][], p: Progress, peakGrid: Map<string, Peak[]>): TrackScan {
+    // Adelgazar: un punto cada ~50 m como minimo, tope 12.000
+    const pts: [number, number][] = [];
+    for (const q of raw) { const last = pts[pts.length - 1]; if (!last || distM(last, q) >= 50) pts.push(q); if (pts.length >= 12000) break; }
+    if (raw.length && pts[pts.length - 1] !== raw[raw.length - 1]) pts.push(raw[raw.length - 1]);
+    let km = 0; for (let i = 1; i < pts.length; i++) km += distM(pts[i - 1], pts[i]) / 1000;
+    const cells = new Set(p.cells);
+    const countries = new Set(p.countries), ccaa = new Set(p.ccaa), prov = new Set(p.prov), peaks = new Set(p.peaks);
+    const nCountries: string[] = [], nCcaa: string[] = [], nProv: string[] = [], nPeaks: string[] = [];
+    for (const q of pts) {
+        cells.add(Math.round(q[0] / CELL) + ',' + Math.round(q[1] / CELL));
+        const ctry = regionAt(COUNTRIES, q[1], q[0]);
+        if (ctry && !countries.has(ctry)) { countries.add(ctry); nCountries.push(ctry); }
+        if (q[1] >= SPAIN_BBOX[0] && q[1] <= SPAIN_BBOX[2] && q[0] >= SPAIN_BBOX[1] && q[0] <= SPAIN_BBOX[3]) {
+            const a = regionAt(CCAA, q[1], q[0]);
+            if (a && !ccaa.has(a)) { ccaa.add(a); nCcaa.push(a); }
+            const pv = regionAt(PROV, q[1], q[0]);
+            if (pv && !prov.has(pv)) { prov.add(pv); nProv.push(pv); }
+        }
+        const gi = Math.floor(q[0] * 2), gj = Math.floor(q[1] * 2);
+        for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+            const arr = peakGrid.get((gi + di) + ',' + (gj + dj)); if (!arr) continue;
+            for (const pk of arr) {
+                const id = peakId(pk);
+                if (!peaks.has(id) && distM([pk[1], pk[2]], q) <= PEAK_M) { peaks.add(id); nPeaks.push(id); }
+            }
+        }
+    }
+    return { name, pts, km, countries: nCountries, ccaa: nCcaa, prov: nProv, peaks: nPeaks, cells: [...cells] };
+}
+
 export function App() {
     const [progress, setProgress] = useState<Progress>(loadProgress);
     const progressRef = useRef(progress); progressRef.current = progress;
@@ -88,6 +138,7 @@ export function App() {
     const [toast, setToast] = useState('');
     const [ioText, setIoText] = useState('');
     const [confirmReset, setConfirmReset] = useState(false);
+    const [importTrack, setImportTrack] = useState<TrackScan | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
     const fogRef = useRef<HTMLCanvasElement | null>(null);
@@ -152,6 +203,42 @@ export function App() {
         if (news.length) setToast(news[news.length - 1] + (news.length > 1 ? ' (+' + (news.length - 1) + ' mas)' : ''));
         if (isNewCell || isNewPoint || news.length) { setProgress(next); saveProgress(next); }
         setLastPos([lat, lon]);
+    };
+
+    const onGpxFile = async (f: File | undefined) => {
+        if (!f) return;
+        try {
+            const { name, pts } = parseGpx(await f.text());
+            const scan = scanTrack(name, pts, progressRef.current, peakGrid);
+            setImportTrack(scan);
+            // Encuadrar el track
+            let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+            for (const q of scan.pts) { if (q[0] < minLat) minLat = q[0]; if (q[0] > maxLat) maxLat = q[0]; if (q[1] < minLon) minLon = q[1]; if (q[1] > maxLon) maxLon = q[1]; }
+            const w = wrapRef.current?.clientWidth || 800, h = wrapRef.current?.clientHeight || 500;
+            const spanLon = Math.max(0.001, maxLon - minLon), spanLat = Math.max(0.001, maxLat - minLat);
+            const zx = Math.log2((w * 0.7 * 360) / (256 * spanLon));
+            const zy = Math.log2((h * 0.7 * 360) / (256 * spanLat * 1.4));
+            setViewPersist({ lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2, z: Math.max(3, Math.min(14, Math.min(zx, zy))) });
+        } catch (e) { setToast('GPX no valido: ' + (e instanceof Error ? e.message : 'error')); }
+    };
+
+    const applyTrack = () => {
+        const t = importTrack; if (!t) return;
+        const p = progressRef.current;
+        const next: Progress = {
+            cells: t.cells, points: p.points,
+            countries: [...p.countries, ...t.countries],
+            ccaa: [...p.ccaa, ...t.ccaa],
+            prov: [...p.prov, ...t.prov],
+            peaks: [...p.peaks, ...t.peaks],
+        };
+        setProgress(next); saveProgress(next); setImportTrack(null);
+        const parts: string[] = [];
+        if (t.countries.length) parts.push(t.countries.length + ' paises');
+        if (t.ccaa.length) parts.push(t.ccaa.length + ' CCAA');
+        if (t.prov.length) parts.push(t.prov.length + ' provincias');
+        if (t.peaks.length) parts.push(t.peaks.length + ' cimas');
+        setToast('Ruta aplicada (' + t.km.toFixed(1) + ' km): ' + (parts.length ? '+' + parts.join(', +') : 'zona ya desbloqueada'));
     };
 
     // GPS real
@@ -332,6 +419,23 @@ export function App() {
         for (const rg of CCAA) if (aSet.has(rg.n)) drawLabel(rg.n, rg.c, 4.5, 8, 12, '#7ee0c8');
         for (const rg of PROV) if (pSet.has(rg.n)) drawLabel(rg.n, rg.c, 7, 20, 11, '#9fe8d4');
 
+        // Track GPX en preview
+        if (importTrack) {
+            ctx.save();
+            ctx.strokeStyle = '#f0b429'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+            ctx.shadowColor = 'rgba(240,180,41,0.55)'; ctx.shadowBlur = 9;
+            ctx.beginPath();
+            let started = false;
+            for (const q of importTrack.pts) {
+                const pt = project(q[1], q[0], z);
+                const x = sx(pt.x), y = sy(pt.y);
+                if (x < -60 || x > w + 60 || y < -60 || y > h + 60) { started = false; continue; }
+                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Cimas
         if (z >= 5.5) {
             let drawn = 0;
@@ -362,7 +466,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick]);
+    }, [view, progress, lastPos, tileTick, importTrack]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -491,6 +595,17 @@ export function App() {
         {gpsMsg ? <div className="tu-callout tu-warn"><strong>GPS</strong><p>{gpsMsg}</p></div> : null}
         {simMode ? <div className="tu-callout"><strong>Modo prueba</strong><p>Toca cualquier punto del mapa para simular que has estado ahi: revela niebla y desbloquea igual que el GPS.</p></div> : null}
 
+        {importTrack ? (
+            <div className="tu-callout">
+                <strong>{importTrack.name}</strong>
+                <p>{importTrack.pts.length} puntos, {importTrack.km.toFixed(1)} km. Va a revelar la niebla de todo el recorrido y desbloqueara: {[...importTrack.countries, ...importTrack.ccaa, ...importTrack.prov].length + importTrack.peaks.length ? [...importTrack.countries, ...importTrack.ccaa, ...importTrack.prov].join(', ') + (importTrack.peaks.length ? ' y ' + importTrack.peaks.length + ' cimas' : '') : 'nada nuevo (zona ya desbloqueada)'}.</p>
+                <div className="tu-controls">
+                    <button className="file-button is-compact" data-variant="primary" onClick={applyTrack}>Aplicar ruta</button>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportTrack(null)}>Cancelar</button>
+                </div>
+            </div>
+        ) : null}
+
         <section className="tu-group"><h2>Tu progreso</h2>
             <dl className="tu-factsdl">{[
                 { label: 'Superficie revelada', value: '~' + km2 + ' km2' },
@@ -529,6 +644,10 @@ export function App() {
                             else setToast('Formato no valido');
                         } catch { setToast('Formato no valido'); }
                     }}>Importar</button>
+                    <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                        Importar GPX
+                        <input type="file" accept=".gpx,application/gpx+xml" style={{ display: 'none' }} onChange={(e) => { onGpxFile(e.target.files?.[0]); e.target.value = ''; }} />
+                    </label>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                         if (!confirmReset) { setConfirmReset(true); return; }
                         setConfirmReset(false); setProgress({ ...EMPTY }); saveProgress({ ...EMPTY }); setToast('Progreso reiniciado');

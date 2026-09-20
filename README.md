@@ -12,6 +12,7 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 - Persistencia local (localStorage) + exportar/importar progreso.
 - Modo prueba para simular posición tocando el mapa.
 - Niebla translúcida: el mapa se ve atenuado en lo no descubierto y se ilumina al revelarlo.
+- Importacion de rutas GPX: sube un .gpx (Strava, Garmin, Wikiloc, cualquier app), preview del track sobre el mapa con lo que desbloqueara, y se aplica al progreso como si lo hubieras caminado.
 - Screen Wake Lock mientras el GPS está activo: la pantalla no se apaga con la app abierta. Ojo: los navegadores suspenden la geolocalización con la app en segundo plano; el seguimiento en background real llega con el wrapper nativo (Capacitor + plugin de background geolocation) en la fase de stores.
 
 ## Arquitectura
@@ -24,7 +25,7 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 ## Roadmap
 
-- **Importación de rutas (siguiente):** importar tracks GPX y sincronizar con Strava/Garmin para revelar y desbloquear lo ya recorrido, incluso retroactivamente. Es la solución seria al GPS en segundo plano mientras llega la app nativa.
+- **Sync Strava/Garmin (siguiente):** conexion OAuth con Strava y Garmin para importar actividades automaticamente (la importacion GPX ya esta disponible; Strava exige registrar una app de API con la cuenta de David).
 - **Fase 2 (social):** cuentas de usuario y capa social (rankings globales, piques con amigos, comparar % conquistado) con backend ligero (Supabase).
 - **Fase 3 (stores):** apps nativas en App Store / Google Play empaquetando esta base web con Capacitor (sin reescritura), incluyendo plugin de background geolocation para desbloquear con la app en segundo plano.
 - Mejoras de datos: cobertura completa de cimas mundiales (Geonames por países), fronteras de mayor resolución, service worker offline (PWA instalable completa).
