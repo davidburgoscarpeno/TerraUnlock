@@ -646,7 +646,7 @@ export function App() {
                     }}>Importar</button>
                     <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
                         Importar GPX
-                        <input type="file" accept=".gpx,application/gpx+xml" style={{ display: 'none' }} onChange={(e) => { const input = e.currentTarget; void onGpxFile(input.files?.[0]).finally(() => { input.value = ''; }); }} />
+                        <input type="file" accept=".gpx,application/gpx+xml" aria-label="Importar GPX" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const input = e.currentTarget; void onGpxFile(input.files?.[0]).finally(() => { input.value = ''; }); }} />
                     </label>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                         if (!confirmReset) { setConfirmReset(true); return; }
