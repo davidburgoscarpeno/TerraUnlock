@@ -371,8 +371,8 @@ export function App() {
         const pc = project(v.lon, v.lat, v.z);
         const wx = pc.x + (mx - w / 2), wy = pc.y + (my - h / 2);
         const scale = Math.pow(2, v.z - nz);
-        const nl = unproject(wx * scale - (mx - w / 2), wy * scale - (my - h / 2), nz);
-        setViewPersist({ lon: nl.lon, lat: nl.lat, z: nz });
+        const nl = unproject(wx / scale - (mx - w / 2), wy / scale - (my - h / 2), nz);
+        setViewPersist({ lon: nl.lon, lat: Math.max(-80, Math.min(80, nl.lat)), z: nz });
     };
 
     useEffect(() => {
