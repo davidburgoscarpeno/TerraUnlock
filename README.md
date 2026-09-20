@@ -16,7 +16,8 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 ## Arquitectura
 
-- **Frontend:** React 18 + TypeScript + Vite. Sin dependencias de mapas: motor propio en canvas.
+- **Frontend:** React 18 + TypeScript + Vite. Motor de mapa propio en canvas, sin dependencias de mapas.
+- **Mapa base:** tiles de satelite Esri World Imagery (World Imagery MapServer), gratuitos y sin API key, con atribucion visible en la app ("Esri, Maxar, Earthstar Geographics"). Encima van la niebla translucida y la iluminacion de lo conquistado. Alternativa documentada si cambian sus terminos: OpenTopoMap (CC-BY-SA).
 - **Datos:** GeoJSON simplificado (Douglas-Peucker) empaquetado en src/data/ como módulos TS. Fuentes: Natural Earth (países), click_that_hood (CCAA/provincias ES), Geonames (cimas ES), Wikidata (cimas mundo).
 - **Despliegue:** GitHub Pages (rama gh-pages, build con npm run build, base /TerraUnlock/).
 - **Modelo multiusuario preparado:** todo el progreso cuelga de un perfil (local en el MVP) para migrar a cuentas en fase 2.

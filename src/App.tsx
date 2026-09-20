@@ -9,6 +9,8 @@ import type { Peak } from './data/peaks_es';
 import { PEAKS_WORLD } from './data/peaks_world';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
+const TILE_URL = (tz: number, j: number, i: number) => 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + tz + '/' + j + '/' + i;
+const TILE_MAXZ = 17;
 const REVEAL_M = 1300;
 const PEAK_M = 250;
 const STORE_KEY = 'terraunlock.progress.v1';
@@ -84,6 +86,13 @@ export function App() {
     const wrapRef = useRef<HTMLDivElement>(null);
     const fogRef = useRef<HTMLCanvasElement | null>(null);
     const wakeRef = useRef<{ release?: () => Promise<void> } | null>(null);
+    const tileCache = useRef(new Map<string, HTMLImageElement | 'loading' | 'error'>());
+    const tileRaf = useRef(0);
+    const [tileTick, setTileTick] = useState(0);
+    const onTileLoad = () => {
+        if (tileRaf.current) return;
+        tileRaf.current = requestAnimationFrame(() => { tileRaf.current = 0; setTileTick((t) => t + 1); });
+    };
 
     const peakGrid = useMemo(() => {
         const g = new Map<string, Peak[]>();
@@ -196,6 +205,33 @@ export function App() {
 
         // Oceano y tierra
         ctx.fillStyle = '#0a0f16'; ctx.fillRect(0, 0, w, h);
+
+        // Mapa base: tiles de satelite (Esri World Imagery, sin key)
+        {
+            const tz = Math.max(0, Math.min(TILE_MAXZ, Math.round(z)));
+            const scale = Math.pow(2, z - tz);
+            const ts = 256 * scale;
+            const ox = pc.x - w / 2, oy = pc.y - h / 2;
+            const n = Math.pow(2, tz);
+            const i0 = Math.floor(ox / ts), i1 = Math.floor((ox + w) / ts);
+            const j0 = Math.max(0, Math.floor(oy / ts)), j1 = Math.min(n - 1, Math.floor((oy + h) / ts));
+            for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+                const ii = ((i % n) + n) % n;
+                const key = tz + '/' + ii + '/' + j;
+                const cached = tileCache.current.get(key);
+                if (!cached) {
+                    tileCache.current.set(key, 'loading');
+                    const im = new Image();
+                    im.crossOrigin = 'anonymous';
+                    im.onload = () => { tileCache.current.set(key, im); onTileLoad(); };
+                    im.onerror = () => { tileCache.current.set(key, 'error'); };
+                    im.src = TILE_URL(tz, j, ii);
+                    continue;
+                }
+                if (cached === 'loading' || cached === 'error') continue;
+                ctx.drawImage(cached, i * ts - ox, j * ts - oy, ts + 0.5, ts + 0.5);
+            }
+        }
         const drawRegion = (rg: Region, fill: string | null, stroke: string, lw: number) => {
             const b = rg.b;
             if (b[2] < tl.lon || b[0] > br.lon || b[3] < br.lat || b[1] > tl.lat) return;
@@ -211,7 +247,7 @@ export function App() {
             ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke();
         };
         const cSet = new Set(progress.countries), aSet = new Set(progress.ccaa), pSet = new Set(progress.prov), pkSet = new Set(progress.peaks);
-        for (const rg of COUNTRIES) drawRegion(rg, '#1d2c3e', 'rgba(130,170,200,0.42)', 1);
+        for (const rg of COUNTRIES) drawRegion(rg, null, 'rgba(150,190,220,0.45)', 1);
         if (z >= 3.5) for (const rg of CCAA) drawRegion(rg, null, 'rgba(120,200,180,0.40)', 1);
         if (z >= 5) for (const rg of PROV) drawRegion(rg, null, 'rgba(120,200,180,0.30)', 0.7);
 
@@ -222,7 +258,7 @@ export function App() {
         const fx = fog.getContext('2d');
         if (fx) {
             fx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            fx.fillStyle = 'rgba(4,7,11,0.58)'; fx.fillRect(0, 0, w, h);
+            fx.fillStyle = 'rgba(4,7,11,0.52)'; fx.fillRect(0, 0, w, h);
             fx.globalCompositeOperation = 'destination-out';
             const mpp = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
             const r = Math.max(14, REVEAL_M / mpp);
@@ -302,7 +338,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos]);
+    }, [view, progress, lastPos, tileTick]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -418,6 +454,7 @@ export function App() {
                 <span>Cimas {progress.peaks.length}</span>
             </div>
             {toast ? <div className="tu-toast">{toast}</div> : null}
+            <div className="tu-attr">Esri, Maxar, Earthstar Geographics</div>
         </div>
 
         <div className="tu-controls">

@@ -41,3 +41,16 @@ body { background: #0b1017; color: #e6edf3; font-family: -apple-system, 'Segoe U
 .tu-io { display: flex; flex-direction: column; gap: 8px; }
 .tu-textarea { width: 100%; box-sizing: border-box; font: 12px/1.4 monospace; border: 1px solid #2a3a4a; border-radius: 8px; padding: 8px; background: #101823; color: #cfe0ec; }
 .tu-closing { margin-top: 26px; color: #5c7080; font-size: 13px; }
+
+.tu-attr {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.55);
+  background: rgba(5,8,12,0.45);
+  padding: 2px 6px;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+}
