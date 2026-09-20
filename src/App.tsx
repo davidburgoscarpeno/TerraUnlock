@@ -218,18 +218,36 @@ export function App() {
             for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
                 const ii = ((i % n) + n) % n;
                 const key = tz + '/' + ii + '/' + j;
-                const cached = tileCache.current.get(key);
+                let cached = tileCache.current.get(key);
                 if (!cached) {
                     tileCache.current.set(key, 'loading');
                     const im = new Image();
                     im.crossOrigin = 'anonymous';
-                    im.onload = () => { tileCache.current.set(key, im); onTileLoad(); };
-                    im.onerror = () => { tileCache.current.set(key, 'error'); };
+                    im.onload = () => {
+                        tileCache.current.set(key, im);
+                        if (tileCache.current.size > 600) tileCache.current.clear();
+                        onTileLoad();
+                    };
+                    im.onerror = () => { tileCache.current.set(key, 'error'); onTileLoad(); };
                     im.src = TILE_URL(tz, j, ii);
+                }
+                const dx = i * ts - ox, dy = j * ts - oy;
+                if (cached && cached !== 'loading' && cached !== 'error') {
+                    ctx.drawImage(cached, dx, dy, ts + 0.5, ts + 0.5);
                     continue;
                 }
-                if (cached === 'loading' || cached === 'error') continue;
-                ctx.drawImage(cached, i * ts - ox, j * ts - oy, ts + 0.5, ts + 0.5);
+                // Fallback: tile padre/abuelo en cache mientras carga el nivel actual
+                let lvl = tz, ti = ii, tj = j;
+                for (let up = 0; up < 4 && lvl > 0; up++) {
+                    lvl--; ti = Math.floor(ti / 2); tj = Math.floor(tj / 2);
+                    const p = tileCache.current.get(lvl + '/' + ti + '/' + tj);
+                    if (!p || p === 'loading' || p === 'error') continue;
+                    const f = Math.pow(2, tz - lvl);
+                    const rs = 256 / f;
+                    const rx = (ii - ti * f) * rs, ry = (j - tj * f) * rs;
+                    ctx.drawImage(p, rx, ry, rs, rs, dx, dy, ts + 0.5, ts + 0.5);
+                    break;
+                }
             }
         }
         const drawRegion = (rg: Region, fill: string | null, stroke: string, lw: number) => {
@@ -258,7 +276,7 @@ export function App() {
         const fx = fog.getContext('2d');
         if (fx) {
             fx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            fx.fillStyle = 'rgba(4,7,11,0.52)'; fx.fillRect(0, 0, w, h);
+            fx.fillStyle = 'rgba(3,6,10,0.68)'; fx.fillRect(0, 0, w, h);
             fx.globalCompositeOperation = 'destination-out';
             const mpp = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
             const r = Math.max(14, REVEAL_M / mpp);
@@ -288,9 +306,9 @@ export function App() {
         }
 
         // Territorio conquistado por encima de la niebla
-        for (const rg of COUNTRIES) if (cSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.42)', 'rgba(140,240,215,0.92)', 1.6);
-        if (z >= 3.5) for (const rg of CCAA) if (aSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.30)', 'rgba(140,240,215,0.75)', 1.2);
-        if (z >= 5) for (const rg of PROV) if (pSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.24)', 'rgba(140,240,215,0.65)', 1.0);
+        for (const rg of COUNTRIES) if (cSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.10)', 'rgba(140,240,215,0.95)', 1.8);
+        if (z >= 3.5) for (const rg of CCAA) if (aSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.07)', 'rgba(140,240,215,0.80)', 1.3);
+        if (z >= 5) for (const rg of PROV) if (pSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.05)', 'rgba(140,240,215,0.70)', 1.1);
 
         // Etiquetas de regiones desbloqueadas
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
