@@ -54,3 +54,26 @@ body { background: #0b1017; color: #e6edf3; font-family: -apple-system, 'Segoe U
   pointer-events: none;
   z-index: 5;
 }
+
+/* Navegacion inferior (app shell) */
+.tu-app { padding-bottom: 92px; }
+.tu-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; gap: 4px; background: rgba(10,15,22,0.97); border-top: 1px solid #1c2733; padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 60; }
+.tu-nav button { flex: 1; background: none; border: 0; color: #8fa2b3; font: 600 12px/1.2 -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 7px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; border-radius: 10px; cursor: pointer; min-height: 44px; }
+.tu-nav button.on { color: #7ee0c8; background: #122029; }
+.tu-nav button .g { font-size: 16px; line-height: 1; }
+
+/* Ajustes */
+.tu-setrow { display: flex; align-items: center; gap: 12px; background: #101823; border-radius: 10px; padding: 12px 14px; margin: 8px 0; }
+.tu-setrow .l b { display: block; font-size: 14px; }
+.tu-setrow .l small { color: #8fa2b3; font-size: 12px; line-height: 1.35; }
+.tu-avatar { width: 52px; height: 52px; border-radius: 50%; background: #14755f; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; flex: none; }
+.tu-input { font: 14px -apple-system, 'Segoe UI', Roboto, sans-serif; color: #e6edf3; background: #16202c; border: 1px solid #2a3a4a; border-radius: 8px; padding: 10px 12px; min-height: 44px; width: 150px; }
+.tu-check { width: 22px; height: 22px; accent-color: #2dc8aa; }
+input[type="range"] { accent-color: #2dc8aa; }
+.tu-peaklist-full { max-height: 55vh; overflow-y: auto; }
+
+/* Bienvenida */
+.tu-welcome { position: fixed; inset: 0; background: #0b1017; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+.tu-welcome img { width: 96px; height: 96px; border-radius: 22px; margin-bottom: 14px; }
+.tu-welcome h1 { font-size: 32px; margin: 0 0 6px; letter-spacing: -0.5px; }
+.tu-welcome ul { color: #9fb0c0; font-size: 14px; line-height: 1.6; text-align: left; max-width: 320px; margin: 14px 0 22px; padding-left: 20px; }

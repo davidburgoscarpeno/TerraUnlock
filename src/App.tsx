@@ -67,6 +67,15 @@ function regionAt(regions: Region[], lon: number, lat: number) {
 }
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
+// Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
+interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; }
+const PREFS_KEY = 'terraunlock.prefs.v1';
+function loadPrefs(): Prefs {
+    const base: Prefs = { nombre: '', fog: 0.68, peakLabels: true, units: 'metric', welcomed: false };
+    try { const p = JSON.parse(localStorage.getItem(PREFS_KEY) || ''); if (p && typeof p === 'object') return { ...base, ...p }; } catch { /* sin prefs */ }
+    return base;
+}
+
 // Cache de region por celda: en un lote de tracks, los puntos contiguos caen en la misma celda
 const regionCache = new Map<string, { c: string | null; a: string | null; pv: string | null }>();
 function regionsCached(lon: number, lat: number) {
@@ -146,6 +155,17 @@ export function App() {
     const viewRef = useRef(view); viewRef.current = view;
     const [gpsOn, setGpsOn] = useState(false);
     const [simMode, setSimMode] = useState(false);
+    const [tab, setTab] = useState<'mapa' | 'progreso' | 'cimas' | 'ajustes'>('mapa');
+    const [prefs, setPrefsState] = useState<Prefs>(loadPrefs);
+    const prefsRef = useRef(prefs); prefsRef.current = prefs;
+    const setPrefs = (patch: Partial<Prefs>) => {
+        const next = { ...prefsRef.current, ...patch };
+        setPrefsState(next);
+        try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* sin espacio */ }
+    };
+    const imp = prefs.units === 'imperial';
+    const fmtDist = (km: number) => imp ? (km * 0.621371).toFixed(1).replace('.', ',') + ' mi' : km.toFixed(1).replace('.', ',') + ' km';
+    const fmtAreaShort = (k2: number) => (imp ? (k2 * 0.386102).toFixed(0) + ' mi2' : k2.toFixed(0) + ' km2');
     const [gpsMsg, setGpsMsg] = useState('');
     const [lastPos, setLastPos] = useState<[number, number] | null>(null);
     const [toast, setToast] = useState('');
@@ -304,6 +324,7 @@ export function App() {
             const zy = Math.log2((h * 0.7 * 360) / (256 * spanLat * 1.4));
             setViewPersist({ lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2, z: Math.max(3, Math.min(14, Math.min(zx, zy))) });
             setImportBatch({ scans, files: files.length, tracksOk: tracks.length, failed, totalKm, work });
+            setTab('mapa');
         } catch (e) { setToast('Importacion fallida: ' + (e instanceof Error ? e.message : 'error')); }
         finally { setBatchBusy(false); }
     };
@@ -326,7 +347,7 @@ export function App() {
         if (news.ccaa.length) parts.push(news.ccaa.length + ' CCAA');
         if (news.prov.length) parts.push(news.prov.length + ' provincias');
         if (news.peaks.length) parts.push(news.peaks.length + ' cimas');
-        setToast((b.tracksOk > 1 ? 'Lote aplicado (' + b.tracksOk + ' actividades, ' : 'Ruta aplicada (') + b.totalKm.toFixed(1) + ' km): ' + (parts.length ? '+' + parts.join(', +') : 'zona ya desbloqueada'));
+        setToast((b.tracksOk > 1 ? 'Lote aplicado (' + b.tracksOk + ' actividades, ' : 'Ruta aplicada (') + fmtDist(b.totalKm) + '): ' + (parts.length ? '+' + parts.join(', +') : 'zona ya desbloqueada'));
     };
 
     // GPS real
@@ -457,7 +478,7 @@ export function App() {
         const fx = fog.getContext('2d');
         if (fx) {
             fx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            fx.fillStyle = 'rgba(3,6,10,0.68)'; fx.fillRect(0, 0, w, h);
+            fx.fillStyle = 'rgba(3,6,10,' + prefsRef.current.fog + ')'; fx.fillRect(0, 0, w, h);
             fx.globalCompositeOperation = 'destination-out';
             const mpp = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
             const r = Math.max(14, REVEAL_M / mpp);
@@ -549,7 +570,7 @@ export function App() {
                 ctx.fillStyle = m.won ? '#f0b429' : 'rgba(200,212,222,0.6)';
                 ctx.fill();
             }
-            if (z >= 9) {
+            if (z >= 9 && prefsRef.current.peakLabels) {
                 ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
                 const labeled = shown.slice().sort((a, b) => b.pk[3] - a.pk[3]).slice(0, 30);
                 for (const m of labeled) {
@@ -574,7 +595,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak]);
+    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -687,10 +708,10 @@ export function App() {
     const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p);
 
     return <div className="tu-app">
-        <header className="tu-header">
-            <div className="tu-header-row"><h1>TerraUnlock</h1><span className="tu-fact">{km2} km2 revelados</span></div>
-            <p className="tu-intro">El mundo empieza cubierto de niebla y se revela donde pisas. Activa el GPS y sal a conquistar: paises, comunidades, provincias y cimas cuentan para tu progreso.</p>
-        </header>
+        {tab === 'mapa' ? <>
+            <header className="tu-header">
+                <div className="tu-header-row"><h1>{prefs.nombre ? 'Hola, ' + prefs.nombre : 'TerraUnlock'}</h1><span className="tu-fact">{fmtAreaShort(progress.cells.length * 1.1)} revelados</span></div>
+            </header>
 
         <div className="tu-mapwrap" ref={wrapRef}>
             <canvas
@@ -749,57 +770,151 @@ export function App() {
                 </div>
             </div>
         ) : null}
+        </> : null}
 
-        <section className="tu-group"><h2>Tu progreso</h2>
-            <dl className="tu-factsdl">{[
-                { label: 'Superficie revelada', value: '~' + km2 + ' km2' },
-                { label: 'Paises', value: progress.countries.length + ' de ' + COUNTRIES.length + ' (' + (progress.countries.length / COUNTRIES.length * 100).toFixed(1).replace('.', ',') + '%)' },
-                { label: 'Comunidades (ES)', value: progress.ccaa.length + ' de ' + CCAA.length + ' (' + (progress.ccaa.length / CCAA.length * 100).toFixed(1).replace('.', ',') + '%)' },
-                { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length + ' (' + (progress.prov.length / PROV.length * 100).toFixed(1).replace('.', ',') + '%)' },
-                { label: 'Cimas conquistadas', value: String(progress.peaks.length) },
-                { label: 'Puntos GPS', value: String(progress.points.length) },
-            ].map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd></div>)}</dl>
-        </section>
+        {tab === 'progreso' ? <>
+            <section className="tu-group"><h2>Tu progreso</h2>
+                <dl className="tu-factsdl">{[
+                    { label: 'Superficie revelada', value: '~' + fmtAreaShort(progress.cells.length * 1.1) },
+                    { label: 'Paises', value: progress.countries.length + ' de ' + COUNTRIES.length + ' (' + (progress.countries.length / COUNTRIES.length * 100).toFixed(1).replace('.', ',') + '%)' },
+                    { label: 'Comunidades (ES)', value: progress.ccaa.length + ' de ' + CCAA.length + ' (' + (progress.ccaa.length / CCAA.length * 100).toFixed(1).replace('.', ',') + '%)' },
+                    { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length + ' (' + (progress.prov.length / PROV.length * 100).toFixed(1).replace('.', ',') + '%)' },
+                    { label: 'Cimas conquistadas', value: progress.peaks.length + ' de ' + allPeaks.length },
+                    { label: 'Puntos GPS', value: String(progress.points.length) },
+                ].map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd></div>)}</dl>
+            </section>
 
-        {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
-            <div className="tu-chips">
-                {progress.countries.map((n) => <span key={'c' + n} className="tu-chip">{n}</span>)}
-                {progress.ccaa.map((n) => <span key={'a' + n} className="tu-chip tu-chip-2">{n}</span>)}
-                {progress.prov.map((n) => <span key={'p' + n} className="tu-chip tu-chip-3">{n}</span>)}
-            </div>
-        </section> : null}
-
-        {conqueredPeaks.length > 0 ? <section className="tu-group"><h2>Tus cimas</h2>
-            <ol className="tu-peaklist">
-                {conqueredPeaks.slice(0, 15).map((p, i) => <li key={peakId(p)}><span className="tu-num">{i + 1}</span><span className="tu-pkname">{p[0]}<small>{p[1].toFixed(3)}, {p[2].toFixed(3)}</small></span><span className="tu-pkele">{p[3]} m</span></li>)}
-            </ol>
-            {conqueredPeaks.length > 15 ? <div className="tu-more">y {conqueredPeaks.length - 15} cimas mas</div> : null}
-        </section> : null}
-
-        <section className="tu-group"><h2>Copia de seguridad</h2>
-            <div className="tu-io">
-                <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder="Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo." rows={3} />
-                <div className="tu-controls">
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify(progressRef.current))}>Exportar</button>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => {
-                        try {
-                            const p = JSON.parse(ioText);
-                            if (Array.isArray(p.cells)) { const next = { ...EMPTY, ...p }; setProgress(next); saveProgress(next); setToast('Progreso importado'); }
-                            else setToast('Formato no valido');
-                        } catch { setToast('Formato no valido'); }
-                    }}>Importar</button>
-                    <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
-                        {batchBusy ? 'Leyendo...' : 'Importar rutas'}
-                        <input type="file" multiple accept=".gpx,.fit,.zip,.gz,application/gpx+xml" aria-label="Importar rutas" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const input = e.currentTarget; void onImportFiles(input.files).finally(() => { input.value = ''; }); }} />
-                    </label>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => {
-                        if (!confirmReset) { setConfirmReset(true); return; }
-                        setConfirmReset(false); setProgress({ ...EMPTY }); saveProgress({ ...EMPTY }); setToast('Progreso reiniciado');
-                    }}>{confirmReset ? 'Seguro? Toca otra vez' : 'Reiniciar'}</button>
+            {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
+                <div className="tu-chips">
+                    {progress.countries.map((n) => <span key={'c' + n} className="tu-chip">{n}</span>)}
+                    {progress.ccaa.map((n) => <span key={'a' + n} className="tu-chip tu-chip-2">{n}</span>)}
+                    {progress.prov.map((n) => <span key={'p' + n} className="tu-chip tu-chip-3">{n}</span>)}
                 </div>
-            </div>
-        </section>
+            </section> : <section className="tu-group"><div className="tu-callout"><strong>Aun sin territorio</strong><p>Activa el GPS en la pestana Mapa o usa el modo prueba para desbloquear tu primera zona.</p></div></section>}
+        </> : null}
 
-        <footer className="tu-closing">Tu progreso se guarda en este dispositivo. Cuentas, rankings y piques con amigos llegan en la fase 2.</footer>
-    </div>;
-}
+        {tab === 'cimas' ? <>
+            <section className="tu-group"><h2>Cimas</h2>
+                <div className="tu-callout"><strong>{progress.peaks.length} de {allPeaks.length} conquistadas</strong><p>Toca cualquier triangulo del mapa para ver su ficha: altitud, si la has conquistado y rutas para subirla. Una cima cuenta cuando pasas a menos de 1 km.</p></div>
+                {conqueredPeaks.length > 0 ? (
+                    <ol className="tu-peaklist tu-peaklist-full">
+                        {conqueredPeaks.map((p, i) => <li key={peakId(p)}><span className="tu-num">{i + 1}</span><span className="tu-pkname">{p[0]}<small>{p[1].toFixed(3)}, {p[2].toFixed(3)}</small></span><span className="tu-pkele">{p[3]} m</span></li>)}
+                    </ol>
+                ) : <div className="tu-callout"><strong>Aun no tienes cimas</strong><p>Tu primera cima aparecera aqui en cuanto pases cerca de una.</p></div>}
+            </section>
+        </> : null}
+
+        {tab === 'ajustes' ? <>
+            <section className="tu-group"><h2>Perfil</h2>
+                <div className="tu-setrow">
+                    <div className="tu-avatar">{(prefs.nombre.trim()[0] || '?').toUpperCase()}</div>
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>{prefs.nombre.trim() || 'Sin nombre'}</b>
+                        <small>Sin cuenta: tu progreso vive en este dispositivo. El login, los rankings y los piques llegan en la fase 2.</small>
+                    </div>
+                </div>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>Nombre visible</b>
+                        <small>Asi te veran tus amigos cuando lleguen los rankings.</small>
+                    </div>
+                    <input className="tu-input" type="text" maxLength={24} placeholder="Tu nombre" value={prefs.nombre} onChange={(e) => setPrefs({ nombre: e.target.value })} />
+                </div>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>Cuenta</b>
+                        <small>Necesaria para sincronizar entre dispositivos y rankings.</small>
+                    </div>
+                    <button className="file-button is-compact" data-variant="secondary" disabled style={{ opacity: 0.5, cursor: 'default' }}>Crear cuenta (proximamente)</button>
+                </div>
+            </section>
+
+            <section className="tu-group"><h2>Mapa</h2>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>Oscuridad de la niebla</b>
+                        <small>Mas baja = se ve mas el terreno sin descubrir.</small>
+                    </div>
+                    <input type="range" min={0.4} max={0.9} step={0.02} value={prefs.fog} onChange={(e) => setPrefs({ fog: parseFloat(e.target.value) })} style={{ width: 130 }} />
+                </div>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>Nombres de cimas</b>
+                        <small>Etiquetas con nombre y altitud al acercar el zoom.</small>
+                    </div>
+                    <input type="checkbox" className="tu-check" checked={prefs.peakLabels} onChange={(e) => setPrefs({ peakLabels: e.target.checked })} />
+                </div>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>Bienvenida</b>
+                        <small>Vuelve a mostrar la pantalla de inicio al abrir la app.</small>
+                    </div>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setPrefs({ welcomed: false })}>Mostrar de nuevo</button>
+                </div>
+            </section>
+
+            <section className="tu-group"><h2>Unidades</h2>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>Distancias y superficie</b>
+                    </div>
+                    <div className="tu-controls" style={{ margin: 0 }}>
+                        <button className="file-button is-compact" data-variant={imp ? 'secondary' : 'primary'} onClick={() => setPrefs({ units: 'metric' })}>km</button>
+                        <button className="file-button is-compact" data-variant={imp ? 'primary' : 'secondary'} onClick={() => setPrefs({ units: 'imperial' })}>mi</button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="tu-group"><h2>Datos</h2>
+                <div className="tu-io">
+                    <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder="Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo." rows={3} />
+                    <div className="tu-controls">
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify(progressRef.current))}>Exportar</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => {
+                            try {
+                                const p = JSON.parse(ioText);
+                                if (Array.isArray(p.cells)) { const next = { ...EMPTY, ...p }; setProgress(next); saveProgress(next); setToast('Progreso importado'); }
+                                else setToast('Formato no valido');
+                            } catch { setToast('Formato no valido'); }
+                        }}>Importar</button>
+                        <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                            {batchBusy ? 'Leyendo...' : 'Importar rutas'}
+                            <input type="file" multiple accept=".gpx,.fit,.zip,.gz,application/gpx+xml" aria-label="Importar rutas" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const input = e.currentTarget; void onImportFiles(input.files).finally(() => { input.value = ''; }); }} />
+                        </label>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => {
+                            if (!confirmReset) { setConfirmReset(true); return; }
+                            setConfirmReset(false); setProgress({ ...EMPTY }); saveProgress({ ...EMPTY }); setToast('Progreso reiniciado');
+                        }}>{confirmReset ? 'Seguro? Toca otra vez' : 'Reiniciar'}</button>
+                    </div>
+                </div>
+                <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
+            </section>
+
+            <footer className="tu-closing">TerraUnlock v0.9 - tu progreso se guarda en este dispositivo.</footer>
+        </> : null}
+
+        <nav className="tu-nav">
+            {([
+                ['mapa', '◉', 'Mapa'],
+                ['progreso', '◆', 'Progreso'],
+                ['cimas', '▲', 'Cimas'],
+                ['ajustes', '⚙', 'Ajustes'],
+            ] as const).map(([id, g, label]) => (
+                <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}><span className="g">{g}</span>{label}</button>
+            ))}
+        </nav>
+
+        {!prefs.welcomed ? (
+            <div className="tu-welcome">
+                <img src="./icons/icon-192.png" alt="TerraUnlock" />
+                <h1>TerraUnlock</h1>
+                <p className="tu-intro" style={{ maxWidth: 340 }}>El mundo empieza cubierto de niebla y se revela donde pisas. Conquista paises, comunidades, provincias y cimas con tu GPS real.</p>
+                <ul>
+                    <li>Activa el GPS y sal: la niebla se abre a tu paso.</li>
+                    <li>57.000+ cimas marcadas: toca una para ver sus rutas.</li>
+                    <li>Importa tus rutas (GPX, FIT o el ZIP de Strava/Garmin).</li>
+                </ul>
+                <button className="file-button" data-variant="primary" onClick={() => setPrefs({ welcomed: true })}>Empezar a conquistar</button>
+            </div>
+        ) : null}
+    </div>}
