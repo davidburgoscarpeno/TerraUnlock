@@ -83,6 +83,7 @@ export function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
     const fogRef = useRef<HTMLCanvasElement | null>(null);
+    const wakeRef = useRef<{ release?: () => Promise<void> } | null>(null);
 
     const peakGrid = useMemo(() => {
         const g = new Map<string, Peak[]>();
@@ -147,7 +148,24 @@ export function App() {
             (err) => { setGpsMsg('GPS no disponible: ' + err.message + '. Mientras, puedes usar el modo prueba.'); setGpsOn(false); },
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
         );
-        return () => navigator.geolocation.clearWatch(id);
+        // Mantener la pantalla despierta mientras el tracking esta activo (background real: fase nativa con Capacitor)
+        const reqWake = () => {
+            try {
+                const nav = navigator as unknown as { wakeLock?: { request: (t: string) => Promise<{ release?: () => Promise<void> }> } };
+                if (nav.wakeLock && nav.wakeLock.request) {
+                    nav.wakeLock.request('screen').then((s) => { wakeRef.current = s; }).catch(() => { wakeRef.current = null; });
+                }
+            } catch { wakeRef.current = null; }
+        };
+        reqWake();
+        const onVis = () => { if (document.visibilityState === 'visible') reqWake(); };
+        document.addEventListener('visibilitychange', onVis);
+        return () => {
+            navigator.geolocation.clearWatch(id);
+            document.removeEventListener('visibilitychange', onVis);
+            try { if (wakeRef.current && wakeRef.current.release) wakeRef.current.release().catch(() => {}); } catch {}
+            wakeRef.current = null;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gpsOn]);
 
@@ -193,9 +211,9 @@ export function App() {
             ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke();
         };
         const cSet = new Set(progress.countries), aSet = new Set(progress.ccaa), pSet = new Set(progress.prov), pkSet = new Set(progress.peaks);
-        for (const rg of COUNTRIES) drawRegion(rg, '#152230', 'rgba(120,160,190,0.28)', 1);
-        if (z >= 3.5) for (const rg of CCAA) drawRegion(rg, null, 'rgba(120,200,180,0.30)', 1);
-        if (z >= 5) for (const rg of PROV) drawRegion(rg, null, 'rgba(120,200,180,0.22)', 0.7);
+        for (const rg of COUNTRIES) drawRegion(rg, '#1d2c3e', 'rgba(130,170,200,0.42)', 1);
+        if (z >= 3.5) for (const rg of CCAA) drawRegion(rg, null, 'rgba(120,200,180,0.40)', 1);
+        if (z >= 5) for (const rg of PROV) drawRegion(rg, null, 'rgba(120,200,180,0.30)', 0.7);
 
         // Niebla en capa aparte
         let fog = fogRef.current;
@@ -204,7 +222,7 @@ export function App() {
         const fx = fog.getContext('2d');
         if (fx) {
             fx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            fx.fillStyle = 'rgba(4,7,11,0.92)'; fx.fillRect(0, 0, w, h);
+            fx.fillStyle = 'rgba(4,7,11,0.58)'; fx.fillRect(0, 0, w, h);
             fx.globalCompositeOperation = 'destination-out';
             const mpp = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
             const r = Math.max(14, REVEAL_M / mpp);
@@ -223,7 +241,7 @@ export function App() {
             // Resplandor sutil de lo revelado
             const mpp2 = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
             const r2 = Math.max(8, (REVEAL_M * 0.55) / mpp2);
-            ctx.fillStyle = 'rgba(240,180,41,0.07)';
+            ctx.fillStyle = 'rgba(240,180,41,0.12)';
             for (const ck of progress.cells) {
                 const ci = ck.indexOf(',');
                 const pt = project(+ck.slice(ci + 1) * CELL, +ck.slice(0, ci) * CELL, z);
@@ -234,9 +252,9 @@ export function App() {
         }
 
         // Territorio conquistado por encima de la niebla
-        for (const rg of COUNTRIES) if (cSet.has(rg.n)) drawRegion(rg, 'rgba(32,140,120,0.30)', 'rgba(126,224,200,0.75)', 1.4);
-        if (z >= 3.5) for (const rg of CCAA) if (aSet.has(rg.n)) drawRegion(rg, 'rgba(32,140,120,0.22)', 'rgba(126,224,200,0.65)', 1.1);
-        if (z >= 5) for (const rg of PROV) if (pSet.has(rg.n)) drawRegion(rg, 'rgba(32,140,120,0.18)', 'rgba(126,224,200,0.55)', 0.9);
+        for (const rg of COUNTRIES) if (cSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.42)', 'rgba(140,240,215,0.92)', 1.6);
+        if (z >= 3.5) for (const rg of CCAA) if (aSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.30)', 'rgba(140,240,215,0.75)', 1.2);
+        if (z >= 5) for (const rg of PROV) if (pSet.has(rg.n)) drawRegion(rg, 'rgba(46,184,152,0.24)', 'rgba(140,240,215,0.65)', 1.0);
 
         // Etiquetas de regiones desbloqueadas
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
