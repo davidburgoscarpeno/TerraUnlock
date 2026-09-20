@@ -213,14 +213,10 @@ export function App() {
         if (isNewCell) next.cells = [...p.cells, cellKey];
         if (isNewPoint) next.points = [...pts.slice(-19999), [lat, lon]];
         if (isNewPoint) {
-            const ctry = regionAt(COUNTRIES, lon, lat);
-            if (ctry && !next.countries.includes(ctry)) { next.countries = [...next.countries, ctry]; news.push('Pais desbloqueado: ' + ctry); }
-            if (lon >= SPAIN_BBOX[0] && lon <= SPAIN_BBOX[2] && lat >= SPAIN_BBOX[1] && lat <= SPAIN_BBOX[3]) {
-                const a = regionAt(CCAA, lon, lat);
-                if (a && !next.ccaa.includes(a)) { next.ccaa = [...next.ccaa, a]; news.push('Comunidad desbloqueada: ' + a); }
-                const pv = regionAt(PROV, lon, lat);
-                if (pv && !next.prov.includes(pv)) { next.prov = [...next.prov, pv]; news.push('Provincia desbloqueada: ' + pv); }
-            }
+            const rg = regionsCached(lon, lat);
+            if (rg.c && !next.countries.includes(rg.c)) { next.countries = [...next.countries, rg.c]; news.push('Pais desbloqueado: ' + rg.c); }
+            if (rg.a && !next.ccaa.includes(rg.a)) { next.ccaa = [...next.ccaa, rg.a]; news.push('Comunidad desbloqueada: ' + rg.a); }
+            if (rg.pv && !next.prov.includes(rg.pv)) { next.prov = [...next.prov, rg.pv]; news.push('Provincia desbloqueada: ' + rg.pv); }
             const pkSet = new Set(next.peaks);
             const gi = Math.floor(lat * 2), gj = Math.floor(lon * 2);
             for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
@@ -757,9 +753,9 @@ export function App() {
         <section className="tu-group"><h2>Tu progreso</h2>
             <dl className="tu-factsdl">{[
                 { label: 'Superficie revelada', value: '~' + km2 + ' km2' },
-                { label: 'Paises', value: progress.countries.length + ' de ' + COUNTRIES.length },
-                { label: 'Comunidades (ES)', value: progress.ccaa.length + ' de ' + CCAA.length },
-                { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length },
+                { label: 'Paises', value: progress.countries.length + ' de ' + COUNTRIES.length + ' (' + (progress.countries.length / COUNTRIES.length * 100).toFixed(1).replace('.', ',') + '%)' },
+                { label: 'Comunidades (ES)', value: progress.ccaa.length + ' de ' + CCAA.length + ' (' + (progress.ccaa.length / CCAA.length * 100).toFixed(1).replace('.', ',') + '%)' },
+                { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length + ' (' + (progress.prov.length / PROV.length * 100).toFixed(1).replace('.', ',') + '%)' },
                 { label: 'Cimas conquistadas', value: String(progress.peaks.length) },
                 { label: 'Puntos GPS', value: String(progress.points.length) },
             ].map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd></div>)}</dl>
