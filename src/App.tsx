@@ -226,7 +226,7 @@ export function App() {
         const t = importTrack; if (!t) return;
         const p = progressRef.current;
         const next: Progress = {
-            cells: t.cells, points: p.points,
+            cells: t.cells, points: [...p.points, ...t.pts],
             countries: [...p.countries, ...t.countries],
             ccaa: [...p.ccaa, ...t.ccaa],
             prov: [...p.prov, ...t.prov],
@@ -598,7 +598,7 @@ export function App() {
         {importTrack ? (
             <div className="tu-callout">
                 <strong>{importTrack.name}</strong>
-                <p>{importTrack.pts.length} puntos, {importTrack.km.toFixed(1)} km. Va a revelar la niebla de todo el recorrido y desbloqueara: {[...importTrack.countries, ...importTrack.ccaa, ...importTrack.prov].length + importTrack.peaks.length ? [...importTrack.countries, ...importTrack.ccaa, ...importTrack.prov].join(', ') + (importTrack.peaks.length ? ' y ' + importTrack.peaks.length + ' cimas' : '') : 'nada nuevo (zona ya desbloqueada)'}.</p>
+                <p>{importTrack.pts.length} puntos, {importTrack.km.toFixed(1)} km. Va a revelar la niebla de todo el recorrido y desbloqueara: {(() => { const names = [...new Set([...importTrack.countries, ...importTrack.ccaa, ...importTrack.prov])]; return names.length + importTrack.peaks.length ? names.join(', ') + (importTrack.peaks.length ? ' y ' + importTrack.peaks.length + ' cimas' : '') : 'nada nuevo (zona ya desbloqueada)'; })()}.</p>
                 <div className="tu-controls">
                     <button className="file-button is-compact" data-variant="primary" onClick={applyTrack}>Aplicar ruta</button>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportTrack(null)}>Cancelar</button>
@@ -646,7 +646,7 @@ export function App() {
                     }}>Importar</button>
                     <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
                         Importar GPX
-                        <input type="file" accept=".gpx,application/gpx+xml" style={{ display: 'none' }} onChange={(e) => { onGpxFile(e.target.files?.[0]); e.target.value = ''; }} />
+                        <input type="file" accept=".gpx,application/gpx+xml" style={{ display: 'none' }} onChange={(e) => { const input = e.currentTarget; void onGpxFile(input.files?.[0]).finally(() => { input.value = ''; }); }} />
                     </label>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                         if (!confirmReset) { setConfirmReset(true); return; }
