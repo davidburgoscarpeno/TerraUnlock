@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.6)
+
+- "Te falta cerca" en el Mapa: hasta 5 territorios sin conquistar en 150 km (provincias y comunidades en Espana, paises fuera), con distancia aproximada a su frontera y direccion (N, NE...). Toca una fila para centrar el mapa en ella. Usa tu posicion GPS o, sin GPS, el centro del mapa. Si no queda nada en 150 km, lo dice ("Zona dominada").
+
 ## Estado (v1.5)
 
 - Perfil con foto: "Subir foto" en Ajustes la recorta a cuadrado y la guarda a 256 px en el dispositivo (unos 5 KB); sale en el saludo del header, en Ajustes y en la tarjeta de compartir (avatar + "El mundo de ..."). Sin foto, circulo con la inicial. Boton "Quitar".

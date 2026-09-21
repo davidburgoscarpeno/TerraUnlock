@@ -1348,7 +1348,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.5 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.6 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
