@@ -1171,7 +1171,7 @@ export function App() {
             if (!prof && !adv.noProfile) {
                 try { prof = await computeProfile(adv.track); saveProfile(adv.start, prof); } catch { prof = null; }
             }
-            const gpx = adventureToGpx(adv, prof, prefs.nombre);
+            const gpx = adventureToGpx(adv, prof, adv.name || prefs.nombre);
             const blob = new Blob([gpx], { type: 'application/gpx+xml' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -1203,7 +1203,7 @@ export function App() {
             g.fillText('TerraUnlock', 224, 110);
             g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
             const fecha = new Date(adv.start);
-            g.fillText((prefs.nombre.trim() ? 'Aventura de ' + prefs.nombre.trim() : 'Mi aventura') + ' - ' + fecha.toLocaleDateString('es-ES'), 224, 170);
+            g.fillText((adv.name ? adv.name + ' - ' : (prefs.nombre.trim() ? 'Aventura de ' + prefs.nombre.trim() : 'Mi aventura') + ' - ') + fecha.toLocaleDateString('es-ES'), 224, 170);
             // cifras grandes
             g.fillStyle = '#2dc8aa'; g.font = '800 120px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText(fmtDist(adv.km), 60, 330);
@@ -1730,9 +1730,9 @@ export function App() {
                 </div>
                 {adventures.length ? <ol className="tu-peaklist tu-advlist">
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
-                        <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
+                        <span className="tu-pkname">{a.name || new Date(a.start).toLocaleDateString('es-ES')}{a.name ? <small>{new Date(a.start).toLocaleDateString('es-ES')}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm('Borrar esta aventura? El territorio revelado se queda como esta.')) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast('Aventura borrada'); } }}>Borrar</button></span></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt('Nombre de la aventura', a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>Renombrar</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm('Borrar esta aventura? El territorio revelado se queda como esta.')) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast('Aventura borrada'); } }}>Borrar</button></span></span> : null}
                     </li>)}
                 </ol> : null}
             </section>
@@ -1894,7 +1894,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.18 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.19 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (

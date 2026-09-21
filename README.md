@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.19)
+
+- Renombrar aventuras (boton "Renombrar" al desplegarla). El nombre sale en la lista, en la tarjeta PNG y como nombre del track en el GPX exportado. Sin nombre, todo sigue mostrando la fecha como antes.
+
 ## Estado (v1.18)
 
 - Borrar una aventura de la lista (boton "Borrar" al desplegarla, con confirmacion). Solo quita la aventura: el territorio revelado y los desbloqueos se quedan.
