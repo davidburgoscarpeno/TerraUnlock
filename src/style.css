@@ -186,3 +186,16 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-wdots { display: flex; gap: 6px; margin-top: 24px; }
 .tu-wdots span { width: 8px; height: 8px; border-radius: 50%; background: #23303d; transition: background 0.2s; }
 .tu-wdots span.on { background: #2dc8aa; }
+
+/* v1.30: pulido de escritorio - aprovechar pantallas anchas */
+@media (min-width: 900px) {
+  .tu-factsdl { grid-template-columns: 1fr 1fr 1fr; }
+  .tu-ach-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+}
+@media (min-width: 1400px) {
+  .tu-app { max-width: 1320px; }
+  .tu-mapwrap { height: 78vh; min-height: 520px; }
+}
+@media (min-width: 1800px) {
+  .tu-app { max-width: 1560px; }
+}
