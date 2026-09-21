@@ -1077,6 +1077,51 @@ export function App() {
     };
 
     // v1.12: tarjeta PNG de una aventura (perfil + cifras + desbloqueos)
+    // v1.14: importar un GPX suelto como aventura completa (revela niebla + entra en la lista)
+    const importGpxAdventure = async (file: File) => {
+        try {
+            const text = await file.text();
+            const g = parseGpx(text);
+            const doc = new DOMParser().parseFromString(text, 'application/xml');
+            const times: string[] = [];
+            doc.querySelectorAll('trkpt time').forEach((el) => { if (el.textContent) times.push(el.textContent); });
+            const t0 = times.length ? new Date(times[0]) : new Date();
+            const t1 = times.length ? new Date(times[times.length - 1]) : t0;
+            const start = isFinite(t0.getTime()) ? t0.toISOString() : new Date().toISOString();
+            const end = isFinite(t1.getTime()) && t1.getTime() >= new Date(start).getTime() ? t1.toISOString() : start;
+            const p0 = progressRef.current;
+            const sc = scanTrack(g.name, g.pts, p0, peakGrid);
+            const next: Progress = {
+                countries: [...p0.countries, ...sc.countries],
+                ccaa: [...p0.ccaa, ...sc.ccaa],
+                prov: [...p0.prov, ...sc.prov],
+                peaks: [...p0.peaks, ...sc.peaks],
+                cells: sc.cells,
+                points: [...p0.points, ...sc.pts].slice(-50000),
+            };
+            setProgress(next); saveProgress(next);
+            const stride = Math.max(1, Math.ceil(sc.pts.length / 300));
+            const tr = sc.pts.filter((_, i) => i % stride === 0);
+            const lastPt = sc.pts[sc.pts.length - 1];
+            const lastTr = tr[tr.length - 1];
+            if (lastTr && (lastTr[0] !== lastPt[0] || lastTr[1] !== lastPt[1])) tr.push(lastPt);
+            const done: Adventure = {
+                start, end, km: Math.round(sc.km * 10) / 10, points: sc.pts.length,
+                countries: sc.countries, ccaa: sc.ccaa, prov: sc.prov, peaks: sc.peaks,
+                track: tr.length >= 2 ? tr : undefined,
+            };
+            const list = [done, ...adventures].slice(0, 50);
+            setAdventures(list); saveJson(ADVS_KEY, list);
+            setAdvSummary(done);
+            const parts: string[] = [];
+            if (sc.prov.length) parts.push(sc.prov.length + ' provincia' + (sc.prov.length > 1 ? 's' : ''));
+            if (sc.ccaa.length) parts.push(sc.ccaa.length + ' comunidad' + (sc.ccaa.length > 1 ? 'es' : ''));
+            if (sc.countries.length) parts.push(sc.countries.length + ' pais' + (sc.countries.length > 1 ? 'es' : ''));
+            if (sc.peaks.length) parts.push(sc.peaks.length + ' cima' + (sc.peaks.length > 1 ? 's' : ''));
+            if (parts.length) { setBanners((bb) => [...bb, { title: 'Aventura importada', sub: '+' + parts.join(', +') }]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
+        } catch { setToast('No se pudo leer ese GPX'); }
+    };
+
     // v1.13: exportar la aventura a GPX (descarga directa; el share sheet de movil no acepta bien .gpx)
     const exportGpx = async (adv: Adventure) => {
         try {
@@ -1608,16 +1653,21 @@ export function App() {
                 </div>
             </section>
 
-            {adventures.length ? <section className="tu-group"><h2>Aventuras</h2>
-                <div className="tu-terrnote" style={{ marginBottom: 6 }}>Toca una aventura para ver su perfil de elevacion.</div>
-                <ol className="tu-peaklist tu-advlist">
+            <section className="tu-group"><h2>Aventuras</h2>
+                <div className="tu-terrnote" style={{ marginBottom: 6 }}>{adventures.length ? 'Toca una aventura para ver su perfil de elevacion.' : 'Aun no hay aventuras: empieza una desde el mapa o importa un GPX.'}</div>
+                <div className="tu-controls" style={{ marginBottom: 8 }}>
+                    <label className="file-button is-compact" data-variant="secondary">Importar GPX como aventura
+                        <input type="file" accept=".gpx,application/gpx+xml" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) importGpxAdventure(f); e.target.value = ''; }} />
+                    </label>
+                </div>
+                {adventures.length ? <ol className="tu-peaklist tu-advlist">
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
                         {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}><ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button></span></span> : null}
                     </li>)}
-                </ol>
-            </section> : null}
+                </ol> : null}
+            </section>
 
             {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
                 <div className="tu-chips">
@@ -1775,7 +1825,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.13 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.14 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (

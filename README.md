@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.14)
+
+- Importar un GPX suelto como aventura: boton "Importar GPX como aventura" en Progreso > Aventuras. Revela la niebla del recorrido, desbloquea territorios y cimas, y crea la aventura en la lista con su track, perfil de elevacion, tarjeta para compartir y exportacion. Usa los tiempos del propio GPX; si no los tiene, fecha de importacion.
+
 ## Estado (v1.13)
 
 - Exportar cualquier aventura a GPX 1.1 (boton "Exportar GPX" al terminar una aventura y en cada aventura desplegada). Incluye elevacion real del terreno cuando hay perfil calculado; compatible con Strava, Garmin Connect, Wikiloc y Google Earth. Nota: el track no guarda timestamps por punto, asi que los tiempos del GPX se interpolan entre el inicio y el fin de la aventura.
