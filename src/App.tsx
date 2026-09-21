@@ -103,8 +103,19 @@ function regionRevealedCells(rg: Region, cells: string[]) {
     return v;
 }
 
+// v1.3: aventuras (salida del dia) y rachas (dias seguidos revelando)
+interface Adventure { start: string; end: string; km: number; points: number; countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; }
+interface ActiveAdventure { start: string; km: number; points: number; countries0: string[]; ccaa0: string[]; prov0: string[]; peaks0: string[]; }
+interface Streak { last: string; count: number; }
+const ADV_ACTIVE_KEY = 'terraunlock.adventure.active.v1';
+const ADVS_KEY = 'terraunlock.adventures.v1';
+const STREAK_KEY = 'terraunlock.streak.v1';
+function loadJson<T>(key: string): T | null { try { const raw = localStorage.getItem(key); if (raw) return JSON.parse(raw) as T; } catch { /* sin datos */ } return null; }
+function saveJson(key: string, v: unknown) { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* sin espacio */ } }
+function dayKey(d: Date) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
 // v1.2: logros. Definicion declarativa; el desbloqueo se evalua sobre el progreso actual.
-interface Achievement { id: string; title: string; hint: string; test: (p: Progress) => boolean; }
+interface Achievement { id: string; title: string; hint: string; test: (p: Progress, s: { count: number }) => boolean; }
 const ACHIEVEMENTS: Achievement[] = [
     { id: 'first-zone', title: 'Primeros pasos', hint: 'Revela tu primera zona del mapa', test: (p) => p.cells.length >= 1 },
     { id: 'km-10', title: 'Barrio propio', hint: 'Revela 10 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 10 },
@@ -122,6 +133,8 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'peak-25', title: 'Montanero de verdad', hint: 'Conquista 25 cimas', test: (p) => p.peaks.length >= 25 },
     { id: 'points-100', title: 'En movimiento', hint: 'Registra 100 puntos GPS', test: (p) => p.points.length >= 100 },
     { id: 'points-1000', title: 'Imparable', hint: 'Registra 1.000 puntos GPS', test: (p) => p.points.length >= 1000 },
+    { id: 'streak-3', title: 'En racha', hint: 'Revela territorio 3 dias seguidos', test: (p, st) => st.count >= 3 },
+    { id: 'streak-7', title: 'Semana de conquista', hint: 'Revela territorio 7 dias seguidos', test: (p, st) => st.count >= 7 },
 ];
 const ACH_KEY = 'terraunlock.achievements.v1';
 function loadAch(): Record<string, string> | null {
@@ -317,6 +330,20 @@ export function App() {
         if (news.length) setToast(news[news.length - 1] + (news.length > 1 ? ' (+' + (news.length - 1) + ' mas)' : ''));
         if (isNewCell || isNewPoint || news.length) { setProgress(next); saveProgress(next); }
         setLastPos([lat, lon]);
+        const a = advRef.current;
+        if (a && isNewPoint) {
+            const inc = last ? distM(last, [lat, lon]) / 1000 : 0;
+            const na = { ...a, km: a.km + inc, points: a.points + 1 };
+            advRef.current = na; setAdv(na); saveJson(ADV_ACTIVE_KEY, na);
+        }
+        const today = dayKey(new Date());
+        setStreak((st) => {
+            if (st.last === today) return st;
+            const y = new Date(); y.setDate(y.getDate() - 1);
+            const ns = { last: today, count: st.last === dayKey(y) ? st.count + 1 : 1 };
+            saveJson(STREAK_KEY, ns);
+            return ns;
+        });
     };
 
     // Importacion de actividades: GPX, FIT, ZIP de exportacion de Strava, .gpx.gz/.fit.gz sueltos; multiple y en lote
@@ -854,6 +881,8 @@ export function App() {
         }
     };
 
+    // v1.3: racha (dias seguidos revelando)
+    const [streak, setStreak] = useState<Streak>(() => loadJson<Streak>(STREAK_KEY) || { last: '', count: 0 });
     // v1.2: logros (desbloqueo + celebracion) y HUD (escala + cima cercana)
     const [achUnlocked, setAchUnlocked] = useState<Record<string, string>>(() => loadAch() || {});
     const achSeed = useRef(loadAch() == null); // primera vez con la funcion: siembra silenciosa
@@ -861,7 +890,7 @@ export function App() {
     useEffect(() => {
         const seed = achSeed.current;
         achSeed.current = false;
-        const newly = ACHIEVEMENTS.filter((a) => !achUnlocked[a.id] && a.test(progress));
+        const newly = ACHIEVEMENTS.filter((a) => !achUnlocked[a.id] && a.test(progress, streak));
         if (!newly.length) return;
         const now = new Date().toISOString();
         const next = { ...achUnlocked };
@@ -869,7 +898,7 @@ export function App() {
         saveAch(next);
         setAchUnlocked(next);
         if (!seed) setCelebration((c) => [...c, ...newly]);
-    }, [progress, achUnlocked]);
+    }, [progress, achUnlocked, streak]);
     const scaleBar = useMemo(() => {
         const mpp = 40075016 * Math.cos(view.lat * Math.PI / 180) / (256 * Math.pow(2, view.z));
         if (!isFinite(mpp) || mpp <= 0) return null;
@@ -891,13 +920,46 @@ export function App() {
         return best;
     }, [rlat, rlon, allPeaks, progress.peaks]);
 
+    // v1.3: modo aventura y racha
+    const [adv, setAdv] = useState<ActiveAdventure | null>(() => loadJson<ActiveAdventure>(ADV_ACTIVE_KEY));
+    const advRef = useRef(adv);
+    useEffect(() => { advRef.current = adv; }, [adv]);
+    const [adventures, setAdventures] = useState<Adventure[]>(() => loadJson<Adventure[]>(ADVS_KEY) || []);
+    const [advSummary, setAdvSummary] = useState<Adventure | null>(null);
+    const [advTick, setAdvTick] = useState(0);
+    useEffect(() => { if (!adv) return; const t = setInterval(() => setAdvTick((x) => x + 1), 15000); return () => clearInterval(t); }, [adv]);
+    const startAdventure = () => {
+        const p = progressRef.current;
+        const a: ActiveAdventure = { start: new Date().toISOString(), km: 0, points: 0, countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks };
+        advRef.current = a; setAdv(a); saveJson(ADV_ACTIVE_KEY, a);
+        setToast('Aventura empezada: sal a conquistar');
+    };
+    const endAdventure = () => {
+        const a = advRef.current;
+        if (!a) return;
+        const p = progressRef.current;
+        const done: Adventure = {
+            start: a.start, end: new Date().toISOString(), km: a.km, points: a.points,
+            countries: p.countries.filter((n) => !a.countries0.includes(n)),
+            ccaa: p.ccaa.filter((n) => !a.ccaa0.includes(n)),
+            prov: p.prov.filter((n) => !a.prov0.includes(n)),
+            peaks: p.peaks.filter((n) => !a.peaks0.includes(n)),
+        };
+        const list = [done, ...adventures].slice(0, 50);
+        setAdventures(list); saveJson(ADVS_KEY, list);
+        advRef.current = null; setAdv(null);
+        try { localStorage.removeItem(ADV_ACTIVE_KEY); } catch { /* sin espacio */ }
+        setAdvSummary(done);
+    };
+    const advElapsed = adv ? (() => { const m = Math.max(0, Math.floor((Date.now() + advTick * 0 - new Date(adv.start).getTime()) / 60000)); return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min'; })() : '';
+
     const km2 = (progress.cells.length * 1.1).toFixed(0);
     const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p);
 
     return <div className="tu-app">
         {tab === 'mapa' ? <>
             <header className="tu-header">
-                <div className="tu-header-row"><h1>{prefs.nombre ? 'Hola, ' + prefs.nombre : 'TerraUnlock'}</h1><span className="tu-fact">{fmtAreaShort(progress.cells.length * 1.1)} revelados</span></div>
+                <div className="tu-header-row"><h1>{prefs.nombre ? 'Hola, ' + prefs.nombre : 'TerraUnlock'}</h1><span className="tu-fact">{fmtAreaShort(progress.cells.length * 1.1)} revelados</span>{streak.count >= 2 ? <span className="tu-streak">Racha: {streak.count} dias</span> : null}</div>
             </header>
 
         <div className="tu-mapwrap" ref={wrapRef}>
@@ -926,7 +988,14 @@ export function App() {
             <button className="file-button is-compact" data-variant={simMode ? 'primary' : 'secondary'} onClick={() => setSimMode(!simMode)}>{simMode ? 'Modo prueba: ON' : 'Modo prueba'}</button>
             <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, 1)}>+</button>
             <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, -1)}>-</button>
+            {!adv ? <button className="file-button is-compact" data-variant="primary" onClick={startAdventure}>Empezar aventura</button> : null}
         </div>
+
+        {adv ? <div className="tu-callout tu-advpanel">
+            <strong>Aventura en curso</strong>
+            <p>{fmtDist(adv.km)} · {advElapsed} · {adv.points} puntos · +{progress.countries.length - adv.countries0.length} paises, +{progress.ccaa.length - adv.ccaa0.length} CCAA, +{progress.prov.length - adv.prov0.length} prov, +{progress.peaks.length - adv.peaks0.length} cimas</p>
+            <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={endAdventure}>Terminar aventura</button></div>
+        </div> : null}
         {gpsMsg ? <div className="tu-callout tu-warn"><strong>GPS</strong><p>{gpsMsg}</p></div> : null}
         {simMode ? <div className="tu-callout"><strong>Modo prueba</strong><p>Toca cualquier punto del mapa para simular que has estado ahi: revela niebla y desbloquea igual que el GPS.</p></div> : null}
 
@@ -993,6 +1062,7 @@ export function App() {
                     { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length + ' (' + (progress.prov.length / PROV.length * 100).toFixed(1).replace('.', ',') + '%)', pct: progress.prov.length / PROV.length },
                     { label: 'Cimas conquistadas', value: progress.peaks.length + ' de ' + allPeaks.length, pct: allPeaks.length > 0 ? progress.peaks.length / allPeaks.length : 0 },
                     { label: 'Puntos GPS', value: String(progress.points.length), pct: null },
+                    { label: 'Racha', value: streak.count > 0 ? streak.count + (streak.count === 1 ? ' dia' : ' dias') : '-', pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>Compartir mi mapa</button></div>
             </section>
@@ -1006,6 +1076,15 @@ export function App() {
                         </div>); })}
                 </div>
             </section>
+
+            {adventures.length ? <section className="tu-group"><h2>Aventuras</h2>
+                <ol className="tu-peaklist tu-advlist">
+                    {adventures.map((a) => <li key={a.start}>
+                        <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
+                        <span className="tu-pkele">{fmtDist(a.km)}</span>
+                    </li>)}
+                </ol>
+            </section> : null}
 
             {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
                 <div className="tu-chips">
@@ -1119,12 +1198,19 @@ export function App() {
                 <div className="tu-io">
                     <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder="Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo." rows={3} />
                     <div className="tu-controls">
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify(progressRef.current))}>Exportar</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, adventures }))}>Exportar</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                             try {
-                                const p = JSON.parse(ioText);
-                                if (Array.isArray(p.cells)) { const next = { ...EMPTY, ...p }; setProgress(next); saveProgress(next); setToast('Progreso importado'); }
-                                else setToast('Formato no valido');
+                                const data = JSON.parse(ioText);
+                                if (data && Array.isArray(data.cells)) {
+                                    const next = { ...EMPTY, ...data }; setProgress(next); saveProgress(next); setToast('Progreso importado');
+                                } else if (data && data.v >= 2 && data.progress && Array.isArray(data.progress.cells)) {
+                                    const next = { ...EMPTY, ...data.progress }; setProgress(next); saveProgress(next);
+                                    if (data.achievements && typeof data.achievements === 'object') { setAchUnlocked(data.achievements); saveAch(data.achievements); }
+                                    if (data.streak && typeof data.streak.count === 'number') { setStreak(data.streak); saveJson(STREAK_KEY, data.streak); }
+                                    if (Array.isArray(data.adventures)) { setAdventures(data.adventures); saveJson(ADVS_KEY, data.adventures); }
+                                    setToast('Copia completa importada');
+                                } else setToast('Formato no valido');
                             } catch { setToast('Formato no valido'); }
                         }}>Importar</button>
                         <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
@@ -1140,7 +1226,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.2 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.3 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {celebration.length ? (
@@ -1154,6 +1240,21 @@ export function App() {
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration((c) => c.slice(1))}>Seguir explorando</button>
+                    </div>
+                </div>
+            </div>
+        ) : null}
+
+        {advSummary ? (
+            <div className="tu-celebration">
+                <div className="tu-celeb-card">
+                    <div className="tu-celeb-ico">⚑</div>
+                    <h2>Aventura terminada</h2>
+                    <strong>{fmtDist(advSummary.km)}</strong>
+                    <p>{advSummary.points} puntos GPS{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? ' · Desbloqueos: ' + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + advSummary.peaks.length + ' cimas' : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? ' · Sin desbloqueos nuevos esta vez' : ''}</p>
+                    <div className="tu-controls" style={{ justifyContent: 'center' }}>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>Cerrar</button>
                     </div>
                 </div>
             </div>

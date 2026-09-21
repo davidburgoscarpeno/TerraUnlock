@@ -127,3 +127,8 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-scalebar span { color: #cfe6dd; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
 .tu-scalebar i { display: block; height: 3px; background: #cfe6dd; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.6); }
 .tu-peaknear { position: absolute; bottom: 38px; left: 10px; background: rgba(6,10,16,0.72); color: #e8cd6e; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; pointer-events: none; }
+
+/* v1.3: aventura y racha */
+.tu-streak { color: #f0b429; font-weight: 700; font-size: 13px; }
+.tu-advpanel { border-color: #14755f; }
+.tu-advlist { max-height: 40vh; overflow-y: auto; }
