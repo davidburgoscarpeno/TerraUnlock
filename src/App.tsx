@@ -11,6 +11,7 @@ import TerrainCard from './Terrain';
 import ElevChart from './ElevChart';
 import { computeProfile, drawProfile } from './adventureProfile';
 import { adventureToGpx, gpxFilename } from './gpxExport';
+import { t, setLang, detectLang, dateLocale, monthName, dec, compass8, LANGS, type Lang } from './i18n';
 import type { Adventure, AdventureProfile } from './types';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
@@ -235,7 +236,7 @@ function loadAch(): Record<string, string> | null {
 function saveAch(a: Record<string, string>) { try { localStorage.setItem(ACH_KEY, JSON.stringify(a)); } catch { /* sin espacio */ } }
 
 // Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
-interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; }
+interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; lang?: Lang; }
 const PREFS_KEY = 'terraunlock.prefs.v1';
 const AVATAR_KEY = 'terraunlock.avatar.v1';
 function loadPrefs(): Prefs {
@@ -268,14 +269,14 @@ type TrackScan = {
 
 function parseGpx(text: string): { name: string; pts: [number, number][] } {
     const doc = new DOMParser().parseFromString(text, 'application/xml');
-    if (doc.querySelector('parsererror')) throw new Error('XML no valido');
+    if (doc.querySelector('parsererror')) throw new Error(t('XML no valido'));
     const name = doc.querySelector('trk > name')?.textContent || doc.querySelector('metadata > name')?.textContent || 'Ruta GPX';
     const pts: [number, number][] = [];
     doc.querySelectorAll('trkpt, rtept, wpt').forEach((el) => {
         const lat = parseFloat(el.getAttribute('lat') || ''), lon = parseFloat(el.getAttribute('lon') || '');
         if (isFinite(lat) && isFinite(lon)) pts.push([lat, lon]);
     });
-    if (pts.length < 2) throw new Error('Sin puntos de track');
+    if (pts.length < 2) throw new Error(t('Sin puntos de track'));
     return { name, pts };
 }
 
@@ -324,16 +325,17 @@ export function App() {
     const [gpsOn, setGpsOn] = useState(false);
     const [simMode, setSimMode] = useState(false);
     const [tab, setTab] = useState<'mapa' | 'progreso' | 'cimas' | 'ajustes'>('mapa');
-    const [prefs, setPrefsState] = useState<Prefs>(loadPrefs);
+    const [prefs, setPrefsState] = useState<Prefs>(() => { const p = loadPrefs(); setLang(p.lang || detectLang()); return p; });
     const prefsRef = useRef(prefs); prefsRef.current = prefs;
     const setPrefs = (patch: Partial<Prefs>) => {
         const next = { ...prefsRef.current, ...patch };
+        if (patch.lang) setLang(patch.lang);
         setPrefsState(next);
         try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* sin espacio */ }
     };
     const imp = prefs.units === 'imperial';
-    const fmtDist = (km: number) => imp ? (km * 0.621371).toFixed(1).replace('.', ',') + ' mi' : km.toFixed(1).replace('.', ',') + ' km';
-    const fmtAreaShort = (k2: number) => (imp ? (k2 * 0.386102).toFixed(0) + ' mi2' : k2.toFixed(0) + ' km2');
+    const fmtDist = (km: number) => imp ? dec(km * 0.621371) + ' mi' : dec(km) + ' km';
+    const fmtAreaShort = (k2: number) => (imp ? dec(k2 * 0.386102, 0) + ' mi2' : dec(k2, 0) + ' km2');
     const [gpsMsg, setGpsMsg] = useState('');
     const [lastPos, setLastPos] = useState<[number, number] | null>(null);
     const [toast, setToast] = useState('');
@@ -404,9 +406,9 @@ export function App() {
         const terr: TerrBanner[] = [];
         if (isNewPoint) {
             const rg = regionsCached(lon, lat);
-            if (rg.c && !next.countries.includes(rg.c)) { next.countries = [...next.countries, rg.c]; terr.push({ title: 'Pais nuevo: ' + rg.c, sub: 'Ya llevas ' + next.countries.length + ' de 177' }); }
-            if (rg.a && !next.ccaa.includes(rg.a)) { next.ccaa = [...next.ccaa, rg.a]; terr.push({ title: 'Comunidad nueva: ' + rg.a, sub: 'Ya llevas ' + next.ccaa.length + ' de 19' }); }
-            if (rg.pv && !next.prov.includes(rg.pv)) { next.prov = [...next.prov, rg.pv]; terr.push({ title: 'Provincia nueva: ' + rg.pv, sub: 'Ya llevas ' + next.prov.length + ' de 52' }); }
+            if (rg.c && !next.countries.includes(rg.c)) { next.countries = [...next.countries, rg.c]; terr.push({ title: t('Pais nuevo: {n}', { n: rg.c }), sub: t('Ya llevas {n} de 177', { n: next.countries.length }) }); }
+            if (rg.a && !next.ccaa.includes(rg.a)) { next.ccaa = [...next.ccaa, rg.a]; terr.push({ title: t('Comunidad nueva: {n}', { n: rg.a }), sub: t('Ya llevas {n} de 19', { n: next.ccaa.length }) }); }
+            if (rg.pv && !next.prov.includes(rg.pv)) { next.prov = [...next.prov, rg.pv]; terr.push({ title: t('Provincia nueva: {n}', { n: rg.pv }), sub: t('Ya llevas {n} de 52', { n: next.prov.length }) }); }
             const pkSet = new Set(next.peaks);
             const gi = Math.floor(lat * 2), gj = Math.floor(lon * 2);
             for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
@@ -415,12 +417,12 @@ export function App() {
                     const id = peakId(pk);
                     if (!pkSet.has(id) && distM([pk[1], pk[2]], [lat, lon]) <= PEAK_M) {
                         next.peaks = [...next.peaks, id]; pkSet.add(id);
-                        news.push('Cima conquistada: ' + pk[0] + ' (' + pk[3] + ' m)');
+                        news.push(t('Cima conquistada: {n} ({e} m)', { n: pk[0], e: pk[3] }));
                     }
                 }
             }
         }
-        if (news.length) setToast(news[news.length - 1] + (news.length > 1 ? ' (+' + (news.length - 1) + ' mas)' : ''));
+        if (news.length) setToast(news[news.length - 1] + (news.length > 1 ? t(' (+{n} mas)', { n: news.length - 1 }) : ''));
         if (terr.length) { setBanners((b) => [...b, ...terr]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
         if (isNewCell || isNewPoint || news.length) { setProgress(next); saveProgress(next); }
         setLastPos([lat, lon]);
@@ -487,7 +489,7 @@ export function App() {
                     await handleEntry(f.name, new Uint8Array(await f.arrayBuffer()));
                 }
             }
-            if (!tracks.length) { setToast(failed ? 'No se pudo leer ninguna actividad (' + failed + ' con error)' : 'No se encontraron actividades GPX/FIT'); return; }
+            if (!tracks.length) { setToast(failed ? t('No se pudo leer ninguna actividad ({n} con error)', { n: failed }) : t('No se encontraron actividades GPX/FIT')); return; }
             // Escanear en lote contra una copia del progreso que se actualiza entre tracks
             const p0 = progressRef.current;
             const work: Progress = { cells: [...p0.cells], points: [...p0.points], countries: [...p0.countries], ccaa: [...p0.ccaa], prov: [...p0.prov], peaks: [...p0.peaks] };
@@ -511,7 +513,7 @@ export function App() {
             setViewPersist({ lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2, z: Math.max(3, Math.min(14, Math.min(zx, zy))) });
             setImportBatch({ scans, files: files.length, tracksOk: tracks.length, failed, totalKm, work });
             setTab('mapa');
-        } catch (e) { setToast('Importacion fallida: ' + (e instanceof Error ? e.message : 'error')); }
+        } catch (e) { setToast(t('Importacion fallida: {msg}', { msg: e instanceof Error ? e.message : 'error' })); }
         finally { setBatchBusy(false); }
     };
 
@@ -529,26 +531,26 @@ export function App() {
         const next: Progress = { ...b.work, points: [...b.work.points, ...newPts].slice(-50000) };
         setProgress(next); saveProgress(next); setImportBatch(null);
         const parts: string[] = [];
-        if (news.countries.length) parts.push(news.countries.length + ' paises');
+        if (news.countries.length) parts.push(t('{n} paises', { n: news.countries.length }));
         if (news.ccaa.length) parts.push(news.ccaa.length + ' CCAA');
-        if (news.prov.length) parts.push(news.prov.length + ' provincias');
-        if (news.peaks.length) parts.push(news.peaks.length + ' cimas');
-        setToast((b.tracksOk > 1 ? 'Lote aplicado (' + b.tracksOk + ' actividades, ' : 'Ruta aplicada (') + fmtDist(b.totalKm) + '): ' + (parts.length ? '+' + parts.join(', +') : 'zona ya desbloqueada'));
+        if (news.prov.length) parts.push(t('{n} provincias', { n: news.prov.length }));
+        if (news.peaks.length) parts.push(t('{n} cimas', { n: news.peaks.length }));
+        setToast((b.tracksOk > 1 ? t('Lote aplicado ({n} actividades, {km})', { n: b.tracksOk, km: fmtDist(b.totalKm) }) : t('Ruta aplicada ({km})', { km: fmtDist(b.totalKm) })) + ': ' + (parts.length ? '+' + parts.join(', +') : t('zona ya desbloqueada')));
         const tparts: string[] = [];
-        if (news.prov.length) tparts.push(news.prov.length + ' provincia' + (news.prov.length > 1 ? 's' : ''));
-        if (news.ccaa.length) tparts.push(news.ccaa.length + ' comunidad' + (news.ccaa.length > 1 ? 'es' : ''));
-        if (news.countries.length) tparts.push(news.countries.length + ' pais' + (news.countries.length > 1 ? 'es' : ''));
-        if (news.peaks.length) tparts.push(news.peaks.length + ' cima' + (news.peaks.length > 1 ? 's' : ''));
-        if (tparts.length) { setBanners((bb) => [...bb, { title: 'Territorio nuevo por importacion', sub: '+' + tparts.join(', +') }]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
+        if (news.prov.length) tparts.push(t(news.prov.length > 1 ? '{n} provincias' : '{n} provincia', { n: news.prov.length }));
+        if (news.ccaa.length) tparts.push(t(news.ccaa.length > 1 ? '{n} comunidades' : '{n} comunidad', { n: news.ccaa.length }));
+        if (news.countries.length) tparts.push(t(news.countries.length > 1 ? '{n} paises' : '{n} pais', { n: news.countries.length }));
+        if (news.peaks.length) tparts.push(t(news.peaks.length > 1 ? '{n} cimas' : '{n} cima', { n: news.peaks.length }));
+        if (tparts.length) { setBanners((bb) => [...bb, { title: t('Territorio nuevo por importacion'), sub: '+' + tparts.join(', +') }]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
     };
 
     // GPS real
     useEffect(() => {
         if (!gpsOn) return;
-        if (!('geolocation' in navigator)) { setGpsMsg('Este navegador no expone GPS dentro de la pagina. Usa el modo prueba.'); setGpsOn(false); return; }
+        if (!('geolocation' in navigator)) { setGpsMsg(t('Este navegador no expone GPS dentro de la pagina. Usa el modo prueba.')); setGpsOn(false); return; }
         const id = navigator.geolocation.watchPosition(
             (pos) => { setGpsMsg(''); addPoint(pos.coords.latitude, pos.coords.longitude); },
-            (err) => { setGpsMsg('GPS no disponible: ' + err.message + '. Mientras, puedes usar el modo prueba.'); setGpsOn(false); },
+            (err) => { setGpsMsg(t('GPS no disponible: {msg}. Mientras, puedes usar el modo prueba.', { msg: err.message })); setGpsOn(false); },
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
         );
         // Mantener la pantalla despierta mientras el tracking esta activo (background real: fase nativa con Capacitor)
@@ -899,7 +901,7 @@ export function App() {
         if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude); setViewPersist({ lon: pos.coords.longitude, lat: pos.coords.latitude, z: 13 }); },
-                () => setToast('No se pudo obtener tu posicion'),
+                () => setToast(t('No se pudo obtener tu posicion')),
                 { enableHighAccuracy: true, timeout: 15000 }
             );
         }
@@ -929,10 +931,10 @@ export function App() {
     }, [progress.cells]);
     const showPeakOnMap = (p: Peak) => { setSelectedPeak(p); setSelectedRegion(null); setViewPersist({ lon: p[2], lat: p[1], z: 11 }); setTab('mapa'); };
     const locateForNearby = () => {
-        if (!('geolocation' in navigator)) { setToast('Tu navegador no soporta geolocalizacion'); return; }
+        if (!('geolocation' in navigator)) { setToast(t('Tu navegador no soporta geolocalizacion')); return; }
         navigator.geolocation.getCurrentPosition(
             (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude); setLastPos([pos.coords.latitude, pos.coords.longitude]); },
-            () => setToast('No se pudo obtener tu posicion'),
+            () => setToast(t('No se pudo obtener tu posicion')),
             { enableHighAccuracy: true, timeout: 15000 }
         );
     };
@@ -973,14 +975,14 @@ export function App() {
             g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.stroke();
             g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText('TerraUnlock', 224, 110);
-            if (prefs.nombre.trim()) { g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillText('El mundo de ' + prefs.nombre.trim(), 224, 170); }
+            if (prefs.nombre.trim()) { g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillText(t('El mundo de {nombre}', { nombre: prefs.nombre.trim() }), 224, 170); }
             g.fillStyle = '#9fb0c0'; g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
-            const st = '~' + fmtAreaShort(progress.cells.length * 1.1) + ' revelados   -   ' + progress.countries.length + '/177 paises   -   ' + progress.ccaa.length + '/19 CCAA   -   ' + progress.peaks.length + ' cimas';
+            const st = t('~{km2} revelados - {c}/177 paises - {a}/19 CCAA - {k} cimas', { km2: fmtAreaShort(progress.cells.length * 1.1), c: progress.countries.length, a: progress.ccaa.length, k: progress.peaks.length }).replace(/ - /g, '   -   ');
             g.fillText(st, 60, 228);
             g.fillStyle = '#5c7080'; g.font = '600 26px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText('Cuantos paises has pisado? davidburgoscarpeno.github.io/TerraUnlock', 60, H - 60);
+            g.fillText(t('Cuantos paises has pisado? davidburgoscarpeno.github.io/TerraUnlock'), 60, H - 60);
             const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
-            if (!blob) { setToast('No se pudo generar la tarjeta'); return; }
+            if (!blob) { setToast(t('No se pudo generar la tarjeta')); return; }
             const file = new File([blob], 'terraunlock.png', { type: 'image/png' });
             const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[]; title: string }) => Promise<void> };
             if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
@@ -990,11 +992,11 @@ export function App() {
                 a.href = URL.createObjectURL(blob);
                 a.download = 'terraunlock.png';
                 a.click();
-                setToast('Tarjeta descargada');
+                setToast(t('Tarjeta descargada'));
             }
         } catch (e) {
             if (e instanceof Error && e.name === 'AbortError') return;
-            setToast('No se pudo compartir la tarjeta');
+            setToast(t('No se pudo compartir la tarjeta'));
         }
     };
 
@@ -1009,7 +1011,7 @@ export function App() {
             a.href = URL.createObjectURL(blob);
             a.download = filename;
             a.click();
-            setToast('Tarjeta descargada');
+            setToast(t('Tarjeta descargada'));
         }
     };
     const shareWeekCard = async () => {
@@ -1036,26 +1038,25 @@ export function App() {
             g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText('TerraUnlock', 224, 110);
             g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText(prefs.nombre.trim() ? 'La semana de ' + prefs.nombre.trim() : 'Mi semana de conquista', 224, 170);
+            g.fillText(prefs.nombre.trim() ? t('La semana de {nombre}', { nombre: prefs.nombre.trim() }) : t('Mi semana de conquista'), 224, 170);
             // rango de la semana (lunes a domingo)
             const now = new Date();
             const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
             const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-            const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
             const rango = mon.getMonth() === sun.getMonth()
-                ? 'del ' + mon.getDate() + ' al ' + sun.getDate() + ' de ' + meses[sun.getMonth()] + ' de ' + sun.getFullYear()
-                : 'del ' + mon.getDate() + ' de ' + meses[mon.getMonth()] + ' al ' + sun.getDate() + ' de ' + meses[sun.getMonth()];
+                ? t('del {d1} de {m1} al {d2} de {m2} de {y}', { d1: mon.getDate(), d2: sun.getDate(), m1: monthName(sun.getMonth()), m2: monthName(sun.getMonth()), y: sun.getFullYear() })
+                : t('del {d1} de {m1} al {d2} de {m2}', { d1: mon.getDate(), m1: monthName(mon.getMonth()), d2: sun.getDate(), m2: monthName(sun.getMonth()) });
             g.fillStyle = '#9fb0c0'; g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText('Semana ' + rango, 60, 250);
+            g.fillText(t('Semana {rango}', { rango }), 60, 250);
             // numeros grandes
             g.fillStyle = '#2dc8aa'; g.font = '800 130px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText('+' + terrN, 60, 420);
             g.font = '700 40px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText(terrN === 1 ? 'territorio nuevo' : 'territorios nuevos', 60, 480);
+            g.fillText(terrN === 1 ? t('territorio nuevo') : t('territorios nuevos'), 60, 480);
             g.fillStyle = '#e8cd6e'; g.font = '800 130px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText('+' + newPeaks.length, 560, 420);
             g.font = '700 40px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText(newPeaks.length === 1 ? 'cima conquistada' : 'cimas conquistadas', 560, 480);
+            g.fillText(newPeaks.length === 1 ? t('cima conquistada') : t('cimas conquistadas'), 560, 480);
             // listado
             const chip = (t: string, x: number, y: number, fg: string, bg: string) => {
                 g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
@@ -1080,12 +1081,12 @@ export function App() {
                 }
                 cy += 78;
             };
-            chipRow('PAISES', terrC, '#7ee0c8', '#123a31');
-            chipRow('COMUNIDADES', terrA, '#e8cd6e', '#2f2a12');
-            chipRow('PROVINCIAS', terrP, '#8fb8d8', '#1a2634');
+            chipRow(t('PAISES'), terrC, '#7ee0c8', '#123a31');
+            chipRow(t('COMUNIDADES'), terrA, '#e8cd6e', '#2f2a12');
+            chipRow(t('PROVINCIAS'), terrP, '#8fb8d8', '#1a2634');
             if (newPeaks.length && cy <= 1060) {
                 g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
-                g.fillText('CIMAS', 60, cy + 34);
+                g.fillText(t('CIMAS'), 60, cy + 34);
                 cy += 56;
                 g.font = '600 31px -apple-system, Segoe UI, Roboto, sans-serif';
                 for (const p of newPeaks.slice(0, 6)) {
@@ -1093,27 +1094,27 @@ export function App() {
                     g.fillStyle = '#e8cd6e'; g.textAlign = 'right'; g.fillText(p[3] + ' m', W - 60, cy + 20); g.textAlign = 'left';
                     cy += 48;
                 }
-                if (newPeaks.length > 6) { g.fillStyle = '#5c7080'; g.fillText('y ' + (newPeaks.length - 6) + ' mas', 60, cy + 20); cy += 48; }
+                if (newPeaks.length > 6) { g.fillStyle = '#5c7080'; g.fillText(t('y {n} mas', { n: newPeaks.length - 6 }), 60, cy + 20); cy += 48; }
                 cy += 10;
             }
             if (!terrN && !newPeaks.length) {
                 g.fillStyle = '#9fb0c0'; g.font = '600 34px -apple-system, Segoe UI, Roboto, sans-serif';
-                g.fillText('Semana tranquila... por ahora. Va a durar poco.', 60, cy + 40);
+                g.fillText(t('Semana tranquila... por ahora. Va a durar poco.'), 60, cy + 40);
                 cy += 80;
             }
             // estado del objetivo
             g.fillStyle = done ? '#123a31' : '#101823';
             g.fillRect(60, 1150, W - 120, 84);
             g.fillStyle = done ? '#2dc8aa' : '#9fb0c0'; g.font = '700 32px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText(done ? 'Objetivo semanal: CUMPLIDO' : 'Objetivo semanal: ' + Math.min(terrN, WEEK_TERR) + '/' + WEEK_TERR + ' territorios - ' + Math.min(newPeaks.length, WEEK_PEAK) + '/' + WEEK_PEAK + ' cimas', 84, 1204);
+            g.fillText(done ? t('Objetivo semanal: CUMPLIDO') : t('Objetivo semanal: {t}/{tt} territorios - {p}/{pp} cimas', { t: Math.min(terrN, WEEK_TERR), tt: WEEK_TERR, p: Math.min(newPeaks.length, WEEK_PEAK), pp: WEEK_PEAK }), 84, 1204);
             g.fillStyle = '#5c7080'; g.font = '600 26px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText('Tu que has conquistado esta semana? davidburgoscarpeno.github.io/TerraUnlock', 60, H - 42);
+            g.fillText(t('Tu que has conquistado esta semana? davidburgoscarpeno.github.io/TerraUnlock'), 60, H - 42);
             const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
-            if (!blob) { setToast('No se pudo generar la tarjeta'); return; }
-            await shareBlob(blob, 'terraunlock-semana.png', 'TerraUnlock: mi semana');
+            if (!blob) { setToast(t('No se pudo generar la tarjeta')); return; }
+            await shareBlob(blob, 'terraunlock-semana.png', t('TerraUnlock: mi semana'));
         } catch (e) {
             if (e instanceof Error && e.name === 'AbortError') return;
-            setToast('No se pudo compartir la tarjeta');
+            setToast(t('No se pudo compartir la tarjeta'));
         }
     };
 
@@ -1155,18 +1156,18 @@ export function App() {
             setAdventures(list); saveJson(ADVS_KEY, list);
             setAdvSummary(done);
             const parts: string[] = [];
-            if (sc.prov.length) parts.push(sc.prov.length + ' provincia' + (sc.prov.length > 1 ? 's' : ''));
-            if (sc.ccaa.length) parts.push(sc.ccaa.length + ' comunidad' + (sc.ccaa.length > 1 ? 'es' : ''));
-            if (sc.countries.length) parts.push(sc.countries.length + ' pais' + (sc.countries.length > 1 ? 'es' : ''));
-            if (sc.peaks.length) parts.push(sc.peaks.length + ' cima' + (sc.peaks.length > 1 ? 's' : ''));
-            if (parts.length) { setBanners((bb) => [...bb, { title: 'Aventura importada', sub: '+' + parts.join(', +') }]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
-        } catch { setToast('No se pudo leer ese GPX'); }
+            if (sc.prov.length) parts.push(t(sc.prov.length > 1 ? '{n} provincias' : '{n} provincia', { n: sc.prov.length }));
+            if (sc.ccaa.length) parts.push(t(sc.ccaa.length > 1 ? '{n} comunidades' : '{n} comunidad', { n: sc.ccaa.length }));
+            if (sc.countries.length) parts.push(t(sc.countries.length > 1 ? '{n} paises' : '{n} pais', { n: sc.countries.length }));
+            if (sc.peaks.length) parts.push(t(sc.peaks.length > 1 ? '{n} cimas' : '{n} cima', { n: sc.peaks.length }));
+            if (parts.length) { setBanners((bb) => [...bb, { title: t('Aventura importada'), sub: '+' + parts.join(', +') }]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
+        } catch { setToast(t('No se pudo leer ese GPX')); }
     };
 
     // v1.13: exportar la aventura a GPX (descarga directa; el share sheet de movil no acepta bien .gpx)
     const exportGpx = async (adv: Adventure) => {
         try {
-            if (!adv.track || adv.track.length < 2) { setToast('Esta aventura no tiene track GPS para exportar'); return; }
+            if (!adv.track || adv.track.length < 2) { setToast(t('Esta aventura no tiene track GPS para exportar')); return; }
             let prof = adv.profile || null;
             if (!prof && !adv.noProfile) {
                 try { prof = await computeProfile(adv.track); saveProfile(adv.start, prof); } catch { prof = null; }
@@ -1177,8 +1178,8 @@ export function App() {
             a.href = URL.createObjectURL(blob);
             a.download = gpxFilename(adv);
             a.click();
-            setToast('GPX descargado: listo para Strava, Garmin o Wikiloc');
-        } catch { setToast('No se pudo exportar el GPX'); }
+            setToast(t('GPX descargado: listo para Strava, Garmin o Wikiloc'));
+        } catch { setToast(t('No se pudo exportar el GPX')); }
     };
 
     const shareAdventureCard = async (adv: Adventure) => {
@@ -1203,15 +1204,15 @@ export function App() {
             g.fillText('TerraUnlock', 224, 110);
             g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
             const fecha = new Date(adv.start);
-            g.fillText((adv.name ? adv.name + ' - ' : (prefs.nombre.trim() ? 'Aventura de ' + prefs.nombre.trim() : 'Mi aventura') + ' - ') + fecha.toLocaleDateString('es-ES'), 224, 170);
+            g.fillText((adv.name ? adv.name + ' - ' : (prefs.nombre.trim() ? t('Aventura de {nombre}', { nombre: prefs.nombre.trim() }) : t('Mi aventura')) + ' - ') + fecha.toLocaleDateString(dateLocale()), 224, 170);
             // cifras grandes
             g.fillStyle = '#2dc8aa'; g.font = '800 120px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText(fmtDist(adv.km), 60, 330);
             const horas = Math.max(0, (new Date(adv.end).getTime() - fecha.getTime()) / 3600000);
             const dur = horas >= 1 ? Math.floor(horas) + ' h ' + Math.round((horas % 1) * 60) + ' min' : Math.round(horas * 60) + ' min';
             // fila de cajas de stats
-            const boxes: [string, string][] = [['PUNTOS GPS', String(adv.points)], ['DURACION', dur]];
-            if (prof) { boxes.push(['SUBIDA', '+' + prof.up + ' m']); boxes.push(['BAJADA', '-' + prof.down + ' m']); }
+            const boxes: [string, string][] = [[t('PUNTOS GPS'), String(adv.points)], [t('DURACION'), dur]];
+            if (prof) { boxes.push([t('SUBIDA'), '+' + prof.up + ' m']); boxes.push([t('BAJADA'), '-' + prof.down + ' m']); }
             const bw = (W - 120 - (boxes.length - 1) * 18) / boxes.length;
             boxes.forEach(([lab, val], i) => {
                 const bx = 60 + i * (bw + 18);
@@ -1256,13 +1257,13 @@ export function App() {
                 }
                 cy += 78;
             };
-            chipRow2('PAISES', terrC, '#7ee0c8', '#123a31');
-            chipRow2('COMUNIDADES', terrA, '#e8cd6e', '#2f2a12');
-            chipRow2('PROVINCIAS', terrP, '#8fb8d8', '#1a2634');
+            chipRow2(t('PAISES'), terrC, '#7ee0c8', '#123a31');
+            chipRow2(t('COMUNIDADES'), terrA, '#e8cd6e', '#2f2a12');
+            chipRow2(t('PROVINCIAS'), terrP, '#8fb8d8', '#1a2634');
             if (adv.peaks.length && cy <= 1100) {
                 const pks = adv.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
                 g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
-                g.fillText('CIMAS', 60, cy + 34);
+                g.fillText(t('CIMAS'), 60, cy + 34);
                 cy += 56;
                 g.font = '600 31px -apple-system, Segoe UI, Roboto, sans-serif';
                 for (const p of pks.slice(0, 4)) {
@@ -1273,16 +1274,16 @@ export function App() {
             }
             if (!terrC.length && !terrA.length && !terrP.length && !adv.peaks.length) {
                 g.fillStyle = '#9fb0c0'; g.font = '600 32px -apple-system, Segoe UI, Roboto, sans-serif';
-                g.fillText('Ruta sin desbloqueos nuevos: terreno ya conquistado.', 60, cy + 30);
+                g.fillText(t('Ruta sin desbloqueos nuevos: terreno ya conquistado.'), 60, cy + 30);
             }
             g.fillStyle = '#5c7080'; g.font = '600 26px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText('A que no tienes una aventura mejor? davidburgoscarpeno.github.io/TerraUnlock', 60, H - 42);
+            g.fillText(t('A que no tienes una aventura mejor? davidburgoscarpeno.github.io/TerraUnlock'), 60, H - 42);
             const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
-            if (!blob) { setToast('No se pudo generar la tarjeta'); return; }
-            await shareBlob(blob, 'terraunlock-aventura.png', 'TerraUnlock: mi aventura');
+            if (!blob) { setToast(t('No se pudo generar la tarjeta')); return; }
+            await shareBlob(blob, 'terraunlock-aventura.png', t('TerraUnlock: mi aventura'));
         } catch (e) {
             if (e instanceof Error && e.name === 'AbortError') return;
-            setToast('No se pudo compartir la tarjeta');
+            setToast(t('No se pudo compartir la tarjeta'));
         }
     };
 
@@ -1297,7 +1298,7 @@ export function App() {
     const setAvatar = (url: string) => {
         setAvatarState(url);
         try { if (url) localStorage.setItem(AVATAR_KEY, url); else localStorage.removeItem(AVATAR_KEY); }
-        catch { setToast('Foto demasiado grande para guardar en este dispositivo'); }
+        catch { setToast(t('Foto demasiado grande para guardar en este dispositivo')); }
     };
     const processAvatar = (file: File) => {
         const rd = new FileReader();
@@ -1310,7 +1311,7 @@ export function App() {
                 g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 256, 256);
                 setAvatar(cv.toDataURL('image/jpeg', 0.85));
             };
-            img.onerror = () => setToast('No se pudo leer esa imagen');
+            img.onerror = () => setToast(t('No se pudo leer esa imagen'));
             img.src = String(rd.result);
         };
         rd.readAsDataURL(file);
@@ -1362,7 +1363,7 @@ export function App() {
             const lat1 = ref[0] * Math.PI / 180, lat2 = to[0] * Math.PI / 180, dLon = (to[1] - ref[1]) * Math.PI / 180;
             const y = Math.sin(dLon) * Math.cos(lat2);
             const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-            return ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360 / 45) % 8];
+            return compass8(x, y);
         };
         const distToRegion = (rg: Region) => {
             let best = Infinity;
@@ -1417,8 +1418,8 @@ export function App() {
                 id: 'weekly-' + weekly.week,
                 title: 'Objetivo semanal cumplido',
                 hint: newPeaks >= WEEK_PEAK
-                    ? 'Has conquistado ' + newPeaks + (newPeaks === 1 ? ' cima' : ' cimas') + ' esta semana'
-                    : 'Has desbloqueado ' + newTerr + ' territorios nuevos esta semana',
+                    ? t(newPeaks === 1 ? 'Has conquistado {n} cima esta semana' : 'Has conquistado {n} cimas esta semana', { n: newPeaks })
+                    : t('Has desbloqueado {n} territorios nuevos esta semana', { n: newTerr }),
                 test: () => true,
             }]);
             // v1.15: racha de semanas cumpliendo el objetivo
@@ -1449,7 +1450,7 @@ export function App() {
         const p = progressRef.current;
         const a: ActiveAdventure = { start: new Date().toISOString(), km: 0, points: 0, countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks, points0: p.points.length, times: [] };
         advRef.current = a; setAdv(a); saveJson(ADV_ACTIVE_KEY, a);
-        setToast('Aventura empezada: sal a conquistar');
+        setToast(t('Aventura empezada: sal a conquistar'));
     };
     const endAdventure = () => {
         const a = advRef.current;
@@ -1505,7 +1506,7 @@ export function App() {
     return <div className="tu-app">
         {tab === 'mapa' ? <>
             <header className="tu-header">
-                <div className="tu-header-row"><h1 className="tu-h1-av">{avatar ? <img className="tu-avatar-sm" src={avatar} alt="" /> : null}{prefs.nombre ? 'Hola, ' + prefs.nombre : 'TerraUnlock'}</h1><span className="tu-fact">{fmtAreaShort(progress.cells.length * 1.1)} revelados</span>{streak.count >= 2 ? <span className="tu-streak">Racha: {streak.count} dias</span> : null}</div>
+                <div className="tu-header-row"><h1 className="tu-h1-av">{avatar ? <img className="tu-avatar-sm" src={avatar} alt="" /> : null}{prefs.nombre ? t('Hola, {nombre}', { nombre: prefs.nombre }) : 'TerraUnlock'}</h1><span className="tu-fact">{t('{km2} revelados', { km2: fmtAreaShort(progress.cells.length * 1.1) })}</span>{streak.count >= 2 ? <span className="tu-streak">{t('Racha: {n} dias', { n: streak.count })}</span> : null}</div>
             </header>
 
         <div className="tu-mapwrap" ref={wrapRef}>
@@ -1518,10 +1519,10 @@ export function App() {
                 onPointerCancel={onPointerUp}
             />
             <div className="tu-hud">
-                <span>Paises {progress.countries.length}/{COUNTRIES.length}</span>
+                <span>{t('Paises')} {progress.countries.length}/{COUNTRIES.length}</span>
                 <span>CCAA {progress.ccaa.length}/{CCAA.length}</span>
-                <span>Prov {progress.prov.length}/{PROV.length}</span>
-                <span>Cimas {progress.peaks.length}</span>
+                <span>{t('Prov')} {progress.prov.length}/{PROV.length}</span>
+                <span>{t('Cimas')} {progress.peaks.length}</span>
             </div>
             {nearestPeak ? <div className="tu-peaknear">{'▲'} {nearestPeak.p[0]} · {fmtDist(nearestPeak.d / 1000)}</div> : null}
             {scaleBar ? <div className="tu-scalebar"><span>{scaleBar.label}</span><i style={{ width: scaleBar.w }} /></div> : null}
@@ -1529,12 +1530,12 @@ export function App() {
         </div>
 
         <div className="tu-controls">
-            <button className="file-button is-compact" data-variant={gpsOn ? 'primary' : 'secondary'} onClick={() => setGpsOn(!gpsOn)}>{gpsOn ? 'GPS activado' : 'Activar GPS'}</button>
-            <button className="file-button is-compact" data-variant="secondary" onClick={centerOnMe}>Centrar en mi</button>
-            <button className="file-button is-compact" data-variant={simMode ? 'primary' : 'secondary'} onClick={() => setSimMode(!simMode)}>{simMode ? 'Modo prueba: ON' : 'Modo prueba'}</button>
+            <button className="file-button is-compact" data-variant={gpsOn ? 'primary' : 'secondary'} onClick={() => setGpsOn(!gpsOn)}>{gpsOn ? t('GPS activado') : t('Activar GPS')}</button>
+            <button className="file-button is-compact" data-variant="secondary" onClick={centerOnMe}>{t('Centrar en mi')}</button>
+            <button className="file-button is-compact" data-variant={simMode ? 'primary' : 'secondary'} onClick={() => setSimMode(!simMode)}>{simMode ? t('Modo prueba: ON') : t('Modo prueba')}</button>
             <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, 1)}>+</button>
             <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, -1)}>-</button>
-            {!adv ? <button className="file-button is-compact" data-variant="primary" onClick={startAdventure}>Empezar aventura</button> : null}
+            {!adv ? <button className="file-button is-compact" data-variant="primary" onClick={startAdventure}>{t('Empezar aventura')}</button> : null}
         </div>
 
         {(() => {
@@ -1543,67 +1544,67 @@ export function App() {
             const done = terr >= WEEK_TERR || peaks >= WEEK_PEAK;
             const left = daysLeftThisWeek(new Date());
             return <div className={done ? 'tu-callout tu-week done' : 'tu-callout tu-week'}>
-                <strong>{done ? 'Objetivo semanal cumplido' : 'Objetivo de la semana'} <small style={{ fontWeight: 400, opacity: 0.75 }}>{done ? 'a por la siguiente' : left === 0 ? 'hoy es el ultimo dia' : 'quedan ' + left + (left === 1 ? ' dia' : ' dias')}{weekStreak.count > 0 ? ' - racha: ' + weekStreak.count + (weekStreak.count === 1 ? ' semana' : ' semanas') : ''}</small></strong>
-                <p>Desbloquea {WEEK_TERR} territorios nuevos o conquista {WEEK_PEAK} cima antes del lunes.</p>
+                <strong>{done ? t('Objetivo semanal cumplido') : t('Objetivo de la semana')} <small style={{ fontWeight: 400, opacity: 0.75 }}>{done ? t('a por la siguiente') : left === 0 ? t('hoy es el ultimo dia') : t(left === 1 ? 'quedan 1 dia' : 'quedan {n} dias', { n: left })}{weekStreak.count > 0 ? t(weekStreak.count === 1 ? ' - racha: {n} semana' : ' - racha: {n} semanas', { n: weekStreak.count }) : ''}</small></strong>
+                <p>{t('Desbloquea {t} territorios nuevos o conquista {p} cima antes del lunes.', { t: WEEK_TERR, p: WEEK_PEAK })}</p>
                 <div className="tu-weekbars">
-                    <span className="tu-weeklbl">Territorios {Math.min(terr, WEEK_TERR)}/{WEEK_TERR}</span>
+                    <span className="tu-weeklbl">{t('Territorios')} {Math.min(terr, WEEK_TERR)}/{WEEK_TERR}</span>
                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, terr / WEEK_TERR * 100).toFixed(0) + '%' }} /></span>
-                    <span className="tu-weeklbl">Cimas {Math.min(peaks, WEEK_PEAK)}/{WEEK_PEAK}</span>
+                    <span className="tu-weeklbl">{t('Cimas')} {Math.min(peaks, WEEK_PEAK)}/{WEEK_PEAK}</span>
                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#e8cd6e', width: Math.min(100, peaks / WEEK_PEAK * 100).toFixed(0) + '%' }} /></span>
                 </div>
-                <div className="tu-controls" style={{ marginTop: 8 }}><button className="file-button is-compact" data-variant="secondary" onClick={shareWeekCard}>Compartir mi semana</button></div>
+                <div className="tu-controls" style={{ marginTop: 8 }}><button className="file-button is-compact" data-variant="secondary" onClick={shareWeekCard}>{t('Compartir mi semana')}</button></div>
             </div>;
         })()}
 
         {adv ? <div className="tu-callout tu-advpanel">
-            <strong>Aventura en curso</strong>
-            <p>{fmtDist(adv.km)} · {advElapsed} · {adv.points} puntos · +{progress.countries.length - adv.countries0.length} paises, +{progress.ccaa.length - adv.ccaa0.length} CCAA, +{progress.prov.length - adv.prov0.length} prov, +{progress.peaks.length - adv.peaks0.length} cimas</p>
-            <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={endAdventure}>Terminar aventura</button></div>
+            <strong>{t('Aventura en curso')}</strong>
+            <p>{t('{km} - {elapsed} - {n} puntos - +{c} paises, +{a} CCAA, +{p} prov, +{k} cimas', { km: fmtDist(adv.km), elapsed: advElapsed, n: adv.points, c: progress.countries.length - adv.countries0.length, a: progress.ccaa.length - adv.ccaa0.length, p: progress.prov.length - adv.prov0.length, k: progress.peaks.length - adv.peaks0.length }).replace(/ - /g, ' · ')}</p>
+            <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={endAdventure}>{t('Terminar aventura')}</button></div>
         </div> : null}
         {gpsMsg ? <div className="tu-callout tu-warn"><strong>GPS</strong><p>{gpsMsg}</p></div> : null}
-        {simMode ? <div className="tu-callout"><strong>Modo prueba</strong><p>Toca cualquier punto del mapa para simular que has estado ahi: revela niebla y desbloquea igual que el GPS.</p></div> : null}
+        {simMode ? <div className="tu-callout"><strong>{t('Modo prueba')}</strong><p>{t('Toca cualquier punto del mapa para simular que has estado ahi: revela niebla y desbloquea igual que el GPS.')}</p></div> : null}
 
         {importBatch ? (
             <div className="tu-callout">
-                <strong>{importBatch.tracksOk > 1 ? importBatch.tracksOk + ' actividades listas' : importBatch.scans[0]?.name}</strong>
-                <p>{importBatch.tracksOk > 1 ? importBatch.totalKm.toFixed(1) + ' km en total' : importBatch.scans[0] ? importBatch.scans[0].pts.length + ' puntos, ' + importBatch.scans[0].km.toFixed(1) + ' km' : ''}. Va a revelar la niebla de todo el recorrido y desbloqueara: {(() => {
+                <strong>{importBatch.tracksOk > 1 ? t('{n} actividades listas', { n: importBatch.tracksOk }) : importBatch.scans[0]?.name}</strong>
+                <p>{importBatch.tracksOk > 1 ? t('{km} km en total', { km: dec(importBatch.totalKm) }) : importBatch.scans[0] ? t('{n} puntos, {km} km', { n: importBatch.scans[0].pts.length, km: dec(importBatch.scans[0].km) }) : ''}. {t('Va a revelar la niebla de todo el recorrido y desbloqueara: {lista}.', { lista: (() => {
                     const p0 = progress;
                     const names = [...new Set([...importBatch.work.countries.slice(p0.countries.length), ...importBatch.work.ccaa.slice(p0.ccaa.length), ...importBatch.work.prov.slice(p0.prov.length)])];
                     const pk = importBatch.work.peaks.length - p0.peaks.length;
-                    return names.length + pk ? names.join(', ') + (pk ? ' y ' + pk + ' cimas' : '') : 'nada nuevo (zona ya desbloqueada)';
-                })()}.{importBatch.failed ? ' (' + importBatch.failed + ' archivos no se pudieron leer)' : ''}</p>
+                    return names.length + pk ? names.join(', ') + (pk ? t(' y {n} cimas', { n: pk }) : '') : t('nada nuevo (zona ya desbloqueada)');
+                })() })}{importBatch.failed ? t(' ({n} archivos no se pudieron leer)', { n: importBatch.failed }) : ''}</p>
                 <div className="tu-controls">
-                    <button className="file-button is-compact" data-variant="primary" onClick={applyBatch}>{importBatch.tracksOk > 1 ? 'Aplicar lote' : 'Aplicar ruta'}</button>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportBatch(null)}>Cancelar</button>
+                    <button className="file-button is-compact" data-variant="primary" onClick={applyBatch}>{importBatch.tracksOk > 1 ? t('Aplicar lote') : t('Aplicar ruta')}</button>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportBatch(null)}>{t('Cancelar')}</button>
                 </div>
             </div>
         ) : null}
 
-        <section className="tu-group"><h2>Te falta cerca</h2>
-            <p className="tu-more">Sin conquistar en 150 km {lastPos ? 'desde tu posicion' : 'desde el centro del mapa'}.</p>
+        <section className="tu-group"><h2>{t('Te falta cerca')}</h2>
+            <p className="tu-more">{t('Sin conquistar en 150 km {origen}.', { origen: lastPos ? t('desde tu posicion') : t('desde el centro del mapa') })}</p>
             {nearMissing.length ? (
                 <ol className="tu-miss">
                     {nearMissing.map((m) => (
                         <li key={m.level + m.name}>
                             <button className="tu-missrow" onClick={() => { setSelectedPeak(null); setViewPersist({ lon: m.lon, lat: m.lat, z: m.level === 'Provincia' ? 8 : 6 }); }}>
                                 <b>{m.name}</b>
-                                <span>{m.level} · {m.d < 2000 ? 'aqui mismo' : fmtDist(m.d / 1000)} · {m.dir}</span>
+                                <span>{t(m.level)} · {m.d < 2000 ? t('aqui mismo') : fmtDist(m.d / 1000)} · {m.dir}</span>
                             </button>
                         </li>
                     ))}
                 </ol>
-            ) : <div className="tu-callout"><strong>Zona dominada</strong><p>No te queda nada sin conquistar en 150 km a la redonda.</p></div>}
+            ) : <div className="tu-callout"><strong>{t('Zona dominada')}</strong><p>{t('No te queda nada sin conquistar en 150 km a la redonda.')}</p></div>}
         </section>
 
         {selectedPeak ? (
             <div className="tu-callout">
                 <strong>{selectedPeak[0]} <small style={{ fontWeight: 400, opacity: 0.75 }}>{selectedPeak[3]} m</small></strong>
                 <p>{progress.peaks.includes(peakId(selectedPeak))
-                    ? 'Cima conquistada. Buen trabajo.'
-                    : 'Aun sin conquistar: pasa a menos de 1 km de la cima para que cuente.'}</p>
+                    ? t('Cima conquistada. Buen trabajo.')
+                    : t('Aun sin conquistar: pasa a menos de 1 km de la cima para que cuente.')}</p>
                 <div className="tu-controls">
-                    <a className="file-button is-compact" data-variant="primary" href={wikilocMapUrl(selectedPeak)} target="_blank" rel="noopener noreferrer">Rutas en Wikiloc</a>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedPeak(null)}>Cerrar</button>
+                    <a className="file-button is-compact" data-variant="primary" href={wikilocMapUrl(selectedPeak)} target="_blank" rel="noopener noreferrer">{t('Rutas en Wikiloc')}</a>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedPeak(null)}>{t('Cerrar')}</button>
                 </div>
                 <TerrainCard peak={selectedPeak} />
             </div>
@@ -1613,9 +1614,9 @@ export function App() {
             <div className="tu-callout">
                 <strong>{selectedRegion.pv || selectedRegion.a || selectedRegion.c}</strong>
                 <div>{([
-                    ['Pais', selectedRegion.c, COUNTRIES.find((r) => r.n === selectedRegion.c), progress.countries],
-                    ['Comunidad', selectedRegion.a, CCAA.find((r) => r.n === selectedRegion.a), progress.ccaa],
-                    ['Provincia', selectedRegion.pv, PROV.find((r) => r.n === selectedRegion.pv), progress.prov],
+                    [t('Pais'), selectedRegion.c, COUNTRIES.find((r) => r.n === selectedRegion.c), progress.countries],
+                    [t('Comunidad'), selectedRegion.a, CCAA.find((r) => r.n === selectedRegion.a), progress.ccaa],
+                    [t('Provincia'), selectedRegion.pv, PROV.find((r) => r.n === selectedRegion.pv), progress.prov],
                 ] as [string, string | null, Region | undefined, string[]][]).map(([lvl, name, rg, unlocked]) => {
                     if (!name || !rg) return null;
                     const rev = regionRevealedCells(rg, progress.cells);
@@ -1623,8 +1624,8 @@ export function App() {
                     return <div key={lvl} className="tu-regionrow">
                         <span className="tu-regionlvl">{lvl}</span>
                         <span className="tu-regionname">{name}</span>
-                        <span className={unlocked.includes(name) ? 'tu-regionst on' : 'tu-regionst'}>{unlocked.includes(name) ? 'Conquistada' : 'Sin conquistar'}</span>
-                        {rev > 0 ? <span className="tu-regionpct">{pct.toFixed(1).replace('.', ',')}% revelado</span> : null}
+                        <span className={unlocked.includes(name) ? 'tu-regionst on' : 'tu-regionst'}>{unlocked.includes(name) ? t('Conquistada') : t('Sin conquistar')}</span>
+                        {rev > 0 ? <span className="tu-regionpct">{t('{pct}% revelado', { pct: dec(pct) })}</span> : null}
                     </div>;
                 })}</div>
                 {(() => {
@@ -1636,29 +1637,29 @@ export function App() {
                         const inside = peaksInRegion(rgPv, allPeaks);
                         const rest = inside.filter((p) => !progress.peaks.includes(peakId(p))).sort((x, y) => y[3] - x[3]);
                         return <div className="tu-break">
-                            <div className="tu-breaktitle">Cimas en {rgPv.n}: {inside.length - rest.length} de {inside.length} conquistadas</div>
+                            <div className="tu-breaktitle">{t('Cimas en {n}: {won} de {total} conquistadas', { n: rgPv.n, won: inside.length - rest.length, total: inside.length })}</div>
                             {rest.length ? <ol className="tu-peaklist">{rest.slice(0, 6).map((p) => <li key={peakId(p)}>
                                 <span className="tu-pkname">{p[0]}</span><span className="tu-pkele">{p[3]} m</span>
-                                <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                                <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
                             </li>)}</ol> : null}
-                            {!rest.length && inside.length ? <div className="tu-terrnote">Todas las cimas de la provincia conquistadas.</div> : null}
-                            {!inside.length ? <div className="tu-terrnote">No hay cimas del catalogo en esta provincia.</div> : null}
-                            {rest.length > 6 ? <div className="tu-terrnote">y {rest.length - 6} mas sin conquistar</div> : null}
+                            {!rest.length && inside.length ? <div className="tu-terrnote">{t('Todas las cimas de la provincia conquistadas.')}</div> : null}
+                            {!inside.length ? <div className="tu-terrnote">{t('No hay cimas del catalogo en esta provincia.')}</div> : null}
+                            {rest.length > 6 ? <div className="tu-terrnote">{t('y {n} mas sin conquistar', { n: rest.length - 6 })}</div> : null}
                         </div>;
                     }
                     const lista = rgA ? PROV.filter((p) => provToCcaa(p) === rgA.n).map((p) => ({ rg: p, won: progress.prov.includes(p.n), z: 8, go: () => { setSelectedRegion({ c, a, pv: p.n }); setViewPersist({ lon: p.c[0], lat: p.c[1], z: 8 }); } }))
                         : rgC && rgC.n === 'España' ? CCAA.map((g) => ({ rg: g, won: progress.ccaa.includes(g.n), z: 6, go: () => { setSelectedRegion({ c, a: g.n, pv: null }); setViewPersist({ lon: g.c[0], lat: g.c[1], z: 6 }); } }))
                         : null;
                     if (lista) {
-                        const titulo = rgA ? 'Provincias de ' + rgA.n : 'Comunidades de España';
+                        const titulo = rgA ? t('Provincias de {n}', { n: rgA.n }) : t('Comunidades de España');
                         return <div className="tu-break">
-                            <div className="tu-breaktitle">{titulo}: {lista.filter((x) => x.won).length} de {lista.length} conquistadas</div>
+                            <div className="tu-breaktitle">{t('{titulo}: {won} de {total} conquistadas', { titulo, won: lista.filter((x) => x.won).length, total: lista.length })}</div>
                             {lista.map((x) => {
                                 const rev = regionRevealedCells(x.rg, progress.cells);
                                 const pct = Math.min(100, rev / regionTotalCells(x.rg) * 100);
                                 return <button key={x.rg.n} className="tu-breakrow" onClick={x.go}>
                                     <span className="tu-breakname">{x.rg.n}</span>
-                                    <span className={x.won ? 'tu-regionst on' : 'tu-regionst'}>{x.won ? 'Conquistada' : pct.toFixed(1).replace('.', ',') + '% revelado'}</span>
+                                    <span className={x.won ? 'tu-regionst on' : 'tu-regionst'}>{x.won ? t('Conquistada') : t('{pct}% revelado', { pct: dec(pct) })}</span>
                                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.max(pct, pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></span>
                                 </button>;
                             })}
@@ -1668,187 +1669,187 @@ export function App() {
                         const inside = peaksInRegion(rgC, allPeaks);
                         const rest = inside.filter((p) => !progress.peaks.includes(peakId(p))).sort((x, y) => y[3] - x[3]);
                         return <div className="tu-break">
-                            <div className="tu-breaktitle">Cimas en {rgC.n}: {inside.length - rest.length} de {inside.length} conquistadas</div>
+                            <div className="tu-breaktitle">{t('Cimas en {n}: {won} de {total} conquistadas', { n: rgC.n, won: inside.length - rest.length, total: inside.length })}</div>
                             {rest.length ? <ol className="tu-peaklist">{rest.slice(0, 6).map((p) => <li key={peakId(p)}>
                                 <span className="tu-pkname">{p[0]}</span><span className="tu-pkele">{p[3]} m</span>
-                                <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                                <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
                             </li>)}</ol> : null}
-                            {rest.length > 6 ? <div className="tu-terrnote">y {rest.length - 6} mas sin conquistar</div> : null}
+                            {rest.length > 6 ? <div className="tu-terrnote">{t('y {n} mas sin conquistar', { n: rest.length - 6 })}</div> : null}
                         </div>;
                     }
                     return null;
                 })()}
                 <div className="tu-controls">
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedRegion(null)}>Cerrar</button>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedRegion(null)}>{t('Cerrar')}</button>
                 </div>
             </div>
         ) : null}
         </> : null}
 
         {tab === 'progreso' ? <>
-            <section className="tu-group"><h2>Tu progreso</h2>
+            <section className="tu-group"><h2>{t('Tu progreso')}</h2>
                 <dl className="tu-factsdl">{([
-                    { label: 'Superficie revelada', value: '~' + fmtAreaShort(progress.cells.length * 1.1), pct: null },
-                    { label: 'Paises', value: progress.countries.length + ' de ' + COUNTRIES.length + ' (' + (progress.countries.length / COUNTRIES.length * 100).toFixed(1).replace('.', ',') + '%)', pct: progress.countries.length / COUNTRIES.length },
-                    { label: 'Comunidades (ES)', value: progress.ccaa.length + ' de ' + CCAA.length + ' (' + (progress.ccaa.length / CCAA.length * 100).toFixed(1).replace('.', ',') + '%)', pct: progress.ccaa.length / CCAA.length },
-                    { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length + ' (' + (progress.prov.length / PROV.length * 100).toFixed(1).replace('.', ',') + '%)', pct: progress.prov.length / PROV.length },
-                    { label: 'Cimas conquistadas', value: progress.peaks.length + ' de ' + allPeaks.length, pct: allPeaks.length > 0 ? progress.peaks.length / allPeaks.length : 0 },
-                    { label: 'Puntos GPS', value: String(progress.points.length), pct: null },
-                    { label: 'Racha', value: streak.count > 0 ? streak.count + (streak.count === 1 ? ' dia' : ' dias') : '-', pct: null },
+                    { label: t('Superficie revelada'), value: '~' + fmtAreaShort(progress.cells.length * 1.1), pct: null },
+                    { label: t('Paises'), value: t('{n} de {total}', { n: progress.countries.length, total: COUNTRIES.length }) + ' (' + dec(progress.countries.length / COUNTRIES.length * 100) + '%)', pct: progress.countries.length / COUNTRIES.length },
+                    { label: t('Comunidades (ES)'), value: t('{n} de {total}', { n: progress.ccaa.length, total: CCAA.length }) + ' (' + dec(progress.ccaa.length / CCAA.length * 100) + '%)', pct: progress.ccaa.length / CCAA.length },
+                    { label: t('Provincias (ES)'), value: t('{n} de {total}', { n: progress.prov.length, total: PROV.length }) + ' (' + dec(progress.prov.length / PROV.length * 100) + '%)', pct: progress.prov.length / PROV.length },
+                    { label: t('Cimas conquistadas'), value: t('{n} de {total}', { n: progress.peaks.length, total: allPeaks.length }), pct: allPeaks.length > 0 ? progress.peaks.length / allPeaks.length : 0 },
+                    { label: t('Puntos GPS'), value: String(progress.points.length), pct: null },
+                    { label: t('Racha'), value: streak.count > 0 ? t(streak.count === 1 ? '{n} dia' : '{n} dias', { n: streak.count }) : '-', pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
-                <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>Compartir mi mapa</button><button className="file-button" data-variant="primary" onClick={shareWeekCard}>Compartir mi semana</button></div>
+                <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>{t('Compartir mi mapa')}</button><button className="file-button" data-variant="primary" onClick={shareWeekCard}>{t('Compartir mi semana')}</button></div>
             </section>
 
-            {ccaaRanking.length ? <section className="tu-group"><h2>Comunidades mas dominadas</h2>
+            {ccaaRanking.length ? <section className="tu-group"><h2>{t('Comunidades mas dominadas')}</h2>
                 <ol className="tu-peaklist tu-peaklist-full">
                     {ccaaRanking.map((r, i) => <li key={r.n}>
                         <span className="tu-num">{i + 1}</span>
-                        <span className="tu-pkname">{r.n}<small>{progress.ccaa.includes(r.n) ? 'Conquistada' : 'Sin conquistar'}</small></span>
+                        <span className="tu-pkname">{r.n}<small>{progress.ccaa.includes(r.n) ? t('Conquistada') : t('Sin conquistar')}</small></span>
                         <span className="tu-pkele">{r.pct.toFixed(1).replace('.', ',')}%</span>
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => { setSelectedPeak(null); setSelectedRegion({ c: 'España', a: r.n, pv: null }); setViewPersist({ lon: r.c[0], lat: r.c[1], z: 6 }); setTab('mapa'); }}>Ver</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => { setSelectedPeak(null); setSelectedRegion({ c: 'España', a: r.n, pv: null }); setViewPersist({ lon: r.c[0], lat: r.c[1], z: 6 }); setTab('mapa'); }}>{t('Ver')}</button>
                     </li>)}
                 </ol>
-                <div className="tu-terrnote">Porcentaje de superficie revelada dentro de cada comunidad. Toca "Ver" para abrirla en el mapa.</div>
+                <div className="tu-terrnote">{t('Porcentaje de superficie revelada dentro de cada comunidad. Toca "Ver" para abrirla en el mapa.')}</div>
             </section> : null}
 
-            <section className="tu-group"><h2>Logros</h2>
+            <section className="tu-group"><h2>{t('Logros')}</h2>
                 <div className="tu-ach-grid">
                     {ACHIEVEMENTS.map((a) => { const at = achUnlocked[a.id]; return (
                         <div key={a.id} className={'tu-ach' + (at ? ' on' : '')}>
-                            <b>{at ? '★ ' : ''}{a.title}</b>
-                            <small>{at ? new Date(at).toLocaleDateString('es-ES') : a.hint}</small>
+                            <b>{at ? '★ ' : ''}{t(a.title)}</b>
+                            <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}</small>
                         </div>); })}
                 </div>
             </section>
 
-            <section className="tu-group"><h2>Aventuras</h2>
-                <div className="tu-terrnote" style={{ marginBottom: 6 }}>{adventures.length ? 'Toca una aventura para ver su perfil de elevacion.' : 'Aun no hay aventuras: empieza una desde el mapa o importa un GPX.'}</div>
+            <section className="tu-group"><h2>{t('Aventuras')}</h2>
+                <div className="tu-terrnote" style={{ marginBottom: 6 }}>{adventures.length ? t('Toca una aventura para ver su perfil de elevacion.') : t('Aun no hay aventuras: empieza una desde el mapa o importa un GPX.')}</div>
                 <div className="tu-controls" style={{ marginBottom: 8 }}>
-                    <label className="file-button is-compact" data-variant="secondary">Importar GPX como aventura
+                    <label className="file-button is-compact" data-variant="secondary">{t('Importar GPX como aventura')}
                         <input type="file" accept=".gpx,application/gpx+xml" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) importGpxAdventure(f); e.target.value = ''; }} />
                     </label>
                 </div>
                 {adventures.length ? <ol className="tu-peaklist tu-advlist">
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
-                        <span className="tu-pkname">{a.name || new Date(a.start).toLocaleDateString('es-ES')}{a.name ? <small>{new Date(a.start).toLocaleDateString('es-ES')}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
+                        <span className="tu-pkname">{a.name || new Date(a.start).toLocaleDateString(dateLocale())}{a.name ? <small>{new Date(a.start).toLocaleDateString(dateLocale())}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || t('Sin desbloqueos nuevos')}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt('Nombre de la aventura', a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>Renombrar</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm('Borrar esta aventura? El territorio revelado se queda como esta.')) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast('Aventura borrada'); } }}>Borrar</button></span></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
                     </li>)}
                 </ol> : null}
             </section>
 
-            {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
+            {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>{t('Territorio desbloqueado')}</h2>
                 <div className="tu-chips">
                     {progress.countries.map((n) => <span key={'c' + n} className="tu-chip">{n}</span>)}
                     {progress.ccaa.map((n) => <span key={'a' + n} className="tu-chip tu-chip-2">{n}</span>)}
                     {progress.prov.map((n) => <span key={'p' + n} className="tu-chip tu-chip-3">{n}</span>)}
                 </div>
-            </section> : <section className="tu-group"><div className="tu-callout"><strong>Aun sin territorio</strong><p>Activa el GPS en la pestana Mapa o usa el modo prueba para desbloquear tu primera zona.</p></div></section>}
+            </section> : <section className="tu-group"><div className="tu-callout"><strong>{t('Aun sin territorio')}</strong><p>{t('Activa el GPS en la pestana Mapa o usa el modo prueba para desbloquear tu primera zona.')}</p></div></section>}
         </> : null}
 
         {tab === 'cimas' ? <>
-            <section className="tu-group"><h2>Buscar cimas</h2>
-                <input className="tu-input tu-input-full" type="search" placeholder="Nombre de la cima (min. 2 letras)" value={peakQuery} onChange={(e) => setPeakQuery(e.target.value)} />
+            <section className="tu-group"><h2>{t('Buscar cimas')}</h2>
+                <input className="tu-input tu-input-full" type="search" placeholder={t('Nombre de la cima (min. 2 letras)')} value={peakQuery} onChange={(e) => setPeakQuery(e.target.value)} />
                 {peakQuery.trim().length >= 2 ? (
                     peakResults.length ? <ol className="tu-peaklist tu-peaklist-full">
                         {peakResults.map((p) => <li key={peakId(p)}>
-                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? 'Conquistada' : 'Sin conquistar'}</small></span>
+                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? t('Conquistada') : t('Sin conquistar')}</small></span>
                             <span className="tu-pkele">{p[3]} m</span>
-                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
                         </li>)}
-                    </ol> : <div className="tu-callout"><strong>Sin resultados</strong><p>Prueba con otro nombre: el buscador ignora tildes y mayusculas.</p></div>
+                    </ol> : <div className="tu-callout"><strong>{t('Sin resultados')}</strong><p>{t('Prueba con otro nombre: el buscador ignora tildes y mayusculas.')}</p></div>
                 ) : null}
             </section>
 
-            <section className="tu-group"><h2>Cerca de ti</h2>
+            <section className="tu-group"><h2>{t('Cerca de ti')}</h2>
                 {lastPos ? (
                     nearbyPeaks.length ? <ol className="tu-peaklist">
                         {nearbyPeaks.map(({ p, d }) => <li key={peakId(p)}>
-                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? 'Conquistada' : 'Sin conquistar'}</small></span>
+                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? t('Conquistada') : t('Sin conquistar')}</small></span>
                             <span className="tu-pkele">{p[3]} m</span>
                             <span className="tu-pkdist">{fmtDist(d / 1000)}</span>
-                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
                         </li>)}
-                    </ol> : <div className="tu-callout"><strong>Nada a menos de 100 km</strong><p>No hay cimas del catalogo cerca de tu posicion actual.</p></div>
-                ) : <div className="tu-callout"><strong>Que tengo cerca que cuente?</strong><p>Dame tu posicion y te listo las cimas conquistables a menos de 100 km, con distancia.</p>
-                    <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={locateForNearby}>Usar mi posicion</button></div></div>}
+                    </ol> : <div className="tu-callout"><strong>{t('Nada a menos de 100 km')}</strong><p>{t('No hay cimas del catalogo cerca de tu posicion actual.')}</p></div>
+                ) : <div className="tu-callout"><strong>{t('Que tengo cerca que cuente?')}</strong><p>{t('Dame tu posicion y te listo las cimas conquistables a menos de 100 km, con distancia.')}</p>
+                    <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={locateForNearby}>{t('Usar mi posicion')}</button></div></div>}
             </section>
 
-            <section className="tu-group"><h2>Tus cimas</h2>
-                <div className="tu-callout"><strong>{progress.peaks.length} de {allPeaks.length} conquistadas</strong><p>Toca cualquier triangulo del mapa para ver su ficha: altitud, si la has conquistado y rutas para subirla. Una cima cuenta cuando pasas a menos de 1 km.</p></div>
+            <section className="tu-group"><h2>{t('Tus cimas')}</h2>
+                <div className="tu-callout"><strong>{t('{won} de {total} conquistadas', { won: progress.peaks.length, total: allPeaks.length })}</strong><p>{t('Toca cualquier triangulo del mapa para ver su ficha: altitud, si la has conquistado y rutas para subirla. Una cima cuenta cuando pasas a menos de 1 km.')}</p></div>
                 {conqueredPeaks.length > 0 ? (
                     <ol className="tu-peaklist tu-peaklist-full">
                         {conqueredPeaks.map((p, i) => <li key={peakId(p)}><span className="tu-num">{i + 1}</span><span className="tu-pkname">{p[0]}<small>{p[1].toFixed(3)}, {p[2].toFixed(3)}</small></span><span className="tu-pkele">{p[3]} m</span></li>)}
                     </ol>
-                ) : <div className="tu-callout"><strong>Aun no tienes cimas</strong><p>Tu primera cima aparecera aqui en cuanto pases cerca de una.</p></div>}
+                ) : <div className="tu-callout"><strong>{t('Aun no tienes cimas')}</strong><p>{t('Tu primera cima aparecera aqui en cuanto pases cerca de una.')}</p></div>}
             </section>
         </> : null}
 
         {tab === 'ajustes' ? <>
-            <section className="tu-group"><h2>Perfil</h2>
+            <section className="tu-group"><h2>{t('Perfil')}</h2>
                 <div className="tu-setrow">
                     {avatar ? <img className="tu-avatar tu-avatar-img" src={avatar} alt="Tu foto de perfil" /> : <div className="tu-avatar">{(prefs.nombre.trim()[0] || '?').toUpperCase()}</div>}
                     <div className="l" style={{ flex: 1 }}>
-                        <b>{prefs.nombre.trim() || 'Sin nombre'}</b>
-                        <small>Sin cuenta: tu progreso vive en este dispositivo. El login, los rankings y los piques llegan en la fase 2.</small>
+                        <b>{prefs.nombre.trim() || t('Sin nombre')}</b>
+                        <small>{t('Sin cuenta: tu progreso vive en este dispositivo. El login, los rankings y los piques llegan en la fase 2.')}</small>
                     </div>
                 </div>
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
-                        <b>Foto de perfil</b>
-                        <small>Sale en el saludo y en tu tarjeta de compartir. Se recorta a cuadrado y se guarda en este dispositivo.</small>
+                        <b>{t('Foto de perfil')}</b>
+                        <small>{t('Sale en el saludo y en tu tarjeta de compartir. Se recorta a cuadrado y se guarda en este dispositivo.')}</small>
                     </div>
                     <div className="tu-controls">
-                        <label className="file-button is-compact" data-variant="primary">Subir foto
-                            <input type="file" accept="image/*" aria-label="Subir foto de perfil" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const f = e.currentTarget.files?.[0]; if (f) processAvatar(f); e.currentTarget.value = ''; }} />
+                        <label className="file-button is-compact" data-variant="primary">{t('Subir foto')}
+                            <input type="file" accept="image/*" aria-label={t('Subir foto de perfil')} style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const f = e.currentTarget.files?.[0]; if (f) processAvatar(f); e.currentTarget.value = ''; }} />
                         </label>
-                        {avatar ? <button className="file-button is-compact" data-variant="secondary" onClick={() => setAvatar('')}>Quitar</button> : null}
+                        {avatar ? <button className="file-button is-compact" data-variant="secondary" onClick={() => setAvatar('')}>{t('Quitar')}</button> : null}
                     </div>
                 </div>
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
-                        <b>Nombre visible</b>
-                        <small>Asi te veran tus amigos cuando lleguen los rankings.</small>
+                        <b>{t('Nombre visible')}</b>
+                        <small>{t('Asi te veran tus amigos cuando lleguen los rankings.')}</small>
                     </div>
-                    <input className="tu-input" type="text" maxLength={24} placeholder="Tu nombre" value={prefs.nombre} onChange={(e) => setPrefs({ nombre: e.target.value })} />
+                    <input className="tu-input" type="text" maxLength={24} placeholder={t('Tu nombre')} value={prefs.nombre} onChange={(e) => setPrefs({ nombre: e.target.value })} />
                 </div>
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
-                        <b>Cuenta</b>
-                        <small>Necesaria para sincronizar entre dispositivos y rankings.</small>
+                        <b>{t('Cuenta')}</b>
+                        <small>{t('Necesaria para sincronizar entre dispositivos y rankings.')}</small>
                     </div>
-                    <button className="file-button is-compact" data-variant="secondary" disabled style={{ opacity: 0.5, cursor: 'default' }}>Crear cuenta (proximamente)</button>
+                    <button className="file-button is-compact" data-variant="secondary" disabled style={{ opacity: 0.5, cursor: 'default' }}>{t('Crear cuenta (proximamente)')}</button>
                 </div>
             </section>
 
-            <section className="tu-group"><h2>Mapa</h2>
+            <section className="tu-group"><h2>{t('Mapa')}</h2>
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
-                        <b>Oscuridad de la niebla</b>
-                        <small>Mas baja = se ve mas el terreno sin descubrir.</small>
+                        <b>{t('Oscuridad de la niebla')}</b>
+                        <small>{t('Mas baja = se ve mas el terreno sin descubrir.')}</small>
                     </div>
                     <input type="range" min={0.4} max={0.9} step={0.02} value={prefs.fog} onChange={(e) => setPrefs({ fog: parseFloat(e.target.value) })} style={{ width: 130 }} />
                 </div>
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
-                        <b>Nombres de cimas</b>
-                        <small>Etiquetas con nombre y altitud al acercar el zoom.</small>
+                        <b>{t('Nombres de cimas')}</b>
+                        <small>{t('Etiquetas con nombre y altitud al acercar el zoom.')}</small>
                     </div>
                     <input type="checkbox" className="tu-check" checked={prefs.peakLabels} onChange={(e) => setPrefs({ peakLabels: e.target.checked })} />
                 </div>
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
-                        <b>Bienvenida</b>
-                        <small>Vuelve a mostrar la pantalla de inicio al abrir la app.</small>
+                        <b>{t('Bienvenida')}</b>
+                        <small>{t('Vuelve a mostrar la pantalla de inicio al abrir la app.')}</small>
                     </div>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setPrefs({ welcomed: false })}>Mostrar de nuevo</button>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setPrefs({ welcomed: false })}>{t('Mostrar de nuevo')}</button>
                 </div>
             </section>
 
-            <section className="tu-group"><h2>Unidades</h2>
+            <section className="tu-group"><h2>{t('Unidades')}</h2>
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
-                        <b>Distancias y superficie</b>
+                        <b>{t('Distancias y superficie')}</b>
                     </div>
                     <div className="tu-controls" style={{ margin: 0 }}>
                         <button className="file-button is-compact" data-variant={imp ? 'secondary' : 'primary'} onClick={() => setPrefs({ units: 'metric' })}>km</button>
@@ -1857,16 +1858,28 @@ export function App() {
                 </div>
             </section>
 
-            <section className="tu-group"><h2>Datos</h2>
+            <section className="tu-group"><h2>{t('Idioma')}</h2>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>{t('Idioma')}</b>
+                        <small>{t('El idioma de la interfaz. Por defecto se usa el del navegador.')}</small>
+                    </div>
+                    <div className="tu-controls" style={{ margin: 0 }}>
+                        {LANGS.map((l) => <button key={l.id} className="file-button is-compact" data-variant={(prefs.lang || detectLang()) === l.id ? 'primary' : 'secondary'} onClick={() => setPrefs({ lang: l.id })}>{l.label}</button>)}
+                    </div>
+                </div>
+            </section>
+
+            <section className="tu-group"><h2>{t('Datos')}</h2>
                 <div className="tu-io">
-                    <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder="Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo." rows={3} />
+                    <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder={t('Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo.')} rows={3} />
                     <div className="tu-controls">
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, weekStreak, adventures, profile: { nombre: prefs.nombre, avatar } }))}>Exportar</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, weekStreak, adventures, profile: { nombre: prefs.nombre, avatar } }))}>{t('Exportar')}</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                             try {
                                 const data = JSON.parse(ioText);
                                 if (data && Array.isArray(data.cells)) {
-                                    const next = { ...EMPTY, ...data }; setProgress(next); saveProgress(next); setToast('Progreso importado');
+                                    const next = { ...EMPTY, ...data }; setProgress(next); saveProgress(next); setToast(t('Progreso importado'));
                                 } else if (data && data.v >= 2 && data.progress && Array.isArray(data.progress.cells)) {
                                     const next = { ...EMPTY, ...data.progress }; setProgress(next); saveProgress(next);
                                     if (data.achievements && typeof data.achievements === 'object') { setAchUnlocked(data.achievements); saveAch(data.achievements); }
@@ -1877,24 +1890,24 @@ export function App() {
                                         if (typeof data.profile.nombre === 'string') setPrefs({ nombre: data.profile.nombre });
                                         if (typeof data.profile.avatar === 'string') setAvatar(data.profile.avatar);
                                     }
-                                    setToast('Copia completa importada');
-                                } else setToast('Formato no valido');
-                            } catch { setToast('Formato no valido'); }
-                        }}>Importar</button>
+                                    setToast(t('Copia completa importada'));
+                                } else setToast(t('Formato no valido'));
+                            } catch { setToast(t('Formato no valido')); }
+                        }}>{t('Importar')}</button>
                         <label className="file-button is-compact" data-variant="secondary" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
-                            {batchBusy ? 'Leyendo...' : 'Importar rutas'}
-                            <input type="file" multiple accept=".gpx,.fit,.zip,.gz,application/gpx+xml" aria-label="Importar rutas" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const input = e.currentTarget; void onImportFiles(input.files).finally(() => { input.value = ''; }); }} />
+                            {batchBusy ? t('Leyendo...') : t('Importar rutas')}
+                            <input type="file" multiple accept=".gpx,.fit,.zip,.gz,application/gpx+xml" aria-label={t('Importar rutas')} style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const input = e.currentTarget; void onImportFiles(input.files).finally(() => { input.value = ''; }); }} />
                         </label>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                             if (!confirmReset) { setConfirmReset(true); return; }
-                            setConfirmReset(false); setProgress({ ...EMPTY }); saveProgress({ ...EMPTY }); setToast('Progreso reiniciado');
-                        }}>{confirmReset ? 'Seguro? Toca otra vez' : 'Reiniciar'}</button>
+                            setConfirmReset(false); setProgress({ ...EMPTY }); saveProgress({ ...EMPTY }); setToast(t('Progreso reiniciado'));
+                        }}>{confirmReset ? t('Seguro? Toca otra vez') : t('Reiniciar')}</button>
                     </div>
                 </div>
-                <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
+                <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.19 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.20{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
@@ -1902,10 +1915,10 @@ export function App() {
                 <div className="tu-terr-ico">⚑</div>
                 <div className="tu-terr-body">
                     <strong>{banners[0].title}</strong>
-                    <small>{banners[0].sub}{banners.length > 1 ? ' · +' + (banners.length - 1) + ' mas a continuacion' : ''}</small>
+                    <small>{banners[0].sub}{banners.length > 1 ? t(' - +{n} mas a continuacion', { n: banners.length - 1 }).replace(' - ', ' · ') : ''}</small>
                 </div>
-                <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
-                <button className="tu-terr-x" aria-label="Cerrar aviso" onClick={() => setBanners((b) => b.slice(1))}>×</button>
+                <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
+                <button className="tu-terr-x" aria-label={t('Cerrar aviso')} onClick={() => setBanners((b) => b.slice(1))}>×</button>
             </div>
         ) : null}
 
@@ -1913,13 +1926,13 @@ export function App() {
             <div className="tu-celebration">
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">★</div>
-                    <h2>Logro desbloqueado</h2>
-                    <strong>{celebration[0].title}</strong>
+                    <h2>{t('Logro desbloqueado')}</h2>
+                    <strong>{t(celebration[0].title)}</strong>
                     <p>{celebration[0].hint}</p>
-                    {celebration.length > 1 ? <small>y {celebration.length - 1} mas a continuacion</small> : null}
+                    {celebration.length > 1 ? <small>{t('y {n} mas a continuacion', { n: celebration.length - 1 })}</small> : null}
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
-                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration((c) => c.slice(1))}>Seguir explorando</button>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration((c) => c.slice(1))}>{t('Seguir explorando')}</button>
                     </div>
                 </div>
             </div>
@@ -1929,15 +1942,15 @@ export function App() {
             <div className="tu-celebration">
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">⚑</div>
-                    <h2>Aventura terminada</h2>
+                    <h2>{t('Aventura terminada')}</h2>
                     <strong>{fmtDist(advSummary.km)}</strong>
-                    <p>{advSummary.points} puntos GPS{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? ' · Desbloqueos: ' + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + advSummary.peaks.length + ' cimas' : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? ' · Sin desbloqueos nuevos esta vez' : ''}</p>
-                    {(() => { const ps = paceStats(advSummary, imp); return ps ? <p style={{ color: '#2dc8aa', fontWeight: 600 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</p> : null; })()}
+                    <p>{t('{n} puntos GPS', { n: advSummary.points })}{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? t(' - Desbloqueos: ').replace(' - ', ' · ') + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + t('{n} cimas', { n: advSummary.peaks.length }) : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? t(' - Sin desbloqueos nuevos esta vez').replace(' - ', ' · ') : ''}</p>
+                    {(() => { const ps = paceStats(advSummary, imp); return ps ? <p style={{ color: '#2dc8aa', fontWeight: 600 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</p> : null; })()}
                     <ElevChart adv={advSummary} onProfile={saveProfile} />
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
-                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>Compartir aventura</button>
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(advSummary)}>Exportar GPX</button>
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>Cerrar</button>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>{t('Compartir aventura')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(advSummary)}>{t('Exportar GPX')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>{t('Cerrar')}</button>
                     </div>
                 </div>
             </div>
@@ -1948,10 +1961,10 @@ export function App() {
         <nav className="tu-nav">
             <div className="tu-brand">TerraUnlock</div>
             {([
-                ['mapa', '◉', 'Mapa'],
-                ['progreso', '◆', 'Progreso'],
-                ['cimas', '▲', 'Cimas'],
-                ['ajustes', '⚙', 'Ajustes'],
+                ['mapa', '◉', t('Mapa')],
+                ['progreso', '◆', t('Progreso')],
+                ['cimas', '▲', t('Cimas')],
+                ['ajustes', '⚙', t('Ajustes')],
             ] as const).map(([id, g, label]) => (
                 <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}><span className="g">{g}</span>{label}</button>
             ))}
@@ -1961,13 +1974,13 @@ export function App() {
             <div className="tu-welcome">
                 <img src="./icons/icon-192.png" alt="TerraUnlock" />
                 <h1>TerraUnlock</h1>
-                <p className="tu-intro" style={{ maxWidth: 340 }}>El mundo empieza cubierto de niebla y se revela donde pisas. Conquista paises, comunidades, provincias y cimas con tu GPS real.</p>
+                <p className="tu-intro" style={{ maxWidth: 340 }}>{t('El mundo empieza cubierto de niebla y se revela donde pisas. Conquista paises, comunidades, provincias y cimas con tu GPS real.')}</p>
                 <ul>
-                    <li>Activa el GPS y sal: la niebla se abre a tu paso.</li>
-                    <li>57.000+ cimas marcadas: toca una para ver sus rutas.</li>
-                    <li>Importa tus rutas (GPX, FIT o el ZIP de Strava/Garmin).</li>
+                    <li>{t('Activa el GPS y sal: la niebla se abre a tu paso.')}</li>
+                    <li>{t('57.000+ cimas marcadas: toca una para ver sus rutas.')}</li>
+                    <li>{t('Importa tus rutas (GPX, FIT o el ZIP de Strava/Garmin).')}</li>
                 </ul>
-                <button className="file-button" data-variant="primary" onClick={() => setPrefs({ welcomed: true })}>Empezar a conquistar</button>
+                <button className="file-button" data-variant="primary" onClick={() => setPrefs({ welcomed: true })}>{t('Empezar a conquistar')}</button>
             </div>
         ) : null}
     </div>}

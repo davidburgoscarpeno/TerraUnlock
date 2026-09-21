@@ -1,5 +1,6 @@
 // Tarjeta "Terreno" de la ficha de cima: relieve con curvas de nivel (2D) y vista 3D giratoria.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { t } from './i18n';
 import type { Peak } from './data/peaks_es';
 import { loadElevGrid, niceLevels, contourSegments, hillshade, hypoColor } from './terrain';
 import type { ElevGrid } from './terrain';
@@ -195,11 +196,11 @@ export default function TerrainCard({ peak }: { peak: Peak }) {
         <div className="tu-terrain">
             {err ? (
                 <div className="tu-terrnote">
-                    No se pudo cargar la elevacion del terreno (hace falta conexion la primera vez).{' '}
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setRetry((r) => r + 1)}>Reintentar</button>
+                    {t('No se pudo cargar la elevacion del terreno (hace falta conexion la primera vez).')}{' '}
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setRetry((r) => r + 1)}>{t('Reintentar')}</button>
                 </div>
             ) : !grid ? (
-                <div className="tu-terrnote">Cargando terreno...</div>
+                <div className="tu-terrnote">{t('Cargando terreno...')}</div>
             ) : (
                 <>
                     <canvas
@@ -212,14 +213,14 @@ export default function TerrainCard({ peak }: { peak: Peak }) {
                     />
                     <div className="tu-terrbar">
                         <button className="file-button is-compact" data-variant={mode === '3d' ? 'primary' : 'secondary'} onClick={() => setMode('3d')}>3D</button>
-                        <button className="file-button is-compact" data-variant={mode === '2d' ? 'primary' : 'secondary'} onClick={() => setMode('2d')}>Curvas</button>
+                        <button className="file-button is-compact" data-variant={mode === '2d' ? 'primary' : 'secondary'} onClick={() => setMode('2d')}>{t('Curvas')}</button>
                         <span className="tu-terrnote">
                             {mode === '2d'
-                                ? 'Curvas cada ' + lv!.step + ' m · ' + fmtM(grid.min) + '-' + fmtM(grid.max) + ' m'
-                                : 'Arrastra para girar · ' + fmtM(grid.min) + '-' + fmtM(grid.max) + ' m'}
+                                ? t('Curvas cada {step} m', { step: lv!.step }) + ' · ' + fmtM(grid.min) + '-' + fmtM(grid.max) + ' m'
+                                : t('Arrastra para girar') + ' · ' + fmtM(grid.min) + '-' + fmtM(grid.max) + ' m'}
                         </span>
                     </div>
-                    <div className="tu-terrnote">Elevacion: AWS Terrain Tiles (Mapzen Terrarium, datos abiertos). Recorte de ~8 km alrededor de la cima.</div>
+                    <div className="tu-terrnote">{t('Elevacion: AWS Terrain Tiles (Mapzen Terrarium, datos abiertos). Recorte de ~8 km alrededor de la cima.')}</div>
                 </>
             )}
         </div>

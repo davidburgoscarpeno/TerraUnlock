@@ -4,6 +4,13 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.20)
+
+- Internacionalizacion: la app habla espanol e ingles. Selector en Ajustes > Idioma; por defecto usa el idioma del navegador (espanol si empieza por "es", ingles en cualquier otro caso). La eleccion se guarda en este dispositivo.
+- Cubre toda la interfaz: navegacion, mapa, objetivo semanal, banners y toasts, importacion, fichas, progreso, logros, ajustes, bienvenida, tarjetas PNG para compartir, perfil de elevacion y terreno 3D.
+- Estructura preparada para mas idiomas: cada idioma es un diccionario en src/i18n.ts y una entrada en LANGS; anadir uno no toca componentes.
+- Los nombres de territorios y cimas siguen en espanol (son datos de catalogo), igual que los metadatos del GPX exportado.
+
 ## Estado (v1.19)
 
 - Renombrar aventuras (boton "Renombrar" al desplegarla). El nombre sale en la lista, en la tarjeta PNG y como nombre del track en el GPX exportado. Sin nombre, todo sigue mostrando la fecha como antes.
