@@ -6,6 +6,8 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 ## Estado (v1.3)
 
+- "Rutas en Wikiloc" de cada cima abre el mapa de rutas de Wikiloc centrado en la cima (bbox de unos 3 km): salen las rutas que pasan por ahi, ordenadas por relevancia, en vez de una busqueda generica por nombre (v1.3.1).
+
 - Modo aventura: boton "Empezar aventura" en el Mapa; panel en vivo con distancia, tiempo y desbloqueos de la sesion (paises, CCAA, provincias, cimas); al terminar, resumen con boton de compartir (tarjeta PNG) y la aventura queda guardada en Progreso. La aventura en curso se persiste y sobrevive a recargas.
 - Rachas: dias seguidos revelando territorio (al menos un punto GPS). Badge "Racha: X dias" en el header (desde 2), fila de racha en Progreso y 2 logros nuevos: "En racha" (3 dias) y "Semana de conquista" (7 dias).
 - Exportar/importar completo: el archivo pasa a v2 e incluye progreso, logros, racha y aventuras; las exportaciones v1 se siguen importando.
