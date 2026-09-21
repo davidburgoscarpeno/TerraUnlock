@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.24)
+
+- Compartir un territorio desde su ficha: boton "Compartir" en la ficha de region que genera una tarjeta PNG con el nombre, conquistada o % revelado con su barra, y cajas con revelado, sub-territorios y cimas.
+
 ## Estado (v1.23)
 
 - "Este mes" en Progreso: distancia, aventuras, territorios nuevos y cimas del mes actual, cada uno con la cifra del mes pasado al lado. Se calcula desde las aventuras guardadas.

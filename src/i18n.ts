@@ -207,6 +207,7 @@ const EN: Record<string, string> = {
     'A que no tienes una aventura mejor? davidburgoscarpeno.github.io/TerraUnlock': 'Bet you don\'t have a better adventure. davidburgoscarpeno.github.io/TerraUnlock',
     'Ruta sin desbloqueos nuevos: terreno ya conquistado.': 'Route with no new unlocks: territory already conquered.',
     'PAISES': 'COUNTRIES', 'COMUNIDADES': 'REGIONS', 'PROVINCIAS': 'PROVINCES', 'CIMAS': 'PEAKS',
+    'REVELADO': 'REVEALED', 'Cuanto conoces de {n}? davidburgoscarpeno.github.io/TerraUnlock': 'How much of {n} have you seen? davidburgoscarpeno.github.io/TerraUnlock',
     'PUNTOS GPS': 'GPS POINTS', 'DURACION': 'DURATION', 'SUBIDA': 'ASCENT', 'BAJADA': 'DESCENT',
     'y {n} mas': 'and {n} more',
     'Tarjeta descargada': 'Card downloaded',

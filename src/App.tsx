@@ -942,6 +942,71 @@ export function App() {
             { enableHighAccuracy: true, timeout: 15000 }
         );
     };
+    // v1.24: tarjeta PNG de un territorio concreto desde su ficha
+    const shareRegionCard = async (rg: Region, level: string) => {
+        try {
+            const W = 1080, H = 1350;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            const avImg = avatar ? await new Promise<HTMLImageElement | null>((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = avatar; }) : null;
+            g.save();
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.closePath(); g.clip();
+            if (avImg) g.drawImage(avImg, 60, 48, 128, 128);
+            else { g.fillStyle = '#14755f'; g.fillRect(60, 48, 128, 128); g.fillStyle = '#fff'; g.font = '700 64px -apple-system, Segoe UI, Roboto, sans-serif'; g.textAlign = 'center'; g.fillText((prefs.nombre.trim()[0] || '?').toUpperCase(), 124, 134); g.textAlign = 'left'; }
+            g.restore();
+            g.strokeStyle = 'rgba(45,200,170,0.8)'; g.lineWidth = 4;
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.stroke();
+            g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('TerraUnlock', 224, 110);
+            g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(level, 224, 170);
+            const rev = regionRevealedCells(rg, progress.cells);
+            const pct = Math.min(100, rev / regionTotalCells(rg) * 100);
+            const unlocked = (level === t('Provincia') && progress.prov.includes(rg.n)) || (level === t('Comunidad') && progress.ccaa.includes(rg.n)) || (level === t('Pais') && progress.countries.includes(rg.n));
+            // nombre grande, reduciendo la fuente si no cabe
+            let fs = 110;
+            g.font = '800 ' + fs + 'px -apple-system, Segoe UI, Roboto, sans-serif';
+            while (fs > 44 && g.measureText(rg.n).width > W - 120) { fs -= 8; g.font = '800 ' + fs + 'px -apple-system, Segoe UI, Roboto, sans-serif'; }
+            g.fillStyle = '#e6edf3';
+            g.fillText(rg.n, 60, 400);
+            g.fillStyle = unlocked ? '#2dc8aa' : '#9fb0c0'; g.font = '700 42px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(unlocked ? t('Conquistada') : t('{pct}% revelado', { pct: dec(pct) }), 60, 480);
+            // barra de revelado
+            g.fillStyle = '#111927'; g.beginPath(); g.roundRect(60, 540, W - 120, 44, 22); g.fill();
+            if (pct > 0) { g.fillStyle = '#2dc8aa'; g.beginPath(); g.roundRect(60, 540, Math.max(44, (W - 120) * pct / 100), 44, 22); g.fill(); }
+            g.fillStyle = unlocked ? '#0b1017' : '#e6edf3'; g.font = '800 30px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(dec(pct) + '%', 84, 573);
+            // cajas de stats
+            const inside = peaksInRegion(rg, allPeaks);
+            const won = inside.filter((p) => progress.peaks.includes(peakId(p))).length;
+            let subLabel = '', subVal = '';
+            if (level === t('Comunidad')) {
+                const provs = PROV.filter((p) => provToCcaa(p) === rg.n);
+                subLabel = t('PROVINCIAS'); subVal = provs.filter((p) => progress.prov.includes(p.n)).length + '/' + provs.length;
+            } else if (level === t('Pais') && rg.n === 'España') {
+                subLabel = t('COMUNIDADES'); subVal = progress.ccaa.length + '/' + CCAA.length;
+            }
+            const boxes: [string, string][] = [[t('CIMAS'), won + '/' + inside.length]];
+            if (subLabel) boxes.unshift([subLabel, subVal]);
+            boxes.unshift([t('REVELADO'), dec(pct) + '%']);
+            const bw = (W - 120 - (boxes.length - 1) * 18) / boxes.length;
+            boxes.forEach(([lab, val], i) => {
+                const bx = 60 + i * (bw + 18);
+                g.fillStyle = '#111927'; g.beginPath(); g.roundRect(bx, 660, bw, 122, 16); g.fill();
+                g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.stroke();
+                g.fillStyle = '#5c7080'; g.font = '700 24px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(lab, bx + 24, 704);
+                g.fillStyle = '#e6edf3'; g.font = '800 44px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(val, bx + 24, 760);
+            });
+            g.fillStyle = '#5c7080'; g.font = '500 27px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(t('Cuanto conoces de {n}? davidburgoscarpeno.github.io/TerraUnlock', { n: rg.n }), 60, H - 60);
+            const blob: Blob | null = await new Promise((res) => cv.toBlob(res, 'image/png'));
+            if (!blob) { setToast(t('No se pudo generar la tarjeta')); return; }
+            await shareBlob(blob, 'terraunlock-' + rg.n.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png', 'TerraUnlock: ' + rg.n);
+        } catch { setToast(t('No se pudo compartir la tarjeta')); }
+    };
     const shareCard = async () => {
         try {
             const W = 1080, H = 1350;
@@ -1740,6 +1805,11 @@ export function App() {
                     return null;
                 })()}
                 <div className="tu-controls">
+                    {(() => {
+                        const rg = selectedRegion.pv ? PROV.find((r) => r.n === selectedRegion.pv) : selectedRegion.a ? CCAA.find((r) => r.n === selectedRegion.a) : COUNTRIES.find((r) => r.n === selectedRegion.c);
+                        const lvl = selectedRegion.pv ? t('Provincia') : selectedRegion.a ? t('Comunidad') : t('Pais');
+                        return rg ? <button className="file-button is-compact" data-variant="primary" onClick={() => shareRegionCard(rg, lvl)}>{t('Compartir')}</button> : null;
+                    })()}
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedRegion(null)}>{t('Cerrar')}</button>
                 </div>
             </div>
@@ -1976,7 +2046,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.23{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.24{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
