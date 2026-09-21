@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.15)
+
+- Racha de objetivos semanales: cada semana seguida cumpliendo el objetivo suma; se muestra junto al objetivo ("racha: N semanas") y hay logros nuevos a las 2, 4, 8 y 12 semanas seguidas. La racha entra en el JSON de respaldo (exportar/importar).
+
 ## Estado (v1.14)
 
 - Importar un GPX suelto como aventura: boton "Importar GPX como aventura" en Progreso > Aventuras. Revela la niebla del recorrido, desbloquea territorios y cimas, y crea la aventura en la lista con su track, perfil de elevacion, tarjeta para compartir y exportacion. Usa los tiempos del propio GPX; si no los tiene, fecha de importacion.

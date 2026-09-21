@@ -186,7 +186,15 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'points-1000', title: 'Imparable', hint: 'Registra 1.000 puntos GPS', test: (p) => p.points.length >= 1000 },
     { id: 'streak-3', title: 'En racha', hint: 'Revela territorio 3 dias seguidos', test: (p, st) => st.count >= 3 },
     { id: 'streak-7', title: 'Semana de conquista', hint: 'Revela territorio 7 dias seguidos', test: (p, st) => st.count >= 7 },
+    { id: 'wstreak-2', title: 'Constancia', hint: 'Cumple el objetivo semanal 2 semanas seguidas', test: () => false },
+    { id: 'wstreak-4', title: 'Mes imparable', hint: 'Cumple el objetivo semanal 4 semanas seguidas', test: () => false },
+    { id: 'wstreak-8', title: 'Dos meses conquistando', hint: 'Cumple el objetivo semanal 8 semanas seguidas', test: () => false },
+    { id: 'wstreak-12', title: 'Trimestre de leyenda', hint: 'Cumple el objetivo semanal 12 semanas seguidas', test: () => false },
 ];
+// v1.15: racha de semanas seguidas cumpliendo el objetivo semanal
+interface WeekStreak { last: string; count: number; }
+const WSTREAK_KEY = 'terraunlock.weekstreak.v1';
+
 const ACH_KEY = 'terraunlock.achievements.v1';
 function loadAch(): Record<string, string> | null {
     try { const raw = localStorage.getItem(ACH_KEY); if (raw) return JSON.parse(raw); } catch { /* sin logros */ }
@@ -1351,6 +1359,8 @@ export function App() {
     const advRef = useRef(adv);
     useEffect(() => { advRef.current = adv; }, [adv]);
     const [adventures, setAdventures] = useState<Adventure[]>(() => loadJson<Adventure[]>(ADVS_KEY) || []);
+    // v1.15: racha de objetivos semanales cumplidos seguidos
+    const [weekStreak, setWeekStreak] = useState<WeekStreak>(() => loadJson<WeekStreak>(WSTREAK_KEY) || { last: '', count: 0 });
     // v1.9: objetivo semanal automatico (3 territorios nuevos o 1 cima; se reinicia cada lunes)
     const [weekly, setWeekly] = useState<WeeklyGoal>(() => {
         const saved = loadJson<WeeklyGoal>(WEEK_KEY);
@@ -1378,6 +1388,25 @@ export function App() {
                     : 'Has desbloqueado ' + newTerr + ' territorios nuevos esta semana',
                 test: () => true,
             }]);
+            // v1.15: racha de semanas cumpliendo el objetivo
+            if (weekStreak.last !== weekly.week) {
+                const prevWeek = weekKey(new Date(Date.now() - 7 * 86400000));
+                const count = weekStreak.last === prevWeek ? weekStreak.count + 1 : 1;
+                const ws = { last: weekly.week, count };
+                setWeekStreak(ws); saveJson(WSTREAK_KEY, ws);
+                const hit = [2, 4, 8, 12].filter((n) => count >= n && !achUnlocked['wstreak-' + n]);
+                if (hit.length) {
+                    const next = { ...achUnlocked };
+                    const at = new Date().toISOString();
+                    const newAch: Achievement[] = [];
+                    for (const n of hit) {
+                        const a = ACHIEVEMENTS.find((x) => x.id === 'wstreak-' + n);
+                        if (a) { next[a.id] = at; newAch.push(a); }
+                    }
+                    setAchUnlocked(next); saveAch(next);
+                    setCelebration((c) => [...c, ...newAch]);
+                }
+            }
         }
     }, [progress, weekly]);
     const [advSummary, setAdvSummary] = useState<Adventure | null>(null);
@@ -1475,7 +1504,7 @@ export function App() {
             const done = terr >= WEEK_TERR || peaks >= WEEK_PEAK;
             const left = daysLeftThisWeek(new Date());
             return <div className={done ? 'tu-callout tu-week done' : 'tu-callout tu-week'}>
-                <strong>{done ? 'Objetivo semanal cumplido' : 'Objetivo de la semana'} <small style={{ fontWeight: 400, opacity: 0.75 }}>{done ? 'a por la siguiente' : left === 0 ? 'hoy es el ultimo dia' : 'quedan ' + left + (left === 1 ? ' dia' : ' dias')}</small></strong>
+                <strong>{done ? 'Objetivo semanal cumplido' : 'Objetivo de la semana'} <small style={{ fontWeight: 400, opacity: 0.75 }}>{done ? 'a por la siguiente' : left === 0 ? 'hoy es el ultimo dia' : 'quedan ' + left + (left === 1 ? ' dia' : ' dias')}{weekStreak.count > 0 ? ' - racha: ' + weekStreak.count + (weekStreak.count === 1 ? ' semana' : ' semanas') : ''}</small></strong>
                 <p>Desbloquea {WEEK_TERR} territorios nuevos o conquista {WEEK_PEAK} cima antes del lunes.</p>
                 <div className="tu-weekbars">
                     <span className="tu-weeklbl">Territorios {Math.min(terr, WEEK_TERR)}/{WEEK_TERR}</span>
@@ -1793,7 +1822,7 @@ export function App() {
                 <div className="tu-io">
                     <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder="Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo." rows={3} />
                     <div className="tu-controls">
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, adventures, profile: { nombre: prefs.nombre, avatar } }))}>Exportar</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, weekStreak, adventures, profile: { nombre: prefs.nombre, avatar } }))}>Exportar</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                             try {
                                 const data = JSON.parse(ioText);
@@ -1804,6 +1833,7 @@ export function App() {
                                     if (data.achievements && typeof data.achievements === 'object') { setAchUnlocked(data.achievements); saveAch(data.achievements); }
                                     if (data.streak && typeof data.streak.count === 'number') { setStreak(data.streak); saveJson(STREAK_KEY, data.streak); }
                                     if (Array.isArray(data.adventures)) { setAdventures(data.adventures); saveJson(ADVS_KEY, data.adventures); }
+                    if (data.weekStreak && typeof data.weekStreak.count === 'number') { setWeekStreak(data.weekStreak); saveJson(WSTREAK_KEY, data.weekStreak); }
                                     if (data.profile && typeof data.profile === 'object') {
                                         if (typeof data.profile.nombre === 'string') setPrefs({ nombre: data.profile.nombre });
                                         if (typeof data.profile.avatar === 'string') setAvatar(data.profile.avatar);
@@ -1825,7 +1855,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.14 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.15 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
