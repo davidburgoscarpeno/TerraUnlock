@@ -1,8 +1,8 @@
 // TerraUnlock service worker (generado en build)
-const VERSION = 'mua9gdfo';
+const VERSION = 'mub14ncr';
 const SHELL = 'tu-shell-' + VERSION;
 const TILES = 'tu-tiles-v1';
-const PRECACHE = ["./assets/browser-DGemqFXA.js","./assets/fit-parser-GrBu7W1E.js","./assets/index-B5QAjLfP.css","./assets/index-Cc_SoBcD.js","./data/peaks-world.json","./icons/apple-touch-icon.png","./icons/icon-192.png","./icons/icon-512.png","./icons/icon-maskable-512.png","./index.html","./manifest.webmanifest"];
+const PRECACHE = ["./assets/browser-DGemqFXA.js","./assets/fit-parser-GrBu7W1E.js","./assets/index-CmiM4w8P.css","./assets/index-DazcguiH.js","./data/peaks-world.json","./icons/apple-touch-icon.png","./icons/icon-192.png","./icons/icon-512.png","./icons/icon-maskable-512.png","./index.html","./manifest.webmanifest"];
 const TILE_HOSTS = ['server.arcgisonline.com', 'ibasemaps-api.arcgis.com', 'services.arcgisonline.com'];
 const MAX_TILES = 1500;
 
