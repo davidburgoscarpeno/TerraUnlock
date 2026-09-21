@@ -103,6 +103,33 @@ function regionRevealedCells(rg: Region, cells: string[]) {
     return v;
 }
 
+// v1.2: logros. Definicion declarativa; el desbloqueo se evalua sobre el progreso actual.
+interface Achievement { id: string; title: string; hint: string; test: (p: Progress) => boolean; }
+const ACHIEVEMENTS: Achievement[] = [
+    { id: 'first-zone', title: 'Primeros pasos', hint: 'Revela tu primera zona del mapa', test: (p) => p.cells.length >= 1 },
+    { id: 'km-10', title: 'Barrio propio', hint: 'Revela 10 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 10 },
+    { id: 'km-100', title: 'Cartografo local', hint: 'Revela 100 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 100 },
+    { id: 'km-1000', title: 'Cartografo nacional', hint: 'Revela 1.000 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 1000 },
+    { id: 'country-1', title: 'Primera bandera', hint: 'Pisa tu primer pais', test: (p) => p.countries.length >= 1 },
+    { id: 'country-5', title: 'Pasaporte sellado', hint: 'Pisa 5 paises distintos', test: (p) => p.countries.length >= 5 },
+    { id: 'country-10', title: 'Trotamundos', hint: 'Pisa 10 paises distintos', test: (p) => p.countries.length >= 10 },
+    { id: 'country-25', title: 'Sin fronteras', hint: 'Pisa 25 paises distintos', test: (p) => p.countries.length >= 25 },
+    { id: 'ccaa-1', title: 'Comunidad propia', hint: 'Desbloquea tu primera comunidad', test: (p) => p.ccaa.length >= 1 },
+    { id: 'ccaa-19', title: 'Espana completa', hint: 'Desbloquea las 19 comunidades', test: (p) => p.ccaa.length >= 19 },
+    { id: 'prov-1', title: 'Provincia propia', hint: 'Desbloquea tu primera provincia', test: (p) => p.prov.length >= 1 },
+    { id: 'peak-1', title: 'Primera cima', hint: 'Conquista tu primera cima', test: (p) => p.peaks.length >= 1 },
+    { id: 'peak-10', title: 'Coleccionista de cimas', hint: 'Conquista 10 cimas', test: (p) => p.peaks.length >= 10 },
+    { id: 'peak-25', title: 'Montanero de verdad', hint: 'Conquista 25 cimas', test: (p) => p.peaks.length >= 25 },
+    { id: 'points-100', title: 'En movimiento', hint: 'Registra 100 puntos GPS', test: (p) => p.points.length >= 100 },
+    { id: 'points-1000', title: 'Imparable', hint: 'Registra 1.000 puntos GPS', test: (p) => p.points.length >= 1000 },
+];
+const ACH_KEY = 'terraunlock.achievements.v1';
+function loadAch(): Record<string, string> | null {
+    try { const raw = localStorage.getItem(ACH_KEY); if (raw) return JSON.parse(raw); } catch { /* sin logros */ }
+    return null;
+}
+function saveAch(a: Record<string, string>) { try { localStorage.setItem(ACH_KEY, JSON.stringify(a)); } catch { /* sin espacio */ } }
+
 // Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
 interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; }
 const PREFS_KEY = 'terraunlock.prefs.v1';
@@ -827,6 +854,43 @@ export function App() {
         }
     };
 
+    // v1.2: logros (desbloqueo + celebracion) y HUD (escala + cima cercana)
+    const [achUnlocked, setAchUnlocked] = useState<Record<string, string>>(() => loadAch() || {});
+    const achSeed = useRef(loadAch() == null); // primera vez con la funcion: siembra silenciosa
+    const [celebration, setCelebration] = useState<Achievement[]>([]);
+    useEffect(() => {
+        const seed = achSeed.current;
+        achSeed.current = false;
+        const newly = ACHIEVEMENTS.filter((a) => !achUnlocked[a.id] && a.test(progress));
+        if (!newly.length) return;
+        const now = new Date().toISOString();
+        const next = { ...achUnlocked };
+        for (const a of newly) next[a.id] = now;
+        saveAch(next);
+        setAchUnlocked(next);
+        if (!seed) setCelebration((c) => [...c, ...newly]);
+    }, [progress, achUnlocked]);
+    const scaleBar = useMemo(() => {
+        const mpp = 40075016 * Math.cos(view.lat * Math.PI / 180) / (256 * Math.pow(2, view.z));
+        if (!isFinite(mpp) || mpp <= 0) return null;
+        const target = 90 * mpp;
+        const pow = Math.pow(10, Math.floor(Math.log10(target)));
+        let best = pow;
+        for (const m of [1, 2, 5]) if (m * pow <= target) best = m * pow;
+        return { w: best / mpp, label: best >= 1000 ? fmtDist(best / 1000) : Math.round(best) + ' m' };
+    }, [view.lat, view.z]);
+    const rlat = Math.round(view.lat * 10) / 10, rlon = Math.round(view.lon * 10) / 10;
+    const nearestPeak = useMemo(() => {
+        let best: { p: Peak; d: number } | null = null;
+        for (const p of allPeaks) {
+            if (Math.abs(p[1] - rlat) > 0.25 || Math.abs(p[2] - rlon) > 0.4) continue;
+            if (progress.peaks.includes(peakId(p))) continue;
+            const d = distM([rlat, rlon], [p[1], p[2]]);
+            if (d < 25000 && (!best || d < best.d)) best = { p, d };
+        }
+        return best;
+    }, [rlat, rlon, allPeaks, progress.peaks]);
+
     const km2 = (progress.cells.length * 1.1).toFixed(0);
     const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p);
 
@@ -851,6 +915,8 @@ export function App() {
                 <span>Prov {progress.prov.length}/{PROV.length}</span>
                 <span>Cimas {progress.peaks.length}</span>
             </div>
+            {nearestPeak ? <div className="tu-peaknear">{'▲'} {nearestPeak.p[0]} · {fmtDist(nearestPeak.d / 1000)}</div> : null}
+            {scaleBar ? <div className="tu-scalebar"><span>{scaleBar.label}</span><i style={{ width: scaleBar.w }} /></div> : null}
             <div className="tu-attr">Esri, Maxar, Earthstar Geographics</div>
         </div>
 
@@ -929,6 +995,16 @@ export function App() {
                     { label: 'Puntos GPS', value: String(progress.points.length), pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>Compartir mi mapa</button></div>
+            </section>
+
+            <section className="tu-group"><h2>Logros</h2>
+                <div className="tu-ach-grid">
+                    {ACHIEVEMENTS.map((a) => { const at = achUnlocked[a.id]; return (
+                        <div key={a.id} className={'tu-ach' + (at ? ' on' : '')}>
+                            <b>{at ? '★ ' : ''}{a.title}</b>
+                            <small>{at ? new Date(at).toLocaleDateString('es-ES') : a.hint}</small>
+                        </div>); })}
+                </div>
             </section>
 
             {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
@@ -1064,8 +1140,24 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.1 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.2 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
+
+        {celebration.length ? (
+            <div className="tu-celebration">
+                <div className="tu-celeb-card">
+                    <div className="tu-celeb-ico">★</div>
+                    <h2>Logro desbloqueado</h2>
+                    <strong>{celebration[0].title}</strong>
+                    <p>{celebration[0].hint}</p>
+                    {celebration.length > 1 ? <small>y {celebration.length - 1} mas a continuacion</small> : null}
+                    <div className="tu-controls" style={{ justifyContent: 'center' }}>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration((c) => c.slice(1))}>Seguir explorando</button>
+                    </div>
+                </div>
+            </div>
+        ) : null}
 
         {toast ? <div className="tu-toast">{toast}</div> : null}
 

@@ -106,3 +106,24 @@ input[type="range"] { accent-color: #2dc8aa; }
 /* v1.1: buscador de cimas y tarjeta */
 .tu-input-full { width: 100%; }
 .tu-pkdist { color: #8fb8d8; font-size: 12px; font-weight: 600; }
+
+/* v1.2: logros */
+.tu-ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tu-ach { background: #101823; border: 1px solid #16202c; border-radius: 10px; padding: 10px 12px; opacity: 0.6; }
+.tu-ach b { display: block; font-size: 13px; color: #e6edf3; }
+.tu-ach small { color: #8fa2b3; font-size: 12px; }
+.tu-ach.on { border-color: #14755f; opacity: 1; }
+.tu-ach.on b { color: #7ee0c8; }
+.tu-celebration { position: fixed; inset: 0; z-index: 110; background: rgba(6,10,16,0.88); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.tu-celeb-card { background: #101823; border: 1px solid #1e3442; border-radius: 16px; padding: 28px 24px; max-width: 340px; width: 100%; text-align: center; }
+.tu-celeb-ico { font-size: 44px; color: #f0b429; margin-bottom: 8px; }
+.tu-celeb-card h2 { font-size: 13px; color: #8fa2b3; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 6px; }
+.tu-celeb-card strong { font-size: 24px; color: #7ee0c8; display: block; margin-bottom: 6px; }
+.tu-celeb-card p { color: #9fb0c0; font-size: 14px; margin: 0 0 8px; }
+.tu-celeb-card small { color: #5c7080; display: block; margin-bottom: 4px; }
+
+/* v1.2: HUD escala y cima cercana */
+.tu-scalebar { position: absolute; bottom: 10px; left: 10px; display: flex; flex-direction: column; gap: 3px; pointer-events: none; }
+.tu-scalebar span { color: #cfe6dd; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+.tu-scalebar i { display: block; height: 3px; background: #cfe6dd; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+.tu-peaknear { position: absolute; bottom: 38px; left: 10px; background: rgba(6,10,16,0.72); color: #e8cd6e; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; pointer-events: none; }
