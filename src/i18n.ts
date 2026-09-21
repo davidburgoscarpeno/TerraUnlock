@@ -81,6 +81,8 @@ const EN: Record<string, string> = {
     'nada nuevo (zona ya desbloqueada)': 'nothing new (area already unlocked)',
     ' y {n} cimas': ' and {n} peaks',
     ' ({n} archivos no se pudieron leer)': ' ({n} files could not be read)',
+    '({n} archivos no se pudieron leer)': '{n} files could not be read',
+    'Cada actividad se guardara como aventura en tu historial.': 'Each activity will be saved as an adventure in your history.',
     'Aplicar lote': 'Apply batch', 'Aplicar ruta': 'Apply route', 'Cancelar': 'Cancel',
     // te falta cerca
     'Te falta cerca': 'Missing nearby',

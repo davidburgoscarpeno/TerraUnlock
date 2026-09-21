@@ -269,23 +269,25 @@ function regionsCached(lon: number, lat: number) {
 type TrackScan = {
     name: string; pts: [number, number][]; km: number;
     countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; cells: string[];
+    times?: (string | null)[];
 };
 
-function parseGpx(text: string): { name: string; pts: [number, number][] } {
+function parseGpx(text: string): { name: string; pts: [number, number][]; times: (string | null)[] } {
     const doc = new DOMParser().parseFromString(text, 'application/xml');
     if (doc.querySelector('parsererror')) throw new Error(t('XML no valido'));
     const name = doc.querySelector('trk > name')?.textContent || doc.querySelector('metadata > name')?.textContent || 'Ruta GPX';
     const pts: [number, number][] = [];
+    const times: (string | null)[] = [];
     doc.querySelectorAll('trkpt, rtept, wpt').forEach((el) => {
         const lat = parseFloat(el.getAttribute('lat') || ''), lon = parseFloat(el.getAttribute('lon') || '');
-        if (isFinite(lat) && isFinite(lon)) pts.push([lat, lon]);
+        if (isFinite(lat) && isFinite(lon)) { pts.push([lat, lon]); times.push(el.querySelector('time')?.textContent || null); }
     });
     if (pts.length < 2) throw new Error(t('Sin puntos de track'));
-    return { name, pts };
+    return { name, pts, times };
 }
 
 // Escanea un track contra el progreso actual: que celdas revela y que desbloquea (sin mutar nada)
-function scanTrack(name: string, raw: [number, number][], p: Progress, peakGrid: Map<string, Peak[]>): TrackScan {
+function scanTrack(name: string, raw: [number, number][], p: Progress, peakGrid: Map<string, Peak[]>, times?: (string | null)[]): TrackScan {
     // Adelgazar: un punto cada ~50 m como minimo, tope 12.000
     const pts: [number, number][] = [];
     for (const q of raw) { const last = pts[pts.length - 1]; if (!last || distM(last, q) >= 50) pts.push(q); if (pts.length >= 12000) break; }
@@ -309,7 +311,7 @@ function scanTrack(name: string, raw: [number, number][], p: Progress, peakGrid:
             }
         }
     }
-    return { name, pts, km, countries: nCountries, ccaa: nCcaa, prov: nProv, peaks: nPeaks, cells: [...cells] };
+    return { name, pts, km, countries: nCountries, ccaa: nCcaa, prov: nProv, peaks: nPeaks, cells: [...cells], times };
 }
 
 // v1.26: silueta estatica de una region con las celdas reveladas (sin tiles)
@@ -492,23 +494,27 @@ export function App() {
         if (!files.length) return;
         setBatchBusy(true);
         try {
-            const tracks: { name: string; pts: [number, number][] }[] = [];
+            const tracks: { name: string; pts: [number, number][]; times: (string | null)[] }[] = [];
             let failed = 0;
             const pushGpx = (text: string, fallback: string) => {
-                try { const g = parseGpx(text); tracks.push({ name: g.name === 'Ruta GPX' ? fallback : g.name, pts: g.pts }); }
+                try { const g = parseGpx(text); tracks.push({ name: g.name === 'Ruta GPX' ? fallback : g.name, pts: g.pts, times: g.times }); }
                 catch { failed++; }
             };
             const pushFit = async (buf: ArrayBuffer, fallback: string) => {
                 try {
                     const { default: FitParser } = await import('fit-file-parser');
                     const parser = new FitParser({ mode: 'list' });
-                    const data = await parser.parseAsync(buf) as { records?: { position_lat?: number; position_long?: number }[] };
+                    const data = await parser.parseAsync(buf) as { records?: { position_lat?: number; position_long?: number; timestamp?: Date | string }[] };
                     const pts: [number, number][] = [];
+                    const times: (string | null)[] = [];
                     for (const r of data.records || []) {
-                        if (typeof r.position_lat === 'number' && typeof r.position_long === 'number') pts.push([r.position_lat, r.position_long]);
+                        if (typeof r.position_lat === 'number' && typeof r.position_long === 'number') {
+                            pts.push([r.position_lat, r.position_long]);
+                            times.push(r.timestamp ? new Date(r.timestamp).toISOString() : null);
+                        }
                     }
                     if (pts.length < 2) throw new Error('sin puntos');
-                    tracks.push({ name: fallback, pts });
+                    tracks.push({ name: fallback, pts, times });
                 } catch { failed++; }
             };
             const handleEntry = async (entryName: string, bytes: Uint8Array) => {
@@ -540,7 +546,7 @@ export function App() {
             let totalKm = 0;
             let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
             for (const t of tracks) {
-                const sc = scanTrack(t.name, t.pts, work, peakGrid);
+                const sc = scanTrack(t.name, t.pts, work, peakGrid, t.times);
                 scans.push(sc); totalKm += sc.km;
                 work.cells = sc.cells;
                 work.countries = [...work.countries, ...sc.countries];
@@ -573,6 +579,34 @@ export function App() {
         for (const sc of b.scans) newPts.push(...sc.pts);
         const next: Progress = { ...b.work, points: [...b.work.points, ...newPts].slice(-50000) };
         setProgress(next); saveProgress(next); setImportBatch(null);
+        // v1.27: cada actividad importada queda guardada como aventura (historial + traza para perfil/ritmo)
+        if (b.scans.length <= 20) {
+            const newAdvs: Adventure[] = [];
+            for (const sc of b.scans) {
+                const vt = (sc.times || []).filter((x): x is string => !!x);
+                const t0 = vt.length ? new Date(vt[0]) : new Date();
+                const t1 = vt.length ? new Date(vt[vt.length - 1]) : t0;
+                const start = isFinite(t0.getTime()) ? t0.toISOString() : new Date().toISOString();
+                const end = isFinite(t1.getTime()) && t1.getTime() >= new Date(start).getTime() ? t1.toISOString() : start;
+                const stride = Math.max(1, Math.ceil(sc.pts.length / 300));
+                const tr = sc.pts.filter((_, i) => i % stride === 0);
+                const lastPt = sc.pts[sc.pts.length - 1];
+                const lastTr = tr[tr.length - 1];
+                if (lastTr && (lastTr[0] !== lastPt[0] || lastTr[1] !== lastPt[1])) tr.push(lastPt);
+                let tt: number[] | undefined;
+                if (sc.times && sc.times.length === sc.pts.length) {
+                    const rawMs = sc.times.map((x) => (x ? new Date(x).getTime() : NaN));
+                    if (rawMs.every((n) => isFinite(n))) {
+                        const dm = rawMs.filter((_, i) => i % stride === 0);
+                        if (dm.length < tr.length) dm.push(rawMs[rawMs.length - 1]);
+                        tt = dm;
+                    }
+                }
+                newAdvs.push({ start, end, km: Math.round(sc.km * 10) / 10, points: sc.pts.length, countries: sc.countries, ccaa: sc.ccaa, prov: sc.prov, peaks: sc.peaks, track: tr.length >= 2 ? tr : undefined, times: tt, name: sc.name });
+            }
+            const list = [...newAdvs.reverse(), ...adventuresRef.current].slice(0, 50);
+            setAdventures(list); saveJson(ADVS_KEY, list);
+        }
         const parts: string[] = [];
         if (news.countries.length) parts.push(t('{n} paises', { n: news.countries.length }));
         if (news.ccaa.length) parts.push(news.ccaa.length + ' CCAA');
@@ -1579,6 +1613,7 @@ export function App() {
     const advRef = useRef(adv);
     useEffect(() => { advRef.current = adv; }, [adv]);
     const [adventures, setAdventures] = useState<Adventure[]>(() => loadJson<Adventure[]>(ADVS_KEY) || []);
+    const adventuresRef = useRef(adventures); adventuresRef.current = adventures;
     // v1.15: racha de objetivos semanales cumplidos seguidos
     const [weekStreak, setWeekStreak] = useState<WeekStreak>(() => loadJson<WeekStreak>(WSTREAK_KEY) || { last: '', count: 0 });
     // v1.9: objetivo semanal automatico (3 territorios nuevos o 1 cima; se reinicia cada lunes)
@@ -1767,21 +1802,6 @@ export function App() {
         {gpsMsg ? <div className="tu-callout tu-warn"><strong>GPS</strong><p>{gpsMsg}</p></div> : null}
         {simMode ? <div className="tu-callout"><strong>{t('Modo prueba')}</strong><p>{t('Toca cualquier punto del mapa para simular que has estado ahi: revela niebla y desbloquea igual que el GPS.')}</p></div> : null}
 
-        {importBatch ? (
-            <div className="tu-callout">
-                <strong>{importBatch.tracksOk > 1 ? t('{n} actividades listas', { n: importBatch.tracksOk }) : importBatch.scans[0]?.name}</strong>
-                <p>{importBatch.tracksOk > 1 ? t('{km} km en total', { km: dec(importBatch.totalKm) }) : importBatch.scans[0] ? t('{n} puntos, {km} km', { n: importBatch.scans[0].pts.length, km: dec(importBatch.scans[0].km) }) : ''}. {t('Va a revelar la niebla de todo el recorrido y desbloqueara: {lista}.', { lista: (() => {
-                    const p0 = progress;
-                    const names = [...new Set([...importBatch.work.countries.slice(p0.countries.length), ...importBatch.work.ccaa.slice(p0.ccaa.length), ...importBatch.work.prov.slice(p0.prov.length)])];
-                    const pk = importBatch.work.peaks.length - p0.peaks.length;
-                    return names.length + pk ? names.join(', ') + (pk ? t(' y {n} cimas', { n: pk }) : '') : t('nada nuevo (zona ya desbloqueada)');
-                })() })}{importBatch.failed ? t(' ({n} archivos no se pudieron leer)', { n: importBatch.failed }) : ''}</p>
-                <div className="tu-controls">
-                    <button className="file-button is-compact" data-variant="primary" onClick={applyBatch}>{importBatch.tracksOk > 1 ? t('Aplicar lote') : t('Aplicar ruta')}</button>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportBatch(null)}>{t('Cancelar')}</button>
-                </div>
-            </div>
-        ) : null}
 
         <section className="tu-group"><h2>{t('Te falta cerca')}</h2>
             <p className="tu-more">{t('Sin conquistar en 150 km {origen}.', { origen: lastPos ? t('desde tu posicion') : t('desde el centro del mapa') })}</p>
@@ -2128,7 +2148,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.26{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.27{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
@@ -2154,6 +2174,29 @@ export function App() {
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration((c) => c.slice(1))}>{t('Seguir explorando')}</button>
+                    </div>
+                </div>
+            </div>
+        ) : null}
+
+        {importBatch ? (
+            <div className="tu-celebration">
+                <div className="tu-celeb-card">
+                    <div className="tu-celeb-ico">⇪</div>
+                    <h2>{t('Importar rutas')}</h2>
+                    <strong>{importBatch.tracksOk > 1 ? t('{n} actividades listas', { n: importBatch.tracksOk }) : importBatch.scans[0]?.name}</strong>
+                    <p>{importBatch.tracksOk > 1 ? t('{km} km en total', { km: dec(importBatch.totalKm) }) : importBatch.scans[0] ? t('{n} puntos, {km} km', { n: importBatch.scans[0].pts.length, km: dec(importBatch.scans[0].km) }) : ''}. {t('Va a revelar la niebla de todo el recorrido y desbloqueara: {lista}.', { lista: (() => {
+                        const p0 = progress;
+                        const names = [...new Set([...importBatch.work.countries.slice(p0.countries.length), ...importBatch.work.ccaa.slice(p0.ccaa.length), ...importBatch.work.prov.slice(p0.prov.length)])];
+                        const pk = importBatch.work.peaks.length - p0.peaks.length;
+                        return names.length + pk ? names.join(', ') + (pk ? t(' y {n} cimas', { n: pk }) : '') : t('nada nuevo (zona ya desbloqueada)');
+                    })() })}</p>
+                    {importBatch.tracksOk > 1 ? <small>{importBatch.scans.slice(0, 6).map((sc) => sc.name + ' · ' + fmtDist(sc.km)).join(' · ')}{importBatch.tracksOk > 6 ? ' …' : ''}</small> : null}
+                    {importBatch.scans.length <= 20 ? <small>{t('Cada actividad se guardara como aventura en tu historial.')}</small> : null}
+                    {importBatch.failed ? <small>{t('({n} archivos no se pudieron leer)', { n: importBatch.failed })}</small> : null}
+                    <div className="tu-controls" style={{ justifyContent: 'center', marginTop: 10 }}>
+                        <button className="file-button is-compact" data-variant="primary" onClick={applyBatch}>{importBatch.tracksOk > 1 ? t('Aplicar lote') : t('Aplicar ruta')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setImportBatch(null)}>{t('Cancelar')}</button>
                     </div>
                 </div>
             </div>
