@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.21)
+
+- La tarjeta PNG de aventura muestra el ritmo medio y el mejor km (o milla, segun unidades) cuando la aventura tiene timestamps reales, igual que el modal y la lista.
+
 ## Estado (v1.20.1)
 
 - Porcentajes y el eje de distancia del perfil de elevacion usan el separador decimal del idioma (coma en espanol, punto en ingles).

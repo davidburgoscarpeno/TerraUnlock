@@ -1223,8 +1223,14 @@ export function App() {
                 g.fillStyle = '#e6edf3'; g.font = '800 44px -apple-system, Segoe UI, Roboto, sans-serif';
                 g.fillText(val, bx + 24, 500);
             });
+            // v1.21: ritmo medio y mejor km/milla (si la aventura tiene timestamps)
+            const ps = paceStats(adv, imp);
+            if (ps) {
+                g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) }) + (ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''), 60, 575);
+            }
             // perfil
-            let cy = 560;
+            let cy = ps ? 615 : 560;
             if (prof) {
                 g.save();
                 g.beginPath(); g.rect(60, cy, W - 120, 480); g.clip();
@@ -1907,7 +1913,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.20.1{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.21{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
