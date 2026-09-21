@@ -978,6 +978,38 @@ export function App() {
         return best;
     }, [rlat, rlon, allPeaks, progress.peaks]);
 
+    // v1.6: que me falta cerca (territorios sin conquistar alrededor)
+    const nearMissing = useMemo(() => {
+        const ref: [number, number] = lastPos ? lastPos : [view.lat, view.lon];
+        const bearing8 = (to: [number, number]) => {
+            const lat1 = ref[0] * Math.PI / 180, lat2 = to[0] * Math.PI / 180, dLon = (to[1] - ref[1]) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+            return ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360 / 45) % 8];
+        };
+        const distToRegion = (rg: Region) => {
+            let best = Infinity;
+            for (const ring of rg.r) for (let i = 0; i < ring.length; i += 2) {
+                const d = distM(ref, [ring[i + 1], ring[i]]);
+                if (d < best) best = d;
+            }
+            return best;
+        };
+        const items: { name: string; level: string; d: number; dir: string; lon: number; lat: number }[] = [];
+        const push = (regs: Region[], have: string[], level: string) => {
+            for (const rg of regs) {
+                if (have.includes(rg.n)) continue;
+                if (ref[0] < rg.b[1] - 1.5 || ref[0] > rg.b[3] + 1.5 || ref[1] < rg.b[0] - 1.5 || ref[1] > rg.b[2] + 1.5) continue;
+                const d = distToRegion(rg);
+                if (d <= 150000) items.push({ name: rg.n, level, d, dir: bearing8([rg.c[1], rg.c[0]]), lon: rg.c[0], lat: rg.c[1] });
+            }
+        };
+        const inSpain = ref[1] >= SPAIN_BBOX[0] && ref[1] <= SPAIN_BBOX[2] && ref[0] >= SPAIN_BBOX[1] && ref[0] <= SPAIN_BBOX[3];
+        if (inSpain) { push(PROV, progress.prov, 'Provincia'); push(CCAA, progress.ccaa, 'Comunidad'); }
+        else push(COUNTRIES, progress.countries, 'Pais');
+        return items.sort((a, b) => a.d - b.d).slice(0, 5);
+    }, [lastPos, view.lat, view.lon, progress.prov, progress.ccaa, progress.countries]);
+
     // v1.3: modo aventura y racha
     const [adv, setAdv] = useState<ActiveAdventure | null>(() => loadJson<ActiveAdventure>(ADV_ACTIVE_KEY));
     const advRef = useRef(adv);
@@ -1072,6 +1104,22 @@ export function App() {
                 </div>
             </div>
         ) : null}
+
+        <section className="tu-group"><h2>Te falta cerca</h2>
+            <p className="tu-more">Sin conquistar en 150 km {lastPos ? 'desde tu posicion' : 'desde el centro del mapa'}.</p>
+            {nearMissing.length ? (
+                <ol className="tu-miss">
+                    {nearMissing.map((m) => (
+                        <li key={m.level + m.name}>
+                            <button className="tu-missrow" onClick={() => { setSelectedPeak(null); setViewPersist({ lon: m.lon, lat: m.lat, z: m.level === 'Provincia' ? 8 : 6 }); }}>
+                                <b>{m.name}</b>
+                                <span>{m.level} · {m.d < 2000 ? 'aqui mismo' : fmtDist(m.d / 1000)} · {m.dir}</span>
+                            </button>
+                        </li>
+                    ))}
+                </ol>
+            ) : <div className="tu-callout"><strong>Zona dominada</strong><p>No te queda nada sin conquistar en 150 km a la redonda.</p></div>}
+        </section>
 
         {selectedPeak ? (
             <div className="tu-callout">
