@@ -170,6 +170,8 @@ function paceStats(adv: Adventure, perMile: boolean): PaceStats | null {
     const totalSec = (adv.times[adv.times.length - 1] - adv.times[0]) / 1000;
     if (totalSec <= 0) return null;
     const avg = totalSec / (totalKm / unit);
+    // v1.21.1: suelo de cordura - menos de 15 s/km (~240 km/h) es dato corrupto, no actividad real
+    if (avg < 15) return null;
     // mejor tramo de 1 unidad sobre la traza diezmada
     const d: number[] = [0];
     for (let i = 1; i < adv.track.length; i++) d.push(d[i - 1] + distM(adv.track[i - 1], adv.track[i]) / 1000);
@@ -1913,7 +1915,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.21{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.21.1{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

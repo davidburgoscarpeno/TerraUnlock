@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.21.1)
+
+- Guarda de cordura en el ritmo: si el ritmo medio sale por debajo de 15 s/km (~240 km/h, datos corruptos o sinteticos), no se muestra ritmo en vez de enseñar un 0:00/km absurdo.
+
 ## Estado (v1.21)
 
 - La tarjeta PNG de aventura muestra el ritmo medio y el mejor km (o milla, segun unidades) cuando la aventura tiene timestamps reales, igual que el modal y la lista.
