@@ -96,6 +96,9 @@ const EN: Record<string, string> = {
     'Para revelar la niebla en directo la app necesita tu GPS. Tu posicion y tu progreso se guardan unicamente en este dispositivo.': 'To reveal the fog live the app needs your GPS. Your position and progress are stored only on this device.',
     'Activar GPS y empezar': 'Enable GPS and start',
     'Ahora no': 'Not now',
+    'Esa actividad ya la tenias importada': 'You already had that activity imported',
+    'Esas {n} actividades ya las tenias importadas': '{n} of those activities were already imported',
+    '{n} ya las tenias importadas: las he saltado': '{n} were already imported: I skipped them',
     'Aplicar lote': 'Apply batch', 'Aplicar ruta': 'Apply route', 'Cancelar': 'Cancel',
     // te falta cerca
     'Te falta cerca': 'Missing nearby',

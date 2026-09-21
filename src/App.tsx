@@ -270,6 +270,7 @@ type TrackScan = {
     name: string; pts: [number, number][]; km: number;
     countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; cells: string[];
     times?: (string | null)[];
+    dup?: boolean;
 };
 
 function parseGpx(text: string): { name: string; pts: [number, number][]; times: (string | null)[] } {
@@ -284,6 +285,24 @@ function parseGpx(text: string): { name: string; pts: [number, number][]; times:
     });
     if (pts.length < 2) throw new Error(t('Sin puntos de track'));
     return { name, pts, times };
+}
+
+// v1.29: huella de una actividad para deduplicar importaciones (extremos de la traza + km en decimas)
+function trackGeom(pts: [number, number][], km: number): string {
+    const f = pts[0], l = pts[pts.length - 1];
+    if (!f || !l) return '';
+    return f[0].toFixed(3) + ',' + f[1].toFixed(3) + '>' + l[0].toFixed(3) + ',' + l[1].toFixed(3) + ':' + Math.round(km * 10);
+}
+function dupSets(advs: Adventure[]) {
+    const sig = new Set<string>(), geom = new Set<string>();
+    for (const a of advs) {
+        if (!a.track || a.track.length < 2) continue;
+        const g = trackGeom(a.track, a.km);
+        if (!g) continue;
+        geom.add(g);
+        sig.add((a.start || '').slice(0, 16) + '|' + g);
+    }
+    return { sig, geom };
 }
 
 // Escanea un track contra el progreso actual: que celdas revela y que desbloquea (sin mutar nada)
@@ -386,7 +405,7 @@ export function App() {
     const [toast, setToast] = useState('');
     const [ioText, setIoText] = useState('');
     const [confirmReset, setConfirmReset] = useState(false);
-    type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress };
+    type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress; dups: number };
     const [importBatch, setImportBatch] = useState<ImportBatch | null>(null);
     const [wStep, setWStep] = useState(0);
     const [batchBusy, setBatchBusy] = useState(false);
@@ -543,17 +562,33 @@ export function App() {
             // Escanear en lote contra una copia del progreso que se actualiza entre tracks
             const p0 = progressRef.current;
             const work: Progress = { cells: [...p0.cells], points: [...p0.points], countries: [...p0.countries], ccaa: [...p0.ccaa], prov: [...p0.prov], peaks: [...p0.peaks] };
-            const scans: TrackScan[] = [];
-            let totalKm = 0;
-            let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+            const scansAll: TrackScan[] = [];
             for (const t of tracks) {
                 const sc = scanTrack(t.name, t.pts, work, peakGrid, t.times);
-                scans.push(sc); totalKm += sc.km;
+                scansAll.push(sc);
                 work.cells = sc.cells;
                 work.countries = [...work.countries, ...sc.countries];
                 work.ccaa = [...work.ccaa, ...sc.ccaa];
                 work.prov = [...work.prov, ...sc.prov];
                 work.peaks = [...work.peaks, ...sc.peaks];
+            }
+            // v1.29: deduplicar contra el historial y dentro del propio lote (misma fecha+traza, o misma traza si no hay tiempos)
+            const ds = dupSets(adventuresRef.current);
+            const batchSig = new Set<string>(), batchGeom = new Set<string>();
+            let dups = 0;
+            for (const sc of scansAll) {
+                const g = trackGeom(sc.pts, sc.km);
+                const t0 = (sc.times || []).find((x) => x);
+                const sig = (t0 ? new Date(t0).toISOString().slice(0, 16) : '') + '|' + g;
+                const isDup = g ? (t0 ? (ds.sig.has(sig) || batchSig.has(sig)) : (ds.geom.has(g) || batchGeom.has(g))) : false;
+                if (isDup) { sc.dup = true; dups++; } else { batchSig.add(sig); batchGeom.add(g); }
+            }
+            const scans = scansAll.filter((s) => !s.dup);
+            if (!scans.length) { setToast(t(dups > 1 ? 'Esas {n} actividades ya las tenias importadas' : 'Esa actividad ya la tenias importada', { n: dups })); return; }
+            let totalKm = 0;
+            let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+            for (const sc of scans) {
+                totalKm += sc.km;
                 for (const q of sc.pts) { if (q[0] < minLat) minLat = q[0]; if (q[0] > maxLat) maxLat = q[0]; if (q[1] < minLon) minLon = q[1]; if (q[1] > maxLon) maxLon = q[1]; }
             }
             const w = wrapRef.current?.clientWidth || 800, h = wrapRef.current?.clientHeight || 500;
@@ -561,7 +596,7 @@ export function App() {
             const zx = Math.log2((w * 0.7 * 360) / (256 * spanLon));
             const zy = Math.log2((h * 0.7 * 360) / (256 * spanLat * 1.4));
             setViewPersist({ lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2, z: Math.max(3, Math.min(14, Math.min(zx, zy))) });
-            setImportBatch({ scans, files: files.length, tracksOk: tracks.length, failed, totalKm, work });
+            setImportBatch({ scans, files: files.length, tracksOk: scans.length, failed, totalKm, work, dups });
             setTab('mapa');
         } catch (e) { setToast(t('Importacion fallida: {msg}', { msg: e instanceof Error ? e.message : 'error' })); }
         finally { setBatchBusy(false); }
@@ -1326,7 +1361,12 @@ export function App() {
             const start = isFinite(t0.getTime()) ? t0.toISOString() : new Date().toISOString();
             const end = isFinite(t1.getTime()) && t1.getTime() >= new Date(start).getTime() ? t1.toISOString() : start;
             const p0 = progressRef.current;
-            const sc = scanTrack(g.name, g.pts, p0, peakGrid);
+            const sc = scanTrack(g.name, g.pts, p0, peakGrid, g.times);
+            // v1.29: no duplicar si esa actividad ya esta en el historial
+            const gGeom = trackGeom(sc.pts, sc.km);
+            const t0s = (sc.times || []).find((x) => x);
+            const ds2 = dupSets(adventuresRef.current);
+            if (gGeom && (t0s ? ds2.sig.has(new Date(t0s).toISOString().slice(0, 16) + '|' + gGeom) : ds2.geom.has(gGeom))) { setToast(t('Esa actividad ya la tenias importada')); return; }
             const next: Progress = {
                 countries: [...p0.countries, ...sc.countries],
                 ccaa: [...p0.ccaa, ...sc.ccaa],
@@ -2161,7 +2201,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.28{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.29{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
@@ -2205,6 +2245,7 @@ export function App() {
                         return names.length + pk ? names.join(', ') + (pk ? t(' y {n} cimas', { n: pk }) : '') : t('nada nuevo (zona ya desbloqueada)');
                     })() })}</p>
                     {importBatch.tracksOk > 1 ? <small>{importBatch.scans.slice(0, 6).map((sc) => sc.name + ' · ' + fmtDist(sc.km)).join(' · ')}{importBatch.tracksOk > 6 ? ' …' : ''}</small> : null}
+                    {importBatch.dups ? <small>{t('{n} ya las tenias importadas: las he saltado', { n: importBatch.dups })}</small> : null}
                     {importBatch.scans.length <= 20 ? <small>{t('Cada actividad se guardara como aventura en tu historial.')}</small> : null}
                     {importBatch.failed ? <small>{t('({n} archivos no se pudieron leer)', { n: importBatch.failed })}</small> : null}
                     <div className="tu-controls" style={{ justifyContent: 'center', marginTop: 10 }}>
