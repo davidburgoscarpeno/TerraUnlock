@@ -312,6 +312,45 @@ function scanTrack(name: string, raw: [number, number][], p: Progress, peakGrid:
     return { name, pts, km, countries: nCountries, ccaa: nCcaa, prov: nProv, peaks: nPeaks, cells: [...cells] };
 }
 
+// v1.26: silueta estatica de una region con las celdas reveladas (sin tiles)
+function RegionShape({ rg, cells }: { rg: Region; cells: string[] }) {
+    const ref = useRef<HTMLCanvasElement | null>(null);
+    useEffect(() => {
+        const cv = ref.current; if (!cv) return;
+        const g = cv.getContext('2d'); if (!g) return;
+        const pw = cv.width, ph = cv.height, pad = 10;
+        g.fillStyle = '#0d1420'; g.fillRect(0, 0, pw, ph);
+        const spanLo = Math.max(1e-9, rg.b[2] - rg.b[0]), spanLa = Math.max(1e-9, rg.b[3] - rg.b[1]);
+        const sc = Math.min((pw - pad * 2) / spanLo, (ph - pad * 2) / spanLa);
+        const offX = pad + ((pw - pad * 2) - spanLo * sc) / 2;
+        const offY = pad + ((ph - pad * 2) - spanLa * sc) / 2;
+        const X = (lo: number) => offX + (lo - rg.b[0]) * sc;
+        const Y = (la: number) => ph - (offY + (la - rg.b[1]) * sc);
+        g.beginPath();
+        for (const ring of rg.r) {
+            for (let i = 0; i < ring.length; i += 2) { const x = X(ring[i]), y = Y(ring[i + 1]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+            g.closePath();
+        }
+        g.fillStyle = '#16222f'; g.fill();
+        g.fillStyle = 'rgba(45,200,170,0.75)';
+        const cellPx = Math.max(1.5, CELL * sc);
+        for (const ck of cells) {
+            const ci = ck.indexOf(',');
+            const cla = +ck.slice(0, ci) * CELL, clo = +ck.slice(ci + 1) * CELL;
+            if (clo < rg.b[0] || clo > rg.b[2] || cla < rg.b[1] || cla > rg.b[3]) continue;
+            if (!pip(clo, cla, rg.r)) continue;
+            g.fillRect(X(clo - CELL / 2), Y(cla + CELL / 2), cellPx, cellPx);
+        }
+        g.beginPath();
+        for (const ring of rg.r) {
+            for (let i = 0; i < ring.length; i += 2) { const x = X(ring[i]), y = Y(ring[i + 1]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+            g.closePath();
+        }
+        g.strokeStyle = '#2dc8aa'; g.lineWidth = 1.5; g.stroke();
+    }, [rg, cells]);
+    return <canvas ref={ref} width={640} height={300} style={{ width: '100%', borderRadius: 12, border: '1px solid #1c2733', display: 'block', margin: '8px 0' }} />;
+}
+
 export function App() {
     const [progress, setProgress] = useState<Progress>(loadProgress);
     const progressRef = useRef(progress); progressRef.current = progress;
@@ -1797,10 +1836,12 @@ export function App() {
                     const rgPv = pv ? PROV.find((r) => r.n === pv) : null;
                     const rgA = a ? CCAA.find((r) => r.n === a) : null;
                     const rgC = c ? COUNTRIES.find((r) => r.n === c) : null;
+                    const rgAny = rgPv || rgA || rgC;
                     if (rgPv) {
                         const inside = peaksInRegion(rgPv, allPeaks);
                         const rest = inside.filter((p) => !progress.peaks.includes(peakId(p))).sort((x, y) => y[3] - x[3]);
                         return <div className="tu-break">
+                            <RegionShape rg={rgPv} cells={progress.cells} />
                             <div className="tu-breaktitle">{t('Cimas en {n}: {won} de {total} conquistadas', { n: rgPv.n, won: inside.length - rest.length, total: inside.length })}</div>
                             {rest.length ? <ol className="tu-peaklist">{rest.slice(0, 6).map((p) => <li key={peakId(p)}>
                                 <span className="tu-pkname">{p[0]}</span><span className="tu-pkele">{p[3]} m</span>
@@ -1817,6 +1858,7 @@ export function App() {
                     if (lista) {
                         const titulo = rgA ? t('Provincias de {n}', { n: rgA.n }) : t('Comunidades de España');
                         return <div className="tu-break">
+                            {rgAny ? <RegionShape rg={rgAny} cells={progress.cells} /> : null}
                             <div className="tu-breaktitle">{t('{titulo}: {won} de {total} conquistadas', { titulo, won: lista.filter((x) => x.won).length, total: lista.length })}</div>
                             {lista.map((x) => {
                                 const rev = regionRevealedCells(x.rg, progress.cells);
@@ -1833,6 +1875,7 @@ export function App() {
                         const inside = peaksInRegion(rgC, allPeaks);
                         const rest = inside.filter((p) => !progress.peaks.includes(peakId(p))).sort((x, y) => y[3] - x[3]);
                         return <div className="tu-break">
+                            <RegionShape rg={rgC} cells={progress.cells} />
                             <div className="tu-breaktitle">{t('Cimas en {n}: {won} de {total} conquistadas', { n: rgC.n, won: inside.length - rest.length, total: inside.length })}</div>
                             {rest.length ? <ol className="tu-peaklist">{rest.slice(0, 6).map((p) => <li key={peakId(p)}>
                                 <span className="tu-pkname">{p[0]}</span><span className="tu-pkele">{p[3]} m</span>
@@ -2085,7 +2128,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.25{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.26{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

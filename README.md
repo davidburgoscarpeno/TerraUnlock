@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.26)
+
+- La ficha de region en la app muestra la misma silueta estatica (poligono + celdas reveladas en teal) encima del desglose, sin necesidad de tiles.
+
 ## Estado (v1.25)
 
 - La tarjeta de territorio dibuja su silueta: poligono de la region con las celdas reveladas en teal y el contorno marcado.
