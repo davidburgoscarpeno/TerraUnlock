@@ -8,6 +8,8 @@ import { PEAKS_ES } from './data/peaks_es';
 import type { Peak } from './data/peaks_es';
 import { PEAKS_WORLD } from './data/peaks_world';
 import TerrainCard from './Terrain';
+import ElevChart from './ElevChart';
+import type { Adventure, AdventureProfile } from './types';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
 const TILE_URL = (tz: number, j: number, i: number) => 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + tz + '/' + j + '/' + i;
@@ -133,8 +135,7 @@ function regionRevealedCells(rg: Region, cells: string[]) {
 }
 
 // v1.3: aventuras (salida del dia) y rachas (dias seguidos revelando)
-interface Adventure { start: string; end: string; km: number; points: number; countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; }
-interface ActiveAdventure { start: string; km: number; points: number; countries0: string[]; ccaa0: string[]; prov0: string[]; peaks0: string[]; }
+interface ActiveAdventure { start: string; km: number; points: number; countries0: string[]; ccaa0: string[]; prov0: string[]; peaks0: string[]; points0?: number; }
 interface Streak { last: string; count: number; }
 const ADV_ACTIVE_KEY = 'terraunlock.adventure.active.v1';
 const ADVS_KEY = 'terraunlock.adventures.v1';
@@ -1213,7 +1214,7 @@ export function App() {
     useEffect(() => { if (!adv) return; const t = setInterval(() => setAdvTick((x) => x + 1), 15000); return () => clearInterval(t); }, [adv]);
     const startAdventure = () => {
         const p = progressRef.current;
-        const a: ActiveAdventure = { start: new Date().toISOString(), km: 0, points: 0, countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks };
+        const a: ActiveAdventure = { start: new Date().toISOString(), km: 0, points: 0, countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks, points0: p.points.length };
         advRef.current = a; setAdv(a); saveJson(ADV_ACTIVE_KEY, a);
         setToast('Aventura empezada: sal a conquistar');
     };
@@ -1228,12 +1229,35 @@ export function App() {
             prov: p.prov.filter((n) => !a.prov0.includes(n)),
             peaks: p.peaks.filter((n) => !a.peaks0.includes(n)),
         };
+        // v1.11: traza de la aventura (diezmada a ~300 puntos) para el perfil de elevacion
+        if (a.points0 != null) {
+            const pts = p.points.slice(a.points0);
+            if (pts.length >= 2) {
+                const stride = Math.max(1, Math.ceil(pts.length / 300));
+                const tr = pts.filter((_, i) => i % stride === 0);
+                const lastPt = pts[pts.length - 1];
+                const lastTr = tr[tr.length - 1];
+                if (lastTr[0] !== lastPt[0] || lastTr[1] !== lastPt[1]) tr.push(lastPt);
+                done.track = tr;
+            }
+        }
         const list = [done, ...adventures].slice(0, 50);
         setAdventures(list); saveJson(ADVS_KEY, list);
         advRef.current = null; setAdv(null);
         try { localStorage.removeItem(ADV_ACTIVE_KEY); } catch { /* sin espacio */ }
         setAdvSummary(done);
     };
+    // v1.11: guardar el perfil calculado dentro de la aventura
+    const saveProfile = (start: string, prof: AdventureProfile | null) => {
+        setAdventures((list) => {
+            const next = list.map((x) => x.start === start ? { ...x, ...(prof ? { profile: prof } : { noProfile: true }) } : x);
+            saveJson(ADVS_KEY, next);
+            return next;
+        });
+        setAdvSummary((cur) => (cur && cur.start === start ? { ...cur, ...(prof ? { profile: prof } : { noProfile: true }) } : cur));
+    };
+    const [advOpen, setAdvOpen] = useState<string | null>(null);
+
     const advElapsed = adv ? (() => { const m = Math.max(0, Math.floor((Date.now() + advTick * 0 - new Date(adv.start).getTime()) / 60000)); return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min'; })() : '';
 
     const km2 = (progress.cells.length * 1.1).toFixed(0);
@@ -1459,10 +1483,12 @@ export function App() {
             </section>
 
             {adventures.length ? <section className="tu-group"><h2>Aventuras</h2>
+                <div className="tu-terrnote" style={{ marginBottom: 6 }}>Toca una aventura para ver su perfil de elevacion.</div>
                 <ol className="tu-peaklist tu-advlist">
-                    {adventures.map((a) => <li key={a.start}>
+                    {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}><ElevChart adv={a} onProfile={saveProfile} /></span> : null}
                     </li>)}
                 </ol>
             </section> : null}
@@ -1623,7 +1649,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.10 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.11 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
@@ -1661,6 +1687,7 @@ export function App() {
                     <h2>Aventura terminada</h2>
                     <strong>{fmtDist(advSummary.km)}</strong>
                     <p>{advSummary.points} puntos GPS{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? ' · Desbloqueos: ' + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + advSummary.peaks.length + ' cimas' : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? ' · Sin desbloqueos nuevos esta vez' : ''}</p>
+                    <ElevChart adv={advSummary} onProfile={saveProfile} />
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>Cerrar</button>

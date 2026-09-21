@@ -174,3 +174,8 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-week .tu-bar { margin-top: 0; }
 .tu-week.done { border-color: #14755f; }
 .tu-week.done strong { color: #2dc8aa; }
+
+.tu-advlist li.tu-advrow { flex-wrap: wrap; cursor: pointer; }
+.tu-advprof { flex-basis: 100%; margin-top: 8px; cursor: default; }
+.tu-elev canvas { width: 100%; border-radius: 8px; display: block; background: #0a0f16; border: 1px solid #1c2733; }
+.tu-celeb-card .tu-elev { margin-top: 10px; }

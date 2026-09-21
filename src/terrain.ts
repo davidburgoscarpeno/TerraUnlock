@@ -168,3 +168,51 @@ async function fetchGrid(lat: number, lon: number): Promise<ElevGrid> {
     }
     return { n: GRID_N, data, min, max, mpp: sw * mpp / GRID_N };
 }
+
+// Muestreo de altitud para una traza ([lat, lon][]): cada tile se pide una vez, interpolacion bilineal.
+const tileGridCache = new Map<string, Promise<Float32Array>>();
+function loadTileGrid(z: number, x: number, y: number): Promise<Float32Array> {
+    const key = z + '/' + x + '/' + y;
+    let p = tileGridCache.get(key);
+    if (!p) {
+        p = (async () => {
+            const img = await loadTile(z, x, y);
+            const cv = document.createElement('canvas');
+            cv.width = 256; cv.height = 256;
+            const cx = cv.getContext('2d', { willReadFrequently: true });
+            if (!cx) throw new Error('canvas 2d no disponible');
+            cx.drawImage(img, 0, 0);
+            const px = cx.getImageData(0, 0, 256, 256).data;
+            const g = new Float32Array(256 * 256);
+            for (let k = 0; k < 256 * 256; k++) g[k] = decodeTerrarium(px[k * 4], px[k * 4 + 1], px[k * 4 + 2]);
+            return g;
+        })();
+        tileGridCache.set(key, p);
+        p.catch(() => tileGridCache.delete(key));
+    }
+    return p;
+}
+
+export async function sampleElevations(pts: [number, number][], z: number = TZ): Promise<Float32Array> {
+    const need = new Map<string, [number, number]>();
+    for (const [lat, lon] of pts) {
+        const tx = Math.floor(lonToPx(lon, z) / 256), ty = Math.floor(latToPx(lat, z) / 256);
+        need.set(tx + '/' + ty, [tx, ty]);
+    }
+    const grids = new Map<string, Float32Array>();
+    await Promise.all([...need.entries()].map(async ([k, xy]) => { grids.set(k, await loadTileGrid(z, xy[0], xy[1])); }));
+    const out = new Float32Array(pts.length);
+    pts.forEach(([lat, lon], i) => {
+        const gx = lonToPx(lon, z), gy = latToPx(lat, z);
+        const tx = Math.floor(gx / 256), ty = Math.floor(gy / 256);
+        const g = grids.get(tx + '/' + ty);
+        if (!g) { out[i] = 0; return; }
+        const fx = gx - tx * 256, fy = gy - ty * 256;
+        const x0 = Math.max(0, Math.min(255, Math.floor(fx))), y0 = Math.max(0, Math.min(255, Math.floor(fy)));
+        const x1 = Math.min(255, x0 + 1), y1 = Math.min(255, y0 + 1);
+        const dx = Math.max(0, Math.min(1, fx - x0)), dy = Math.max(0, Math.min(1, fy - y0));
+        const a = g[y0 * 256 + x0], b = g[y0 * 256 + x1], c = g[y1 * 256 + x0], d = g[y1 * 256 + x1];
+        out[i] = a * (1 - dx) * (1 - dy) + b * dx * (1 - dy) + c * (1 - dx) * dy + d * dx * dy;
+    });
+    return out;
+}
