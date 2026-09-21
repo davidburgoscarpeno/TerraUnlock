@@ -139,6 +139,25 @@ interface Streak { last: string; count: number; }
 const ADV_ACTIVE_KEY = 'terraunlock.adventure.active.v1';
 const ADVS_KEY = 'terraunlock.adventures.v1';
 const STREAK_KEY = 'terraunlock.streak.v1';
+const WEEK_KEY = 'terraunlock.weekly.v1';
+const WEEK_TERR = 3; // territorios nuevos (pais + comunidad + provincia) para cumplir
+const WEEK_PEAK = 1; // o esta cantidad de cimas
+interface WeeklyGoal { week: string; countries0: string[]; ccaa0: string[]; prov0: string[]; peaks0: string[]; celebrated: boolean; }
+// Semana ISO 8601 (lunes-domingo), clave tipo 2026-W39.
+function weekKey(d: Date): string {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = (t.getUTCDay() + 6) % 7;
+    t.setUTCDate(t.getUTCDate() - day + 3);
+    const firstThu = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+    const fday = (firstThu.getUTCDay() + 6) % 7;
+    firstThu.setUTCDate(firstThu.getUTCDate() - fday + 3);
+    const w = 1 + Math.round((t.getTime() - firstThu.getTime()) / 604800000);
+    return t.getUTCFullYear() + '-W' + String(w).padStart(2, '0');
+}
+function daysLeftThisWeek(d: Date): number { return 7 - ((d.getDay() + 6) % 7) - 1; }
+function newWeeklyGoal(p: Progress): WeeklyGoal {
+    return { week: weekKey(new Date()), countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks, celebrated: false };
+}
 function loadJson<T>(key: string): T | null { try { const raw = localStorage.getItem(key); if (raw) return JSON.parse(raw) as T; } catch { /* sin datos */ } return null; }
 function saveJson(key: string, v: unknown) { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* sin espacio */ } }
 function dayKey(d: Date) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -1041,6 +1060,35 @@ export function App() {
     const advRef = useRef(adv);
     useEffect(() => { advRef.current = adv; }, [adv]);
     const [adventures, setAdventures] = useState<Adventure[]>(() => loadJson<Adventure[]>(ADVS_KEY) || []);
+    // v1.9: objetivo semanal automatico (3 territorios nuevos o 1 cima; se reinicia cada lunes)
+    const [weekly, setWeekly] = useState<WeeklyGoal>(() => {
+        const saved = loadJson<WeeklyGoal>(WEEK_KEY);
+        if (saved && saved.week === weekKey(new Date())) return saved;
+        const w = newWeeklyGoal(loadProgress());
+        saveJson(WEEK_KEY, w);
+        return w;
+    });
+    useEffect(() => {
+        if (weekly.week !== weekKey(new Date())) {
+            const w = newWeeklyGoal(progress);
+            setWeekly(w); saveJson(WEEK_KEY, w);
+            return;
+        }
+        const newTerr = progress.countries.length + progress.ccaa.length + progress.prov.length - weekly.countries0.length - weekly.ccaa0.length - weekly.prov0.length;
+        const newPeaks = progress.peaks.length - weekly.peaks0.length;
+        if (!weekly.celebrated && (newTerr >= WEEK_TERR || newPeaks >= WEEK_PEAK)) {
+            const w = { ...weekly, celebrated: true };
+            setWeekly(w); saveJson(WEEK_KEY, w);
+            setCelebration((c) => [...c, {
+                id: 'weekly-' + weekly.week,
+                title: 'Objetivo semanal cumplido',
+                hint: newPeaks >= WEEK_PEAK
+                    ? 'Has conquistado ' + newPeaks + (newPeaks === 1 ? ' cima' : ' cimas') + ' esta semana'
+                    : 'Has desbloqueado ' + newTerr + ' territorios nuevos esta semana',
+                test: () => true,
+            }]);
+        }
+    }, [progress, weekly]);
     const [advSummary, setAdvSummary] = useState<Adventure | null>(null);
     const [advTick, setAdvTick] = useState(0);
     useEffect(() => { if (!adv) return; const t = setInterval(() => setAdvTick((x) => x + 1), 15000); return () => clearInterval(t); }, [adv]);
@@ -1106,6 +1154,23 @@ export function App() {
             <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, -1)}>-</button>
             {!adv ? <button className="file-button is-compact" data-variant="primary" onClick={startAdventure}>Empezar aventura</button> : null}
         </div>
+
+        {(() => {
+            const terr = Math.max(0, progress.countries.length + progress.ccaa.length + progress.prov.length - weekly.countries0.length - weekly.ccaa0.length - weekly.prov0.length);
+            const peaks = Math.max(0, progress.peaks.length - weekly.peaks0.length);
+            const done = terr >= WEEK_TERR || peaks >= WEEK_PEAK;
+            const left = daysLeftThisWeek(new Date());
+            return <div className={done ? 'tu-callout tu-week done' : 'tu-callout tu-week'}>
+                <strong>{done ? 'Objetivo semanal cumplido' : 'Objetivo de la semana'} <small style={{ fontWeight: 400, opacity: 0.75 }}>{done ? 'a por la siguiente' : left === 0 ? 'hoy es el ultimo dia' : 'quedan ' + left + (left === 1 ? ' dia' : ' dias')}</small></strong>
+                <p>Desbloquea {WEEK_TERR} territorios nuevos o conquista {WEEK_PEAK} cima antes del lunes.</p>
+                <div className="tu-weekbars">
+                    <span className="tu-weeklbl">Territorios {Math.min(terr, WEEK_TERR)}/{WEEK_TERR}</span>
+                    <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, terr / WEEK_TERR * 100).toFixed(0) + '%' }} /></span>
+                    <span className="tu-weeklbl">Cimas {Math.min(peaks, WEEK_PEAK)}/{WEEK_PEAK}</span>
+                    <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#e8cd6e', width: Math.min(100, peaks / WEEK_PEAK * 100).toFixed(0) + '%' }} /></span>
+                </div>
+            </div>;
+        })()}
 
         {adv ? <div className="tu-callout tu-advpanel">
             <strong>Aventura en curso</strong>
@@ -1438,7 +1503,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.8 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.9 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (

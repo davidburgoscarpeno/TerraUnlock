@@ -168,3 +168,9 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-breakrow { display: block; width: 100%; text-align: left; background: #101823; border: 1px solid #1c2733; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; color: inherit; font: inherit; }
 .tu-breakrow .tu-breakname { font-weight: 600; color: #e6edf3; margin-right: 8px; }
 .tu-breakrow .tu-bar { margin-top: 6px; }
+
+.tu-week .tu-weekbars { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; margin-top: 6px; }
+.tu-week .tu-weeklbl { font-size: 12px; color: #9fb0c0; white-space: nowrap; }
+.tu-week .tu-bar { margin-top: 0; }
+.tu-week.done { border-color: #14755f; }
+.tu-week.done strong { color: #2dc8aa; }

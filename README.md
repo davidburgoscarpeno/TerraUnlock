@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.9)
+
+- Objetivo semanal automatico: desbloquea 3 territorios nuevos o conquista 1 cima antes del lunes. Tarjeta en el Mapa con barras de progreso y dias restantes; al cumplirlo, celebra con el modal de logros y la tarjeta queda marcada. Se reinicia solo cada lunes (semana ISO) y el progreso se guarda en el dispositivo.
+
 ## Estado (v1.8)
 
 - Estadisticas por territorio: la ficha de region ahora desglosa su contenido (una comunidad lista sus provincias, una provincia o pais lista sus cimas sin conquistar con acceso directo, Espana lista sus comunidades), cada una con % revelado y acceso para centrarla en el mapa. En Progreso, nuevo ranking "Comunidades mas dominadas" (top 8 por % de superficie revelada) con boton para abrirlas.
