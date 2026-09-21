@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.4)
+
+- Aviso celebratorio al entrar en territorio nuevo: al desbloquear una provincia, comunidad o pais aparece un banner sobre el mapa ("Provincia nueva: Granada - ya llevas 5 de 52") con boton de compartir, cierre automatico a los 8 s, vibracion en movil y cola si saltan varios a la vez. En importaciones (GPX/FIT/ZIP) sale un unico aviso resumen en vez de una celebracion por cada territorio. No es pantalla completa ni se repite al recargar.
+
 ## Estado (v1.3)
 
 - "Rutas en Wikiloc" de cada cima abre el mapa de rutas de Wikiloc centrado en la cima (bbox de unos 3 km): salen las rutas que pasan por ahi, ordenadas por relevancia, en vez de una busqueda generica por nombre (v1.3.1).
