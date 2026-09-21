@@ -10,6 +10,7 @@ import { PEAKS_WORLD } from './data/peaks_world';
 import TerrainCard from './Terrain';
 import ElevChart from './ElevChart';
 import { computeProfile, drawProfile } from './adventureProfile';
+import { adventureToGpx, gpxFilename } from './gpxExport';
 import type { Adventure, AdventureProfile } from './types';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
@@ -1076,6 +1077,24 @@ export function App() {
     };
 
     // v1.12: tarjeta PNG de una aventura (perfil + cifras + desbloqueos)
+    // v1.13: exportar la aventura a GPX (descarga directa; el share sheet de movil no acepta bien .gpx)
+    const exportGpx = async (adv: Adventure) => {
+        try {
+            if (!adv.track || adv.track.length < 2) { setToast('Esta aventura no tiene track GPS para exportar'); return; }
+            let prof = adv.profile || null;
+            if (!prof && !adv.noProfile) {
+                try { prof = await computeProfile(adv.track); saveProfile(adv.start, prof); } catch { prof = null; }
+            }
+            const gpx = adventureToGpx(adv, prof, prefs.nombre);
+            const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = gpxFilename(adv);
+            a.click();
+            setToast('GPX descargado: listo para Strava, Garmin o Wikiloc');
+        } catch { setToast('No se pudo exportar el GPX'); }
+    };
+
     const shareAdventureCard = async (adv: Adventure) => {
         try {
             let prof = adv.profile || null;
@@ -1595,7 +1614,7 @@ export function App() {
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}><ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button></span></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}><ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button></span></span> : null}
                     </li>)}
                 </ol>
             </section> : null}
@@ -1756,7 +1775,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.12.1 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.13 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
@@ -1797,6 +1816,7 @@ export function App() {
                     <ElevChart adv={advSummary} onProfile={saveProfile} />
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>Compartir aventura</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(advSummary)}>Exportar GPX</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>Cerrar</button>
                     </div>
                 </div>

@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.13)
+
+- Exportar cualquier aventura a GPX 1.1 (boton "Exportar GPX" al terminar una aventura y en cada aventura desplegada). Incluye elevacion real del terreno cuando hay perfil calculado; compatible con Strava, Garmin Connect, Wikiloc y Google Earth. Nota: el track no guarda timestamps por punto, asi que los tiempos del GPX se interpolan entre el inicio y el fin de la aventura.
+
 ## Estado (v1.12)
 
 - Tarjeta PNG de aventura para compartir: avatar y nombre, fecha, km, puntos, duracion, desnivel, el grafico del perfil de elevacion y los desbloqueos (territorios y cimas). Boton "Compartir aventura" en el resumen al terminar y en cada aventura desplegada de la lista.
