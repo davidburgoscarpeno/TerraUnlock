@@ -1192,7 +1192,9 @@ export function App() {
             if (!prof && adv.track && adv.track.length >= 2 && !adv.noProfile) {
                 try { prof = await computeProfile(adv.track); saveProfile(adv.start, prof); } catch { prof = null; }
             }
-            const W = 1080, H = 1350;
+            // v1.22: mini-mapa de la ruta; si ademas hay perfil de elevacion la tarjeta crece
+            const hasRoute = !!(adv.track && adv.track.length >= 2);
+            const W = 1080, H = 1350 + (hasRoute && prof ? 420 : 0);
             const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
             const g = cv.getContext('2d'); if (!g) return;
             g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
@@ -1233,8 +1235,39 @@ export function App() {
                 g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
                 g.fillText(t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) }) + (ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''), 60, 575);
             }
-            // perfil
+            // v1.22: mini-mapa de la ruta (polyline teal con inicio y fin)
             let cy = ps ? 615 : 560;
+            if (hasRoute && adv.track) {
+                const tr = adv.track;
+                let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
+                for (const p of tr) {
+                    if (p[0] < minLa) minLa = p[0];
+                    if (p[0] > maxLa) maxLa = p[0];
+                    if (p[1] < minLo) minLo = p[1];
+                    if (p[1] > maxLo) maxLo = p[1];
+                }
+                const px = 60, py = cy, pw = W - 120, ph = 380, pad = 28;
+                g.fillStyle = '#111927'; g.beginPath(); g.roundRect(px, py, pw, ph, 16); g.fill();
+                g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.stroke();
+                const spanLo = Math.max(1e-9, maxLo - minLo), spanLa = Math.max(1e-9, maxLa - minLa);
+                const sc = Math.min((pw - pad * 2) / spanLo, (ph - pad * 2) / spanLa);
+                const offX = px + pad + ((pw - pad * 2) - spanLo * sc) / 2;
+                const offY = py + pad + ((ph - pad * 2) - spanLa * sc) / 2;
+                const X = (lo: number) => offX + (lo - minLo) * sc;
+                const Y = (la: number) => offY + (maxLa - la) * sc;
+                g.save();
+                g.beginPath(); g.roundRect(px, py, pw, ph, 16); g.clip();
+                g.beginPath();
+                for (let i = 0; i < tr.length; i++) { const x = X(tr[i][1]), y = Y(tr[i][0]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+                g.strokeStyle = '#2dc8aa'; g.lineWidth = 5; g.lineJoin = 'round'; g.lineCap = 'round'; g.stroke();
+                const dot = (x: number, y: number, r: number, fill: string) => { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); g.strokeStyle = '#0b1017'; g.lineWidth = 3; g.stroke(); };
+                dot(X(tr[0][1]), Y(tr[0][0]), 11, '#2dc8aa');
+                const lp = tr[tr.length - 1];
+                dot(X(lp[1]), Y(lp[0]), 11, '#e8cd6e');
+                g.restore();
+                cy += 420;
+            }
+            // perfil
             if (prof) {
                 g.save();
                 g.beginPath(); g.rect(60, cy, W - 120, 480); g.clip();
@@ -1255,7 +1288,7 @@ export function App() {
                 return w;
             };
             const chipRow2 = (title: string, names: string[], fg: string, bg: string) => {
-                if (!names.length || cy > 1100) return;
+                if (!names.length || cy > H - 250) return;
                 g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
                 g.fillText(title, 60, cy + 34);
                 cy += 52;
@@ -1270,7 +1303,7 @@ export function App() {
             chipRow2(t('PAISES'), terrC, '#7ee0c8', '#123a31');
             chipRow2(t('COMUNIDADES'), terrA, '#e8cd6e', '#2f2a12');
             chipRow2(t('PROVINCIAS'), terrP, '#8fb8d8', '#1a2634');
-            if (adv.peaks.length && cy <= 1100) {
+            if (adv.peaks.length && cy <= H - 250) {
                 const pks = adv.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
                 g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
                 g.fillText(t('CIMAS'), 60, cy + 34);
@@ -1917,7 +1950,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.21.2{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.22{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

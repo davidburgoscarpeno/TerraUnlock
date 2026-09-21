@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.22)
+
+- La tarjeta PNG de aventura dibuja el mini-mapa de la ruta: polyline teal con punto de inicio (teal) y fin (amarillo), encajada automaticamente. Si ademas hay perfil de elevacion, la tarjeta crece para enseñar los dos.
+
 ## Estado (v1.21.2)
 
 - El mejor km/milla ahora sale tambien en aventuras con traza muy diezmada: el tramo minimo baja de 0,98 a 0,5 unidades y el ritmo se escala por la distancia real del tramo (antes muchas ventanas quedaban descartadas y no salia "Mejor km").
