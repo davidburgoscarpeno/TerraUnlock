@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.18)
+
+- Borrar una aventura de la lista (boton "Borrar" al desplegarla, con confirmacion). Solo quita la aventura: el territorio revelado y los desbloqueos se quedan.
+
 ## Estado (v1.17)
 
 - Ritmo medio y mejor km (o milla, segun unidades) en aventuras con timestamps reales: se ven en el modal al terminar y al desplegar la aventura en la lista.

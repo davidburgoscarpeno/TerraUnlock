@@ -1732,7 +1732,7 @@ export function App() {
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button></span></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm('Borrar esta aventura? El territorio revelado se queda como esta.')) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast('Aventura borrada'); } }}>Borrar</button></span></span> : null}
                     </li>)}
                 </ol> : null}
             </section>
@@ -1894,7 +1894,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.17 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.18 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
