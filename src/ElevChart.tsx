@@ -11,7 +11,7 @@ function distM(a: [number, number], b: [number, number]) {
 function draw(cv: HTMLCanvasElement, p: AdventureProfile) {
     const g = cv.getContext('2d');
     if (!g) return;
-    const W = cv.width, H = cv.height, padL = 52, padR = 12, padT = 14, padB = 30;
+    const W = cv.width, H = cv.height, padL = 62, padR = 12, padT = 14, padB = 30;
     const iw = W - padL - padR, ih = H - padT - padB;
     const dMax = p.d[p.d.length - 1] || 1;
     const eMin = Math.floor(p.min / 100) * 100;
