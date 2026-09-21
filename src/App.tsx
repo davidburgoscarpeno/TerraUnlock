@@ -394,7 +394,8 @@ export function App() {
         setLastPos([lat, lon]);
         const a = advRef.current;
         if (a && isNewPoint) {
-            const inc = last ? distM(last, [lat, lon]) / 1000 : 0;
+            // v1.16.1: el primer punto de la aventura no suma distancia (el "last" global puede estar a cientos de km: importaciones, viajes sin registrar)
+            const inc = a.points > 0 && last ? distM(last, [lat, lon]) / 1000 : 0;
             const na = { ...a, km: a.km + inc, points: a.points + 1, times: a.times ? [...a.times, Date.now()] : undefined };
             advRef.current = na; setAdv(na); saveJson(ADV_ACTIVE_KEY, na);
         }
@@ -1861,7 +1862,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.16 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.16.1 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
