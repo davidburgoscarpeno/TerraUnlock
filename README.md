@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.17)
+
+- Ritmo medio y mejor km (o milla, segun unidades) en aventuras con timestamps reales: se ven en el modal al terminar y al desplegar la aventura en la lista.
+
 ## Estado (v1.16)
 
 - Las aventuras grabadas en vivo guardan el timestamp real de cada punto GPS. El GPX exportado lleva el ritmo verdadero (no interpolado). Aventuras antiguas e importadas sin tiempos siguen exportando con tiempos interpolados.

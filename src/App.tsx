@@ -158,6 +158,38 @@ function weekKey(d: Date): string {
     return t.getUTCFullYear() + '-W' + String(w).padStart(2, '0');
 }
 function daysLeftThisWeek(d: Date): number { return 7 - ((d.getDay() + 6) % 7) - 1; }
+
+// v1.17: ritmo medio y mejor km (o milla) de una aventura con timestamps reales
+interface PaceStats { avg: number; best: number | null; } // segundos por unidad (km o mi)
+function paceStats(adv: Adventure, perMile: boolean): PaceStats | null {
+    if (!adv.track || !adv.times || adv.times.length !== adv.track.length || adv.track.length < 2) return null;
+    const unit = perMile ? 1.609344 : 1;
+    const totalKm = adv.km > 0 ? adv.km : 0;
+    if (totalKm < 0.05) return null;
+    const totalSec = (adv.times[adv.times.length - 1] - adv.times[0]) / 1000;
+    if (totalSec <= 0) return null;
+    const avg = totalSec / (totalKm / unit);
+    // mejor tramo de 1 unidad sobre la traza diezmada
+    const d: number[] = [0];
+    for (let i = 1; i < adv.track.length; i++) d.push(d[i - 1] + distM(adv.track[i - 1], adv.track[i]) / 1000);
+    const dMax = d[d.length - 1];
+    let best: number | null = null;
+    if (dMax >= unit) {
+        let j = 0;
+        for (let i = 0; i < d.length; i++) {
+            while (j < d.length - 1 && d[j + 1] - d[i] <= unit) j++;
+            if (j <= i || d[j] - d[i] < unit * 0.98) continue;
+            const sec = (adv.times[j] - adv.times[i]) / 1000;
+            const pace = sec / ((d[j] - d[i]) / unit);
+            if (sec > 10 && (best === null || pace < best)) best = pace;
+        }
+    }
+    return { avg, best };
+}
+function fmtPace(secPerUnit: number, perMile: boolean): string {
+    const m = Math.floor(secPerUnit / 60), s = Math.round(secPerUnit % 60);
+    return m + ':' + String(s).padStart(2, '0') + '/' + (perMile ? 'mi' : 'km');
+}
 function newWeeklyGoal(p: Progress): WeeklyGoal {
     return { week: weekKey(new Date()), countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks, celebrated: false };
 }
@@ -1700,7 +1732,7 @@ export function App() {
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}><ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button></span></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>Exportar GPX</button></span></span> : null}
                     </li>)}
                 </ol> : null}
             </section>
@@ -1862,7 +1894,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.16.1 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.17 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
@@ -1900,6 +1932,7 @@ export function App() {
                     <h2>Aventura terminada</h2>
                     <strong>{fmtDist(advSummary.km)}</strong>
                     <p>{advSummary.points} puntos GPS{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? ' · Desbloqueos: ' + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + advSummary.peaks.length + ' cimas' : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? ' · Sin desbloqueos nuevos esta vez' : ''}</p>
+                    {(() => { const ps = paceStats(advSummary, imp); return ps ? <p style={{ color: '#2dc8aa', fontWeight: 600 }}>Ritmo medio {fmtPace(ps.avg, imp)}{ps.best ? ' - Mejor ' + (imp ? 'milla ' : 'km ') + fmtPace(ps.best, imp) : ''}</p> : null; })()}
                     <ElevChart adv={advSummary} onProfile={saveProfile} />
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>Compartir aventura</button>
