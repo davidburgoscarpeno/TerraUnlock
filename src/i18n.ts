@@ -104,6 +104,7 @@ const EN: Record<string, string> = {
     '{won} de {total} conquistadas': '{won} of {total} conquered',
     // progreso
     'Tu progreso': 'Your progress',
+    'Este mes': 'This month', 'Distancia': 'Distance', 'Territorios nuevos': 'New territories', '{v} el mes pasado': '{v} last month',
     'Superficie revelada': 'Area revealed',
     'Comunidades (ES)': 'Regions (ES)', 'Provincias (ES)': 'Provinces (ES)',
     'Cimas conquistadas': 'Peaks conquered', 'Puntos GPS': 'GPS points', 'Racha': 'Streak',

@@ -1546,6 +1546,23 @@ export function App() {
     const km2 = (progress.cells.length * 1.1).toFixed(0);
     const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p);
 
+    // v1.23: estadisticas del mes actual vs el anterior (a partir de las aventuras)
+    const monthStats = (() => {
+        const now = new Date();
+        const mStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const pStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+        const agg = (lo: number, hi: number) => {
+            const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= lo && t0 < hi; });
+            return {
+                km: list.reduce((n, a) => n + a.km, 0),
+                n: list.length,
+                terr: list.reduce((n, a) => n + a.countries.length + a.ccaa.length + a.prov.length, 0),
+                peaks: list.reduce((n, a) => n + a.peaks.length, 0),
+            };
+        };
+        return { cur: agg(mStart, now.getTime() + 60000), prev: agg(pStart, mStart), month: monthName(now.getMonth()) };
+    })();
+
     return <div className="tu-app">
         {tab === 'mapa' ? <>
             <header className="tu-header">
@@ -1741,6 +1758,15 @@ export function App() {
                     { label: t('Racha'), value: streak.count > 0 ? t(streak.count === 1 ? '{n} dia' : '{n} dias', { n: streak.count }) : '-', pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>{t('Compartir mi mapa')}</button><button className="file-button" data-variant="primary" onClick={shareWeekCard}>{t('Compartir mi semana')}</button></div>
+            </section>
+
+            <section className="tu-group"><h2>{t('Este mes')} · {monthStats.month}</h2>
+                <dl className="tu-factsdl">{([
+                    { label: t('Distancia'), value: fmtDist(monthStats.cur.km), prev: fmtDist(monthStats.prev.km) },
+                    { label: t('Aventuras'), value: String(monthStats.cur.n), prev: String(monthStats.prev.n) },
+                    { label: t('Territorios nuevos'), value: String(monthStats.cur.terr), prev: String(monthStats.prev.terr) },
+                    { label: t('Cimas'), value: String(monthStats.cur.peaks), prev: String(monthStats.prev.peaks) },
+                ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el mes pasado', { v: f.prev })}</small></dd></div>)}</dl>
             </section>
 
             {ccaaRanking.length ? <section className="tu-group"><h2>{t('Comunidades mas dominadas')}</h2>
@@ -1950,7 +1976,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.22{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.23{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

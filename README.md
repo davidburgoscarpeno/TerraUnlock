@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.23)
+
+- "Este mes" en Progreso: distancia, aventuras, territorios nuevos y cimas del mes actual, cada uno con la cifra del mes pasado al lado. Se calcula desde las aventuras guardadas.
+
 ## Estado (v1.22)
 
 - La tarjeta PNG de aventura dibuja el mini-mapa de la ruta: polyline teal con punto de inicio (teal) y fin (amarillo), encajada automaticamente. Si ademas hay perfil de elevacion, la tarjeta crece para enseñar los dos.
