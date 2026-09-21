@@ -408,6 +408,7 @@ export function App() {
     type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress; dups: number };
     const [importBatch, setImportBatch] = useState<ImportBatch | null>(null);
     const [wStep, setWStep] = useState(0);
+    const [focusAdv, setFocusAdv] = useState<Adventure | null>(null);
     const [batchBusy, setBatchBusy] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
@@ -870,6 +871,31 @@ export function App() {
             ctx.restore();
         }
 
+        // v1.31: traza de la aventura enfocada (teal, inicio teal / fin amarillo)
+        if (focusAdv && focusAdv.track && focusAdv.track.length >= 2) {
+            const tr = focusAdv.track;
+            ctx.save();
+            ctx.strokeStyle = '#2dc8aa'; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+            ctx.shadowColor = 'rgba(45,200,170,0.65)'; ctx.shadowBlur = 10;
+            ctx.beginPath();
+            let started = false;
+            for (const q of tr) {
+                const pt = project(q[1], q[0], z);
+                const x = sx(pt.x), y = sy(pt.y);
+                if (x < -80 || x > w + 80 || y < -80 || y > h + 80) { started = false; continue; }
+                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            const mk = (q: [number, number], color: string) => {
+                const pt = project(q[1], q[0], z);
+                ctx.fillStyle = color; ctx.beginPath(); ctx.arc(sx(pt.x), sy(pt.y), 7, 0, 7); ctx.fill();
+                ctx.fillStyle = '#0b1017'; ctx.beginPath(); ctx.arc(sx(pt.x), sy(pt.y), 3, 0, 7); ctx.fill();
+            };
+            mk(tr[0], '#2dc8aa'); mk(tr[tr.length - 1], '#f0b429');
+            ctx.restore();
+        }
+
         // Cimas: solo las visibles; si hay muchas juntas, se dibuja la mas alta de cada celda de pantalla
         if (z >= 5.5) {
             const cellPx = 26;
@@ -914,7 +940,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs]);
+    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs, focusAdv]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -1055,6 +1081,20 @@ export function App() {
             .slice(0, 8);
     }, [progress.cells]);
     const showPeakOnMap = (p: Peak) => { setSelectedPeak(p); setSelectedRegion(null); setViewPersist({ lon: p[2], lat: p[1], z: 11 }); setTab('mapa'); };
+
+    // v1.31: ver una aventura dibujada en el mapa (base de la vista publica de rutas)
+    const showAdvOnMap = (a: Adventure) => {
+        if (!a.track || a.track.length < 2) { setToast(t('Esta aventura no tiene track GPS')); return; }
+        setFocusAdv(a); setSelectedRegion(null); setSelectedPeak(null); setImportBatch(null);
+        let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+        for (const q of a.track) { if (q[0] < minLat) minLat = q[0]; if (q[0] > maxLat) maxLat = q[0]; if (q[1] < minLon) minLon = q[1]; if (q[1] > maxLon) maxLon = q[1]; }
+        const w = wrapRef.current?.clientWidth || 800, h = wrapRef.current?.clientHeight || 500;
+        const spanLon = Math.max(0.001, maxLon - minLon), spanLat = Math.max(0.001, maxLat - minLat);
+        const zx = Math.log2((w * 0.7 * 360) / (256 * spanLon));
+        const zy = Math.log2((h * 0.7 * 360) / (256 * spanLat * 1.4));
+        setViewPersist({ lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2, z: Math.max(3, Math.min(15, Math.min(zx, zy))) });
+        setTab('mapa');
+    };
     const locateForNearby = () => {
         if (!('geolocation' in navigator)) { setToast(t('Tu navegador no soporta geolocalizacion')); return; }
         navigator.geolocation.getCurrentPosition(
@@ -1817,6 +1857,10 @@ export function App() {
             </div>
             {nearestPeak ? <div className="tu-peaknear">{'▲'} {nearestPeak.p[0]} · {fmtDist(nearestPeak.d / 1000)}</div> : null}
             {scaleBar ? <div className="tu-scalebar"><span>{scaleBar.label}</span><i style={{ width: scaleBar.w }} /></div> : null}
+            {focusAdv ? <div className="tu-focuschip">
+                <span>{focusAdv.name || t('Aventura')} · {fmtDist(focusAdv.km)}</span>
+                <button onClick={() => setFocusAdv(null)} aria-label={t('Cerrar')}>✕</button>
+            </div> : null}
             <div className="tu-attr">Esri, Maxar, Earthstar Geographics</div>
         </div>
 
@@ -2027,7 +2071,7 @@ export function App() {
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{a.name || new Date(a.start).toLocaleDateString(dateLocale())}{a.name ? <small>{new Date(a.start).toLocaleDateString(dateLocale())}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || t('Sin desbloqueos nuevos')}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}>{a.track && a.track.length >= 2 ? <button className="file-button is-compact" data-variant="primary" onClick={() => showAdvOnMap(a)}>{t('Ver en el mapa')}</button> : null}<button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
                     </li>)}
                 </ol> : null}
             </section>
@@ -2201,7 +2245,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.30{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.31{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

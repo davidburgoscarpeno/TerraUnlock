@@ -99,6 +99,9 @@ const EN: Record<string, string> = {
     'Esa actividad ya la tenias importada': 'You already had that activity imported',
     'Esas {n} actividades ya las tenias importadas': '{n} of those activities were already imported',
     '{n} ya las tenias importadas: las he saltado': '{n} were already imported: I skipped them',
+    'Ver en el mapa': 'View on map',
+    'Esta aventura no tiene track GPS': 'This adventure has no GPS track',
+    'Aventura': 'Adventure',
     'Aplicar lote': 'Apply batch', 'Aplicar ruta': 'Apply route', 'Cancelar': 'Cancel',
     // te falta cerca
     'Te falta cerca': 'Missing nearby',

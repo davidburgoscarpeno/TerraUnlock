@@ -199,3 +199,8 @@ input[type="range"] { accent-color: #2dc8aa; }
 @media (min-width: 1800px) {
   .tu-app { max-width: 1560px; }
 }
+
+/* v1.31: chip de aventura enfocada sobre el mapa */
+.tu-focuschip { position: absolute; top: 10px; right: 10px; display: flex; align-items: center; gap: 8px; background: rgba(6,10,16,0.85); border: 1px solid rgba(45,212,191,0.45); border-radius: 999px; padding: 6px 8px 6px 14px; font-size: 13px; font-weight: 600; color: #7ee0c8; z-index: 6; }
+.tu-focuschip button { background: none; border: 0; color: #8fa2b3; font-size: 14px; cursor: pointer; padding: 4px 6px; }
+.tu-focuschip button:hover { color: #e6edf3; }
