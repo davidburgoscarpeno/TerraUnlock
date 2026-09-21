@@ -9,6 +9,7 @@ import type { Peak } from './data/peaks_es';
 import { PEAKS_WORLD } from './data/peaks_world';
 import TerrainCard from './Terrain';
 import ElevChart from './ElevChart';
+import { computeProfile, drawProfile } from './adventureProfile';
 import type { Adventure, AdventureProfile } from './types';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
@@ -1074,6 +1075,101 @@ export function App() {
         }
     };
 
+    // v1.12: tarjeta PNG de una aventura (perfil + cifras + desbloqueos)
+    const shareAdventureCard = async (adv: Adventure) => {
+        try {
+            let prof = adv.profile || null;
+            if (!prof && adv.track && adv.track.length >= 2 && !adv.noProfile) {
+                try { prof = await computeProfile(adv.track); saveProfile(adv.start, prof); } catch { prof = null; }
+            }
+            const W = 1080, H = 1350;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            const avImg = avatar ? await new Promise<HTMLImageElement | null>((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = avatar; }) : null;
+            g.save();
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.closePath(); g.clip();
+            if (avImg) g.drawImage(avImg, 60, 48, 128, 128);
+            else { g.fillStyle = '#14755f'; g.fillRect(60, 48, 128, 128); g.fillStyle = '#fff'; g.font = '700 64px -apple-system, Segoe UI, Roboto, sans-serif'; g.textAlign = 'center'; g.fillText((prefs.nombre.trim()[0] || '?').toUpperCase(), 124, 134); g.textAlign = 'left'; }
+            g.restore();
+            g.strokeStyle = 'rgba(45,200,170,0.8)'; g.lineWidth = 4;
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.stroke();
+            g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('TerraUnlock', 224, 110);
+            g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
+            const fecha = new Date(adv.start);
+            g.fillText((prefs.nombre.trim() ? 'Aventura de ' + prefs.nombre.trim() : 'Mi aventura') + ' - ' + fecha.toLocaleDateString('es-ES'), 224, 170);
+            // cifras grandes
+            g.fillStyle = '#2dc8aa'; g.font = '800 120px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(fmtDist(adv.km), 60, 330);
+            const horas = Math.max(0, (new Date(adv.end).getTime() - fecha.getTime()) / 3600000);
+            g.fillStyle = '#9fb0c0'; g.font = '600 32px -apple-system, Segoe UI, Roboto, sans-serif';
+            const dur = horas >= 1 ? Math.floor(horas) + ' h ' + Math.round((horas % 1) * 60) + ' min' : Math.round(horas * 60) + ' min';
+            g.fillText(adv.points + ' puntos GPS - ' + dur + (prof ? ' - subida +' + prof.up + ' m - bajada -' + prof.down + ' m' : ''), 60, 392);
+            // perfil
+            let cy = 430;
+            if (prof) {
+                g.save();
+                g.beginPath(); g.rect(60, cy, W - 120, 420); g.clip();
+                drawProfile(g, 60, cy, W - 120, 420, prof, 26);
+                g.restore();
+                g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.strokeRect(60, cy, W - 120, 420);
+                cy += 452;
+            }
+            // desbloqueos
+            const terrC = adv.countries, terrA = adv.ccaa, terrP = adv.prov;
+            const chip2 = (t: string, x: number, y: number, fg: string, bg: string) => {
+                g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
+                const w = g.measureText(t).width + 44;
+                g.beginPath();
+                g.moveTo(x + 14, y); g.lineTo(x + w - 14, y); g.arcTo(x + w, y, x + w, y + 14, 14); g.lineTo(x + w, y + 34); g.arcTo(x + w, y + 48, x + w - 14, y + 48, 14); g.lineTo(x + 14, y + 48); g.arcTo(x, y + 48, x, y + 34, 14); g.lineTo(x, y + 14); g.arcTo(x, y, x + 14, y, 14); g.closePath();
+                g.fillStyle = bg; g.fill();
+                g.fillStyle = fg; g.fillText(t, x + 22, y + 35);
+                return w;
+            };
+            const chipRow2 = (title: string, names: string[], fg: string, bg: string) => {
+                if (!names.length || cy > 1100) return;
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(title, 60, cy + 34);
+                cy += 52;
+                let cx = 60;
+                for (const n of names) {
+                    const w = chip2(n, cx, cy, fg, bg);
+                    cx += w + 14;
+                    if (cx > W - 120) { cx = 60; cy += 62; }
+                }
+                cy += 78;
+            };
+            chipRow2('PAISES', terrC, '#7ee0c8', '#123a31');
+            chipRow2('COMUNIDADES', terrA, '#e8cd6e', '#2f2a12');
+            chipRow2('PROVINCIAS', terrP, '#8fb8d8', '#1a2634');
+            if (adv.peaks.length && cy <= 1100) {
+                const pks = adv.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText('CIMAS', 60, cy + 34);
+                cy += 56;
+                g.font = '600 31px -apple-system, Segoe UI, Roboto, sans-serif';
+                for (const p of pks.slice(0, 4)) {
+                    g.fillStyle = '#e6edf3'; g.fillText(p[0], 60, cy + 20);
+                    g.fillStyle = '#e8cd6e'; g.textAlign = 'right'; g.fillText(p[3] + ' m', W - 60, cy + 20); g.textAlign = 'left';
+                    cy += 48;
+                }
+            }
+            if (!terrC.length && !terrA.length && !terrP.length && !adv.peaks.length) {
+                g.fillStyle = '#9fb0c0'; g.font = '600 32px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText('Ruta sin desbloqueos nuevos: terreno ya conquistado.', 60, cy + 30);
+            }
+            g.fillStyle = '#5c7080'; g.font = '600 26px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('A que no tienes una aventura mejor? davidburgoscarpeno.github.io/TerraUnlock', 60, H - 42);
+            const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
+            if (!blob) { setToast('No se pudo generar la tarjeta'); return; }
+            await shareBlob(blob, 'terraunlock-aventura.png', 'TerraUnlock: mi aventura');
+        } catch (e) {
+            if (e instanceof Error && e.name === 'AbortError') return;
+            setToast('No se pudo compartir la tarjeta');
+        }
+    };
+
     // v1.3: racha (dias seguidos revelando)
     const [streak, setStreak] = useState<Streak>(() => loadJson<Streak>(STREAK_KEY) || { last: '', count: 0 });
     // v1.2: logros (desbloqueo + celebracion) y HUD (escala + cima cercana)
@@ -1488,7 +1584,7 @@ export function App() {
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{new Date(a.start).toLocaleDateString('es-ES')}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || 'Sin desbloqueos nuevos'}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}><ElevChart adv={a} onProfile={saveProfile} /></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}><ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>Compartir aventura</button></span></span> : null}
                     </li>)}
                 </ol>
             </section> : null}
@@ -1649,7 +1745,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.11 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.12 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
@@ -1689,7 +1785,7 @@ export function App() {
                     <p>{advSummary.points} puntos GPS{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? ' · Desbloqueos: ' + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + advSummary.peaks.length + ' cimas' : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? ' · Sin desbloqueos nuevos esta vez' : ''}</p>
                     <ElevChart adv={advSummary} onProfile={saveProfile} />
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
-                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>Compartir aventura</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>Cerrar</button>
                     </div>
                 </div>

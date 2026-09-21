@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.12)
+
+- Tarjeta PNG de aventura para compartir: avatar y nombre, fecha, km, puntos, duracion, desnivel, el grafico del perfil de elevacion y los desbloqueos (territorios y cimas). Boton "Compartir aventura" en el resumen al terminar y en cada aventura desplegada de la lista.
+
 ## Estado (v1.11)
 
 - Perfil de elevacion de aventuras: al terminar una aventura, su resumen muestra el grafico altitud-distancia del recorrido, con subida y bajada acumuladas y cotas min/max. En la lista de Aventuras, toca una para desplegar su perfil. Solo aventuras empezadas desde esta version (las antiguas no guardan su trazado). Elevacion de AWS Terrain Tiles (Terrarium), muestreo bilineal; el perfil calculado se guarda en el dispositivo y funciona offline.
