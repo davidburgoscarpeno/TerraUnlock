@@ -388,6 +388,7 @@ export function App() {
     const [confirmReset, setConfirmReset] = useState(false);
     type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress };
     const [importBatch, setImportBatch] = useState<ImportBatch | null>(null);
+    const [wStep, setWStep] = useState(0);
     const [batchBusy, setBatchBusy] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
@@ -650,6 +651,18 @@ export function App() {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gpsOn]);
+
+    // v1.28: paso final del onboarding - pedir el permiso GPS en contexto
+    const welcomeGps = () => {
+        if (!('geolocation' in navigator)) { setPrefs({ welcomed: true }); return; }
+        try {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude); setGpsOn(true); setPrefs({ welcomed: true }); },
+                () => { setPrefs({ welcomed: true }); },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } catch { setPrefs({ welcomed: true }); }
+    };
 
     // Toast temporal
     useEffect(() => {
@@ -2083,7 +2096,7 @@ export function App() {
                         <b>{t('Bienvenida')}</b>
                         <small>{t('Vuelve a mostrar la pantalla de inicio al abrir la app.')}</small>
                     </div>
-                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setPrefs({ welcomed: false })}>{t('Mostrar de nuevo')}</button>
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => { setWStep(0); setPrefs({ welcomed: false }); }}>{t('Mostrar de nuevo')}</button>
                 </div>
             </section>
 
@@ -2148,7 +2161,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.27{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.28{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
@@ -2236,15 +2249,39 @@ export function App() {
 
         {!prefs.welcomed ? (
             <div className="tu-welcome">
-                <img src="./icons/icon-192.png" alt="TerraUnlock" />
-                <h1>TerraUnlock</h1>
-                <p className="tu-intro" style={{ maxWidth: 340 }}>{t('El mundo empieza cubierto de niebla y se revela donde pisas. Conquista paises, comunidades, provincias y cimas con tu GPS real.')}</p>
-                <ul>
-                    <li>{t('Activa el GPS y sal: la niebla se abre a tu paso.')}</li>
-                    <li>{t('57.000+ cimas marcadas: toca una para ver sus rutas.')}</li>
-                    <li>{t('Importa tus rutas (GPX, FIT o el ZIP de Strava/Garmin).')}</li>
-                </ul>
-                <button className="file-button" data-variant="primary" onClick={() => setPrefs({ welcomed: true })}>{t('Empezar a conquistar')}</button>
+                {wStep === 0 ? <>
+                    <img src="./icons/icon-192.png" alt="TerraUnlock" />
+                    <h1>TerraUnlock</h1>
+                    <p className="tu-intro" style={{ maxWidth: 340 }}>{t('El mundo empieza cubierto de niebla y se revela donde pisas. Conquista paises, comunidades, provincias y cimas con tu GPS real.')}</p>
+                    <button className="file-button" data-variant="primary" onClick={() => setWStep(1)}>{t('Empezar')}</button>
+                </> : null}
+                {wStep === 1 ? <>
+                    <div className="tu-wico">🌫️</div>
+                    <h1 className="tu-wtitle">{t('Como se juega')}</h1>
+                    <ul>
+                        <li>{t('Camina, corre o pedalea: la niebla se abre a tu paso.')}</li>
+                        <li>{t('Desbloquea paises, comunidades, provincias y mas de 57.000 cimas.')}</li>
+                        <li>{t('Registra aventuras, cumple el objetivo semanal y comparte tarjetas de tu progreso.')}</li>
+                    </ul>
+                    <button className="file-button" data-variant="primary" onClick={() => setWStep(2)}>{t('Siguiente')}</button>
+                </> : null}
+                {wStep === 2 ? <>
+                    <div className="tu-wico">⇪</div>
+                    <h1 className="tu-wtitle">{t('Tu historial cuenta')}</h1>
+                    <p className="tu-intro" style={{ maxWidth: 340 }}>{t('Usas Strava o Garmin? Importa tus rutas (GPX, FIT o el ZIP completo de exportacion) y conquista de golpe todo lo que ya has pisado.')}</p>
+                    <p className="tu-intro" style={{ maxWidth: 340, fontSize: 13, opacity: 0.7 }}>{t('Lo encontraras en Ajustes, Importar rutas.')}</p>
+                    <button className="file-button" data-variant="primary" onClick={() => setWStep(3)}>{t('Siguiente')}</button>
+                </> : null}
+                {wStep === 3 ? <>
+                    <div className="tu-wico">📍</div>
+                    <h1 className="tu-wtitle">{t('Tu ubicacion, solo en tu movil')}</h1>
+                    <p className="tu-intro" style={{ maxWidth: 340 }}>{t('Para revelar la niebla en directo la app necesita tu GPS. Tu posicion y tu progreso se guardan unicamente en este dispositivo.')}</p>
+                    <div className="tu-controls" style={{ justifyContent: 'center' }}>
+                        <button className="file-button" data-variant="primary" onClick={welcomeGps}>{t('Activar GPS y empezar')}</button>
+                        <button className="file-button" data-variant="secondary" onClick={() => setPrefs({ welcomed: true })}>{t('Ahora no')}</button>
+                    </div>
+                </> : null}
+                <div className="tu-wdots">{[0, 1, 2, 3].map((i) => <span key={i} className={i === wStep ? 'on' : ''} />)}</div>
             </div>
         ) : null}
     </div>}

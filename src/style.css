@@ -179,3 +179,10 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-advprof { flex-basis: 100%; margin-top: 8px; cursor: default; }
 .tu-elev canvas { width: 100%; border-radius: 8px; display: block; background: #0a0f16; border: 1px solid #1c2733; }
 .tu-celeb-card .tu-elev { margin-top: 10px; }
+
+/* v1.28: onboarding por pasos */
+.tu-wico { font-size: 44px; margin-bottom: 10px; color: #f0b429; }
+.tu-wtitle { font-size: 24px; margin: 0 0 8px; letter-spacing: -0.4px; }
+.tu-wdots { display: flex; gap: 6px; margin-top: 24px; }
+.tu-wdots span { width: 8px; height: 8px; border-radius: 50%; background: #23303d; transition: background 0.2s; }
+.tu-wdots span.on { background: #2dc8aa; }
