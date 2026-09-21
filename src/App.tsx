@@ -70,6 +70,24 @@ type TerrBanner = { title: string; sub: string };
 
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
+// Provincia -> comunidad, por el centroide de la provincia dentro del poligono de la comunidad.
+const provCcaaCache = new Map<string, string | null>();
+function provToCcaa(pv: Region): string | null {
+    let a = provCcaaCache.get(pv.n);
+    if (a === undefined) {
+        a = null;
+        for (const c of CCAA) {
+            const b = c.b;
+            if (pv.c[0] >= b[0] && pv.c[0] <= b[2] && pv.c[1] >= b[1] && pv.c[1] <= b[3] && pip(pv.c[0], pv.c[1], c.r)) { a = c.n; break; }
+        }
+        provCcaaCache.set(pv.n, a);
+    }
+    return a;
+}
+function peaksInRegion(rg: Region, peaks: Peak[]): Peak[] {
+    return peaks.filter((p) => p[2] >= rg.b[0] && p[2] <= rg.b[2] && p[1] >= rg.b[1] && p[1] <= rg.b[3] && pip(p[2], p[1], rg.r));
+}
+
 // Mapa de rutas de Wikiloc centrado en la cima (bbox ~3 km): muestra las rutas que pasan por ahi, no una busqueda generica por nombre.
 function wikilocMapUrl(p: Peak) {
     const dLat = 0.015;
@@ -839,6 +857,13 @@ export function App() {
             .sort((a, b) => a.d - b.d)
             .slice(0, 10);
     }, [lastPos, allPeaks]);
+    const ccaaRanking = useMemo(() => {
+        if (!progress.cells.length) return [] as { n: string; c: number[]; pct: number }[];
+        return CCAA.map((rg) => ({ n: rg.n, c: rg.c, pct: Math.min(100, regionRevealedCells(rg, progress.cells) / regionTotalCells(rg) * 100) }))
+            .filter((r) => r.pct >= 0.05)
+            .sort((a, b) => b.pct - a.pct)
+            .slice(0, 8);
+    }, [progress.cells]);
     const showPeakOnMap = (p: Peak) => { setSelectedPeak(p); setSelectedRegion(null); setViewPersist({ lon: p[2], lat: p[1], z: 11 }); setTab('mapa'); };
     const locateForNearby = () => {
         if (!('geolocation' in navigator)) { setToast('Tu navegador no soporta geolocalizacion'); return; }
@@ -1154,6 +1179,57 @@ export function App() {
                         {rev > 0 ? <span className="tu-regionpct">{pct.toFixed(1).replace('.', ',')}% revelado</span> : null}
                     </div>;
                 })}</div>
+                {(() => {
+                    const a = selectedRegion.a, pv = selectedRegion.pv, c = selectedRegion.c;
+                    const rgPv = pv ? PROV.find((r) => r.n === pv) : null;
+                    const rgA = a ? CCAA.find((r) => r.n === a) : null;
+                    const rgC = c ? COUNTRIES.find((r) => r.n === c) : null;
+                    if (rgPv) {
+                        const inside = peaksInRegion(rgPv, allPeaks);
+                        const rest = inside.filter((p) => !progress.peaks.includes(peakId(p))).sort((x, y) => y[3] - x[3]);
+                        return <div className="tu-break">
+                            <div className="tu-breaktitle">Cimas en {rgPv.n}: {inside.length - rest.length} de {inside.length} conquistadas</div>
+                            {rest.length ? <ol className="tu-peaklist">{rest.slice(0, 6).map((p) => <li key={peakId(p)}>
+                                <span className="tu-pkname">{p[0]}</span><span className="tu-pkele">{p[3]} m</span>
+                                <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                            </li>)}</ol> : null}
+                            {!rest.length && inside.length ? <div className="tu-terrnote">Todas las cimas de la provincia conquistadas.</div> : null}
+                            {!inside.length ? <div className="tu-terrnote">No hay cimas del catalogo en esta provincia.</div> : null}
+                            {rest.length > 6 ? <div className="tu-terrnote">y {rest.length - 6} mas sin conquistar</div> : null}
+                        </div>;
+                    }
+                    const lista = rgA ? PROV.filter((p) => provToCcaa(p) === rgA.n).map((p) => ({ rg: p, won: progress.prov.includes(p.n), z: 8, go: () => { setSelectedRegion({ c, a, pv: p.n }); setViewPersist({ lon: p.c[0], lat: p.c[1], z: 8 }); } }))
+                        : rgC && rgC.n === 'España' ? CCAA.map((g) => ({ rg: g, won: progress.ccaa.includes(g.n), z: 6, go: () => { setSelectedRegion({ c, a: g.n, pv: null }); setViewPersist({ lon: g.c[0], lat: g.c[1], z: 6 }); } }))
+                        : null;
+                    if (lista) {
+                        const titulo = rgA ? 'Provincias de ' + rgA.n : 'Comunidades de España';
+                        return <div className="tu-break">
+                            <div className="tu-breaktitle">{titulo}: {lista.filter((x) => x.won).length} de {lista.length} conquistadas</div>
+                            {lista.map((x) => {
+                                const rev = regionRevealedCells(x.rg, progress.cells);
+                                const pct = Math.min(100, rev / regionTotalCells(x.rg) * 100);
+                                return <button key={x.rg.n} className="tu-breakrow" onClick={x.go}>
+                                    <span className="tu-breakname">{x.rg.n}</span>
+                                    <span className={x.won ? 'tu-regionst on' : 'tu-regionst'}>{x.won ? 'Conquistada' : pct.toFixed(1).replace('.', ',') + '% revelado'}</span>
+                                    <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.max(pct, pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></span>
+                                </button>;
+                            })}
+                        </div>;
+                    }
+                    if (rgC) {
+                        const inside = peaksInRegion(rgC, allPeaks);
+                        const rest = inside.filter((p) => !progress.peaks.includes(peakId(p))).sort((x, y) => y[3] - x[3]);
+                        return <div className="tu-break">
+                            <div className="tu-breaktitle">Cimas en {rgC.n}: {inside.length - rest.length} de {inside.length} conquistadas</div>
+                            {rest.length ? <ol className="tu-peaklist">{rest.slice(0, 6).map((p) => <li key={peakId(p)}>
+                                <span className="tu-pkname">{p[0]}</span><span className="tu-pkele">{p[3]} m</span>
+                                <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                            </li>)}</ol> : null}
+                            {rest.length > 6 ? <div className="tu-terrnote">y {rest.length - 6} mas sin conquistar</div> : null}
+                        </div>;
+                    }
+                    return null;
+                })()}
                 <div className="tu-controls">
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedRegion(null)}>Cerrar</button>
                 </div>
@@ -1174,6 +1250,18 @@ export function App() {
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>Compartir mi mapa</button></div>
             </section>
+
+            {ccaaRanking.length ? <section className="tu-group"><h2>Comunidades mas dominadas</h2>
+                <ol className="tu-peaklist tu-peaklist-full">
+                    {ccaaRanking.map((r, i) => <li key={r.n}>
+                        <span className="tu-num">{i + 1}</span>
+                        <span className="tu-pkname">{r.n}<small>{progress.ccaa.includes(r.n) ? 'Conquistada' : 'Sin conquistar'}</small></span>
+                        <span className="tu-pkele">{r.pct.toFixed(1).replace('.', ',')}%</span>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => { setSelectedPeak(null); setSelectedRegion({ c: 'España', a: r.n, pv: null }); setViewPersist({ lon: r.c[0], lat: r.c[1], z: 6 }); setTab('mapa'); }}>Ver</button>
+                    </li>)}
+                </ol>
+                <div className="tu-terrnote">Porcentaje de superficie revelada dentro de cada comunidad. Toca "Ver" para abrirla en el mapa.</div>
+            </section> : null}
 
             <section className="tu-group"><h2>Logros</h2>
                 <div className="tu-ach-grid">
@@ -1350,7 +1438,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.7 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.8 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (

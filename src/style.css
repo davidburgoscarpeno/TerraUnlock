@@ -162,3 +162,9 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-terrbar { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .tu-terrnote { font-size: 11px; color: #8fa2b3; }
 .tu-terrbar .file-button { min-height: 34px; padding: 8px 12px; }
+
+.tu-break { margin-top: 10px; border-top: 1px solid #1e3442; padding-top: 8px; }
+.tu-breaktitle { font-size: 13px; font-weight: 700; color: #cfe0ec; margin-bottom: 6px; }
+.tu-breakrow { display: block; width: 100%; text-align: left; background: #101823; border: 1px solid #1c2733; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; color: inherit; font: inherit; }
+.tu-breakrow .tu-breakname { font-weight: 600; color: #e6edf3; margin-right: 8px; }
+.tu-breakrow .tu-bar { margin-top: 6px; }

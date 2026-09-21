@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.8)
+
+- Estadisticas por territorio: la ficha de region ahora desglosa su contenido (una comunidad lista sus provincias, una provincia o pais lista sus cimas sin conquistar con acceso directo, Espana lista sus comunidades), cada una con % revelado y acceso para centrarla en el mapa. En Progreso, nuevo ranking "Comunidades mas dominadas" (top 8 por % de superficie revelada) con boton para abrirlas.
+
 ## Estado (v1.7)
 
 - Ficha de cima con terreno: vista 3D giratoria del relieve (arrastra para rotar) y mapa de curvas de nivel con sombreado hipsometrico, escala y norte. Elevacion de AWS Terrain Tiles (Mapzen Terrarium, datos abiertos, sin API key), recorte de ~8 km alrededor de la cima. Se carga bajo demanda y el SW la cachea para uso offline posterior.
