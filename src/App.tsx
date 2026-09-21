@@ -67,6 +67,14 @@ function regionAt(regions: Region[], lon: number, lat: number) {
 }
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
+// Mapa de rutas de Wikiloc centrado en la cima (bbox ~3 km): muestra las rutas que pasan por ahi, no una busqueda generica por nombre.
+function wikilocMapUrl(p: Peak) {
+    const dLat = 0.015;
+    const dLon = 0.015 / Math.max(0.2, Math.cos((p[1] * Math.PI) / 180));
+    const f = (n: number) => n.toFixed(5);
+    return 'https://es.wikiloc.com/wikiloc/map.do?sw=' + f(p[1] - dLat) + ',' + f(p[2] - dLon) + '&ne=' + f(p[1] + dLat) + ',' + f(p[2] + dLon);
+}
+
 // Estimacion de celdas totales de una region (muestreo 48x48 de su bbox) y celdas reveladas dentro.
 // Sirve para la ficha de region al tocar el mapa: % revelado dentro de ella.
 const regionTotalCache = new Map<string, number>();
@@ -1022,7 +1030,7 @@ export function App() {
                     ? 'Cima conquistada. Buen trabajo.'
                     : 'Aun sin conquistar: pasa a menos de 1 km de la cima para que cuente.'}</p>
                 <div className="tu-controls">
-                    <a className="file-button is-compact" data-variant="primary" href={'https://es.wikiloc.com/rutas?q=' + encodeURIComponent(selectedPeak[0])} target="_blank" rel="noopener noreferrer">Rutas en Wikiloc</a>
+                    <a className="file-button is-compact" data-variant="primary" href={wikilocMapUrl(selectedPeak)} target="_blank" rel="noopener noreferrer">Rutas en Wikiloc</a>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedPeak(null)}>Cerrar</button>
                 </div>
             </div>
