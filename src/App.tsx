@@ -1000,6 +1000,45 @@ export function App() {
                 g.fillStyle = '#e6edf3'; g.font = '800 44px -apple-system, Segoe UI, Roboto, sans-serif';
                 g.fillText(val, bx + 24, 760);
             });
+            // v1.25: silueta del territorio con lo revelado en teal
+            if (rg.r && rg.r.length) {
+                const px = 60, py = 830, pw = W - 120, ph = 340, pad = 24;
+                const spanLo = Math.max(1e-9, rg.b[2] - rg.b[0]), spanLa = Math.max(1e-9, rg.b[3] - rg.b[1]);
+                const sc = Math.min((pw - pad * 2) / spanLo, (ph - pad * 2) / spanLa);
+                const offX = px + pad + ((pw - pad * 2) - spanLo * sc) / 2;
+                const offY = py + pad + ((ph - pad * 2) - spanLa * sc) / 2;
+                const X = (lo: number) => offX + (lo - rg.b[0]) * sc;
+                const Y = (la: number) => py + ph - pad - (((ph - pad * 2) - spanLa * sc) / 2) - (la - rg.b[1]) * sc;
+                g.fillStyle = '#0d1420'; g.beginPath(); g.roundRect(px, py, pw, ph, 16); g.fill();
+                g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.stroke();
+                g.save();
+                g.beginPath(); g.roundRect(px, py, pw, ph, 16); g.clip();
+                // relleno base de la region
+                g.beginPath();
+                for (const ring of rg.r) {
+                    for (let i2 = 0; i2 < ring.length; i2 += 2) { const x = X(ring[i2]), y = Y(ring[i2 + 1]); if (i2 === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+                    g.closePath();
+                }
+                g.fillStyle = '#16222f'; g.fill();
+                // celdas reveladas dentro de la region
+                g.fillStyle = 'rgba(45,200,170,0.75)';
+                const cellPx = Math.max(2, CELL * sc);
+                for (const ck of progress.cells) {
+                    const ci = ck.indexOf(',');
+                    const cla = +ck.slice(0, ci) * CELL, clo = +ck.slice(ci + 1) * CELL;
+                    if (clo < rg.b[0] || clo > rg.b[2] || cla < rg.b[1] || cla > rg.b[3]) continue;
+                    if (!pip(clo, cla, rg.r)) continue;
+                    g.fillRect(X(clo - CELL / 2), Y(cla + CELL / 2), cellPx, cellPx);
+                }
+                // contorno
+                g.beginPath();
+                for (const ring of rg.r) {
+                    for (let i2 = 0; i2 < ring.length; i2 += 2) { const x = X(ring[i2]), y = Y(ring[i2 + 1]); if (i2 === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+                    g.closePath();
+                }
+                g.strokeStyle = '#2dc8aa'; g.lineWidth = 3; g.stroke();
+                g.restore();
+            }
             g.fillStyle = '#5c7080'; g.font = '500 27px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText(t('Cuanto conoces de {n}? davidburgoscarpeno.github.io/TerraUnlock', { n: rg.n }), 60, H - 60);
             const blob: Blob | null = await new Promise((res) => cv.toBlob(res, 'image/png'));
@@ -2046,7 +2085,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.24{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.25{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
