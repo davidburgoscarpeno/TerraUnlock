@@ -67,6 +67,42 @@ function regionAt(regions: Region[], lon: number, lat: number) {
 }
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
+// Estimacion de celdas totales de una region (muestreo 48x48 de su bbox) y celdas reveladas dentro.
+// Sirve para la ficha de region al tocar el mapa: % revelado dentro de ella.
+const regionTotalCache = new Map<string, number>();
+function regionTotalCells(rg: Region) {
+    let t = regionTotalCache.get(rg.n);
+    if (t == null) {
+        const b = rg.b, rows = 48;
+        let inside = 0;
+        for (let i = 0; i < rows; i++) for (let j = 0; j < rows; j++) {
+            const lat = b[1] + (b[3] - b[1]) * (i + 0.5) / rows, lon = b[0] + (b[2] - b[0]) * (j + 0.5) / rows;
+            if (pip(lon, lat, rg.r)) inside++;
+        }
+        const latMid = (b[1] + b[3]) / 2;
+        const areaKm2 = (inside / (rows * rows)) * (b[2] - b[0]) * 111.32 * Math.cos(latMid * Math.PI / 180) * (b[3] - b[1]) * 110.54;
+        t = Math.max(1, Math.round(areaKm2 / 1.1));
+        regionTotalCache.set(rg.n, t);
+    }
+    return t;
+}
+const regionRevCache = new Map<string, number>();
+function regionRevealedCells(rg: Region, cells: string[]) {
+    const key = rg.n + '|' + cells.length;
+    let v = regionRevCache.get(key);
+    if (v == null) {
+        v = 0;
+        const b = rg.b;
+        for (const ck of cells) {
+            const i = ck.indexOf(',');
+            const lat = +ck.slice(0, i) * CELL, lon = +ck.slice(i + 1) * CELL;
+            if (lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3] && pip(lon, lat, rg.r)) v++;
+        }
+        regionRevCache.set(key, v);
+    }
+    return v;
+}
+
 // Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
 interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; }
 const PREFS_KEY = 'terraunlock.prefs.v1';
@@ -204,6 +240,7 @@ export function App() {
     const allPeaksRef = useRef(allPeaks);
     useEffect(() => { allPeaksRef.current = allPeaks; }, [allPeaks]);
     const [selectedPeak, setSelectedPeak] = useState<Peak | null>(null);
+    const [selectedRegion, setSelectedRegion] = useState<{ c: string | null; a: string | null; pv: string | null } | null>(null);
 
     const peakGrid = useMemo(() => {
         const g = new Map<string, Peak[]>();
@@ -682,12 +719,21 @@ export function App() {
                         const d = Math.hypot(x - mx, y - (my - 1));
                         if (d < bestD) { bestD = d; best = pk; }
                     }
-                    if (best) { setSelectedPeak(best); dragStart.current = null; return; }
+                    if (best) { setSelectedPeak(best); setSelectedRegion(null); dragStart.current = null; return; }
                 }
                 if (simMode) {
                     const ll = unproject(pc.x + (mx - w / 2), pc.y + (my - h / 2), v.z);
                     addPoint(ll.lat, ll.lon);
-                } else if (selectedPeak) setSelectedPeak(null);
+                    setSelectedRegion(null);
+                } else {
+                    if (selectedPeak) setSelectedPeak(null);
+                    const ll = unproject(pc.x + (mx - w / 2), pc.y + (my - h / 2), v.z);
+                    const c = regionAt(COUNTRIES, ll.lon, ll.lat);
+                    const inSpain = ll.lon >= SPAIN_BBOX[0] && ll.lon <= SPAIN_BBOX[2] && ll.lat >= SPAIN_BBOX[1] && ll.lat <= SPAIN_BBOX[3];
+                    const a = inSpain ? regionAt(CCAA, ll.lon, ll.lat) : null;
+                    const pv = inSpain ? regionAt(PROV, ll.lon, ll.lat) : null;
+                    setSelectedRegion(c || a || pv ? { c, a, pv } : null);
+                }
             }
         }
         dragStart.current = null;
@@ -770,18 +816,42 @@ export function App() {
                 </div>
             </div>
         ) : null}
+
+        {selectedRegion ? (
+            <div className="tu-callout">
+                <strong>{selectedRegion.pv || selectedRegion.a || selectedRegion.c}</strong>
+                <div>{([
+                    ['Pais', selectedRegion.c, COUNTRIES.find((r) => r.n === selectedRegion.c), progress.countries],
+                    ['Comunidad', selectedRegion.a, CCAA.find((r) => r.n === selectedRegion.a), progress.ccaa],
+                    ['Provincia', selectedRegion.pv, PROV.find((r) => r.n === selectedRegion.pv), progress.prov],
+                ] as [string, string | null, Region | undefined, string[]][]).map(([lvl, name, rg, unlocked]) => {
+                    if (!name || !rg) return null;
+                    const rev = regionRevealedCells(rg, progress.cells);
+                    const pct = Math.min(100, rev / regionTotalCells(rg) * 100);
+                    return <div key={lvl} className="tu-regionrow">
+                        <span className="tu-regionlvl">{lvl}</span>
+                        <span className="tu-regionname">{name}</span>
+                        <span className={unlocked.includes(name) ? 'tu-regionst on' : 'tu-regionst'}>{unlocked.includes(name) ? 'Conquistada' : 'Sin conquistar'}</span>
+                        {rev > 0 ? <span className="tu-regionpct">{pct.toFixed(1).replace('.', ',')}% revelado</span> : null}
+                    </div>;
+                })}</div>
+                <div className="tu-controls">
+                    <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedRegion(null)}>Cerrar</button>
+                </div>
+            </div>
+        ) : null}
         </> : null}
 
         {tab === 'progreso' ? <>
             <section className="tu-group"><h2>Tu progreso</h2>
-                <dl className="tu-factsdl">{[
-                    { label: 'Superficie revelada', value: '~' + fmtAreaShort(progress.cells.length * 1.1) },
-                    { label: 'Paises', value: progress.countries.length + ' de ' + COUNTRIES.length + ' (' + (progress.countries.length / COUNTRIES.length * 100).toFixed(1).replace('.', ',') + '%)' },
-                    { label: 'Comunidades (ES)', value: progress.ccaa.length + ' de ' + CCAA.length + ' (' + (progress.ccaa.length / CCAA.length * 100).toFixed(1).replace('.', ',') + '%)' },
-                    { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length + ' (' + (progress.prov.length / PROV.length * 100).toFixed(1).replace('.', ',') + '%)' },
-                    { label: 'Cimas conquistadas', value: progress.peaks.length + ' de ' + allPeaks.length },
-                    { label: 'Puntos GPS', value: String(progress.points.length) },
-                ].map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd></div>)}</dl>
+                <dl className="tu-factsdl">{([
+                    { label: 'Superficie revelada', value: '~' + fmtAreaShort(progress.cells.length * 1.1), pct: null },
+                    { label: 'Paises', value: progress.countries.length + ' de ' + COUNTRIES.length + ' (' + (progress.countries.length / COUNTRIES.length * 100).toFixed(1).replace('.', ',') + '%)', pct: progress.countries.length / COUNTRIES.length },
+                    { label: 'Comunidades (ES)', value: progress.ccaa.length + ' de ' + CCAA.length + ' (' + (progress.ccaa.length / CCAA.length * 100).toFixed(1).replace('.', ',') + '%)', pct: progress.ccaa.length / CCAA.length },
+                    { label: 'Provincias (ES)', value: progress.prov.length + ' de ' + PROV.length + ' (' + (progress.prov.length / PROV.length * 100).toFixed(1).replace('.', ',') + '%)', pct: progress.prov.length / PROV.length },
+                    { label: 'Cimas conquistadas', value: progress.peaks.length + ' de ' + allPeaks.length, pct: allPeaks.length > 0 ? progress.peaks.length / allPeaks.length : 0 },
+                    { label: 'Puntos GPS', value: String(progress.points.length), pct: null },
+                ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
             </section>
 
             {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
@@ -890,10 +960,11 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v0.9 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.0 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         <nav className="tu-nav">
+            <div className="tu-brand">TerraUnlock</div>
             {([
                 ['mapa', '◉', 'Mapa'],
                 ['progreso', '◆', 'Progreso'],

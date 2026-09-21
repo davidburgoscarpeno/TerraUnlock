@@ -77,3 +77,28 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-welcome img { width: 96px; height: 96px; border-radius: 22px; margin-bottom: 14px; }
 .tu-welcome h1 { font-size: 32px; margin: 0 0 6px; letter-spacing: -0.5px; }
 .tu-welcome ul { color: #9fb0c0; font-size: 14px; line-height: 1.6; text-align: left; max-width: 320px; margin: 14px 0 22px; padding-left: 20px; }
+
+/* v1.0: barras de progreso en Progreso */
+.tu-factrow { flex-wrap: wrap; }
+.tu-bar { flex-basis: 100%; height: 5px; background: #1a2634; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.tu-bar > div { height: 100%; background: #2dc8aa; border-radius: 3px; }
+
+/* v1.0: ficha de region al tocar el mapa */
+.tu-regionrow { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-bottom: 1px solid #1a2634; font-size: 13px; flex-wrap: wrap; }
+.tu-regionrow:last-of-type { border-bottom: 0; }
+.tu-regionlvl { color: #5c7080; width: 74px; flex: none; }
+.tu-regionname { font-weight: 700; color: #e6edf3; }
+.tu-regionst { color: #8fa2b3; }
+.tu-regionst.on { color: #2dc8aa; font-weight: 700; }
+.tu-regionpct { color: #7ee0c8; font-weight: 600; margin-left: auto; }
+
+/* v1.0: barra lateral en desktop */
+.tu-brand { display: none; }
+@media (min-width: 900px) {
+  .tu-app { max-width: 1096px; padding-left: 216px; padding-bottom: 40px; }
+  .tu-nav { top: 0; bottom: 0; left: 0; right: auto; width: 192px; flex-direction: column; justify-content: flex-start; gap: 6px; border-top: 0; border-right: 1px solid #1c2733; padding: 20px 12px; }
+  .tu-nav button { flex: none; width: 100%; flex-direction: row; justify-content: flex-start; align-items: center; gap: 12px; padding: 12px 14px; font-size: 14px; }
+  .tu-nav button .g { font-size: 18px; }
+  .tu-brand { display: block; color: #e6edf3; font-weight: 800; font-size: 18px; letter-spacing: -0.3px; padding: 4px 14px 18px; }
+  .tu-mapwrap { height: 74vh; }
+}
