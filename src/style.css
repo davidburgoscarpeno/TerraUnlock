@@ -144,3 +144,8 @@ input[type="range"] { accent-color: #2dc8aa; }
 @media (min-width: 900px) {
     .tu-territory { left: auto; right: 24px; bottom: 24px; max-width: 440px; }
 }
+
+/* v1.5: avatar */
+.tu-avatar-img { object-fit: cover; }
+.tu-h1-av { display: flex; align-items: center; gap: 10px; }
+.tu-avatar-sm { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; }

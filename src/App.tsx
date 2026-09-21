@@ -156,6 +156,7 @@ function saveAch(a: Record<string, string>) { try { localStorage.setItem(ACH_KEY
 // Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
 interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; }
 const PREFS_KEY = 'terraunlock.prefs.v1';
+const AVATAR_KEY = 'terraunlock.avatar.v1';
 function loadPrefs(): Prefs {
     const base: Prefs = { nombre: '', fog: 0.68, peakLabels: true, units: 'metric', welcomed: false };
     try { const p = JSON.parse(localStorage.getItem(PREFS_KEY) || ''); if (p && typeof p === 'object') return { ...base, ...p }; } catch { /* sin prefs */ }
@@ -872,9 +873,18 @@ export function App() {
                 const lat = +ck.slice(0, i) * CELL, lon = +ck.slice(i + 1) * CELL;
                 g.fillRect(px(lon) - 2.5, py(lat) - 2.5, 5, 5);
             }
+            // v1.5: avatar (foto o inicial) a la izquierda del titulo
+            const avImg = avatar ? await new Promise<HTMLImageElement | null>((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = avatar; }) : null;
+            g.save();
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.closePath(); g.clip();
+            if (avImg) g.drawImage(avImg, 60, 48, 128, 128);
+            else { g.fillStyle = '#14755f'; g.fillRect(60, 48, 128, 128); g.fillStyle = '#fff'; g.font = '700 64px -apple-system, Segoe UI, Roboto, sans-serif'; g.textAlign = 'center'; g.fillText((prefs.nombre.trim()[0] || '?').toUpperCase(), 124, 134); g.textAlign = 'left'; }
+            g.restore();
+            g.strokeStyle = 'rgba(45,200,170,0.8)'; g.lineWidth = 4;
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.stroke();
             g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
-            g.fillText('TerraUnlock', 60, 110);
-            if (prefs.nombre.trim()) { g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillText('El mundo de ' + prefs.nombre.trim(), 60, 170); }
+            g.fillText('TerraUnlock', 224, 110);
+            if (prefs.nombre.trim()) { g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillText('El mundo de ' + prefs.nombre.trim(), 224, 170); }
             g.fillStyle = '#9fb0c0'; g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
             const st = '~' + fmtAreaShort(progress.cells.length * 1.1) + ' revelados   -   ' + progress.countries.length + '/177 paises   -   ' + progress.ccaa.length + '/19 CCAA   -   ' + progress.peaks.length + ' cimas';
             g.fillText(st, 60, 228);
@@ -905,6 +915,29 @@ export function App() {
     const [achUnlocked, setAchUnlocked] = useState<Record<string, string>>(() => loadAch() || {});
     const achSeed = useRef(loadAch() == null); // primera vez con la funcion: siembra silenciosa
     const [celebration, setCelebration] = useState<Achievement[]>([]);
+    // v1.5: foto de perfil (dataURL 256px en localStorage; sin cuentas)
+    const [avatar, setAvatarState] = useState<string>(() => { try { return localStorage.getItem(AVATAR_KEY) || ''; } catch { return ''; } });
+    const setAvatar = (url: string) => {
+        setAvatarState(url);
+        try { if (url) localStorage.setItem(AVATAR_KEY, url); else localStorage.removeItem(AVATAR_KEY); }
+        catch { setToast('Foto demasiado grande para guardar en este dispositivo'); }
+    };
+    const processAvatar = (file: File) => {
+        const rd = new FileReader();
+        rd.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const side = Math.min(img.width, img.height);
+                const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+                const g = cv.getContext('2d'); if (!g) return;
+                g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 256, 256);
+                setAvatar(cv.toDataURL('image/jpeg', 0.85));
+            };
+            img.onerror = () => setToast('No se pudo leer esa imagen');
+            img.src = String(rd.result);
+        };
+        rd.readAsDataURL(file);
+    };
     // v1.4: aviso celebratorio al entrar en territorio nuevo (banner, no pantalla completa)
     const [banners, setBanners] = useState<TerrBanner[]>([]);
     useEffect(() => {
@@ -984,7 +1017,7 @@ export function App() {
     return <div className="tu-app">
         {tab === 'mapa' ? <>
             <header className="tu-header">
-                <div className="tu-header-row"><h1>{prefs.nombre ? 'Hola, ' + prefs.nombre : 'TerraUnlock'}</h1><span className="tu-fact">{fmtAreaShort(progress.cells.length * 1.1)} revelados</span>{streak.count >= 2 ? <span className="tu-streak">Racha: {streak.count} dias</span> : null}</div>
+                <div className="tu-header-row"><h1 className="tu-h1-av">{avatar ? <img className="tu-avatar-sm" src={avatar} alt="" /> : null}{prefs.nombre ? 'Hola, ' + prefs.nombre : 'TerraUnlock'}</h1><span className="tu-fact">{fmtAreaShort(progress.cells.length * 1.1)} revelados</span>{streak.count >= 2 ? <span className="tu-streak">Racha: {streak.count} dias</span> : null}</div>
             </header>
 
         <div className="tu-mapwrap" ref={wrapRef}>
@@ -1161,10 +1194,22 @@ export function App() {
         {tab === 'ajustes' ? <>
             <section className="tu-group"><h2>Perfil</h2>
                 <div className="tu-setrow">
-                    <div className="tu-avatar">{(prefs.nombre.trim()[0] || '?').toUpperCase()}</div>
+                    {avatar ? <img className="tu-avatar tu-avatar-img" src={avatar} alt="Tu foto de perfil" /> : <div className="tu-avatar">{(prefs.nombre.trim()[0] || '?').toUpperCase()}</div>}
                     <div className="l" style={{ flex: 1 }}>
                         <b>{prefs.nombre.trim() || 'Sin nombre'}</b>
                         <small>Sin cuenta: tu progreso vive en este dispositivo. El login, los rankings y los piques llegan en la fase 2.</small>
+                    </div>
+                </div>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>Foto de perfil</b>
+                        <small>Sale en el saludo y en tu tarjeta de compartir. Se recorta a cuadrado y se guarda en este dispositivo.</small>
+                    </div>
+                    <div className="tu-controls">
+                        <label className="file-button is-compact" data-variant="primary">Subir foto
+                            <input type="file" accept="image/*" aria-label="Subir foto de perfil" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const f = e.currentTarget.files?.[0]; if (f) processAvatar(f); e.currentTarget.value = ''; }} />
+                        </label>
+                        {avatar ? <button className="file-button is-compact" data-variant="secondary" onClick={() => setAvatar('')}>Quitar</button> : null}
                     </div>
                 </div>
                 <div className="tu-setrow">
@@ -1223,7 +1268,7 @@ export function App() {
                 <div className="tu-io">
                     <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder="Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo." rows={3} />
                     <div className="tu-controls">
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, adventures }))}>Exportar</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, adventures, profile: { nombre: prefs.nombre, avatar } }))}>Exportar</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                             try {
                                 const data = JSON.parse(ioText);
@@ -1234,6 +1279,10 @@ export function App() {
                                     if (data.achievements && typeof data.achievements === 'object') { setAchUnlocked(data.achievements); saveAch(data.achievements); }
                                     if (data.streak && typeof data.streak.count === 'number') { setStreak(data.streak); saveJson(STREAK_KEY, data.streak); }
                                     if (Array.isArray(data.adventures)) { setAdventures(data.adventures); saveJson(ADVS_KEY, data.adventures); }
+                                    if (data.profile && typeof data.profile === 'object') {
+                                        if (typeof data.profile.nombre === 'string') setPrefs({ nombre: data.profile.nombre });
+                                        if (typeof data.profile.avatar === 'string') setAvatar(data.profile.avatar);
+                                    }
                                     setToast('Copia completa importada');
                                 } else setToast('Formato no valido');
                             } catch { setToast('Formato no valido'); }
