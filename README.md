@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.7)
+
+- Ficha de cima con terreno: vista 3D giratoria del relieve (arrastra para rotar) y mapa de curvas de nivel con sombreado hipsometrico, escala y norte. Elevacion de AWS Terrain Tiles (Mapzen Terrarium, datos abiertos, sin API key), recorte de ~8 km alrededor de la cima. Se carga bajo demanda y el SW la cachea para uso offline posterior.
+
 ## Estado (v1.6)
 
 - "Te falta cerca" en el Mapa: hasta 5 territorios sin conquistar en 150 km (provincias y comunidades en Espana, paises fuera), con distancia aproximada a su frontera y direccion (N, NE...). Toca una fila para centrar el mapa en ella. Usa tu posicion GPS o, sin GPS, el centro del mapa. Si no queda nada en 150 km, lo dice ("Zona dominada").

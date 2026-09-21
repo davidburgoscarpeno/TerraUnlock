@@ -156,3 +156,9 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-missrow:hover { border-color: rgba(45,212,191,0.5); }
 .tu-missrow b { font-size: 15px; }
 .tu-missrow span { opacity: 0.7; font-size: 13px; white-space: nowrap; }
+
+.tu-terrain { margin-top: 10px; }
+.tu-terrain canvas { width: 100%; border-radius: 10px; display: block; touch-action: pan-y; background: #0a0f16; border: 1px solid #1c2733; }
+.tu-terrbar { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.tu-terrnote { font-size: 11px; color: #8fa2b3; }
+.tu-terrbar .file-button { min-height: 34px; padding: 8px 12px; }

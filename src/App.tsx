@@ -7,6 +7,7 @@ import { PROV } from './data/prov';
 import { PEAKS_ES } from './data/peaks_es';
 import type { Peak } from './data/peaks_es';
 import { PEAKS_WORLD } from './data/peaks_world';
+import TerrainCard from './Terrain';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
 const TILE_URL = (tz: number, j: number, i: number) => 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + tz + '/' + j + '/' + i;
@@ -1131,6 +1132,7 @@ export function App() {
                     <a className="file-button is-compact" data-variant="primary" href={wikilocMapUrl(selectedPeak)} target="_blank" rel="noopener noreferrer">Rutas en Wikiloc</a>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedPeak(null)}>Cerrar</button>
                 </div>
+                <TerrainCard peak={selectedPeak} />
             </div>
         ) : null}
 
@@ -1348,7 +1350,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.6 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.7 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (

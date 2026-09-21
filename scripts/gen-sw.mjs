@@ -18,7 +18,7 @@ const VERSION = '${version}';
 const SHELL = 'tu-shell-' + VERSION;
 const TILES = 'tu-tiles-v1';
 const PRECACHE = ${JSON.stringify(precache, null, 0)};
-const TILE_HOSTS = ['server.arcgisonline.com', 'ibasemaps-api.arcgis.com', 'services.arcgisonline.com'];
+const TILE_HOSTS = ['server.arcgisonline.com', 'ibasemaps-api.arcgis.com', 'services.arcgisonline.com', 's3.amazonaws.com'];
 const MAX_TILES = 1500;
 
 self.addEventListener('install', (e) => {
