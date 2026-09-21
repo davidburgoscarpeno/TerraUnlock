@@ -851,7 +851,6 @@ export function App() {
                 <span>Prov {progress.prov.length}/{PROV.length}</span>
                 <span>Cimas {progress.peaks.length}</span>
             </div>
-            {toast ? <div className="tu-toast">{toast}</div> : null}
             <div className="tu-attr">Esri, Maxar, Earthstar Geographics</div>
         </div>
 
@@ -1067,6 +1066,8 @@ export function App() {
 
             <footer className="tu-closing">TerraUnlock v1.1 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
+
+        {toast ? <div className="tu-toast">{toast}</div> : null}
 
         <nav className="tu-nav">
             <div className="tu-brand">TerraUnlock</div>

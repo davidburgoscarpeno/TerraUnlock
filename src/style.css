@@ -11,7 +11,7 @@ body { background: #0b1017; color: #e6edf3; font-family: -apple-system, 'Segoe U
 .tu-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .tu-hud { position: absolute; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
 .tu-hud span { background: rgba(6,10,16,0.72); color: #cfe6dd; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; }
-.tu-toast { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(20,120,100,0.95); color: #fff; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 999px; pointer-events: none; max-width: 90%; text-align: center; }
+.tu-toast { position: fixed; bottom: 84px; z-index: 90; left: 50%; transform: translateX(-50%); background: rgba(20,120,100,0.95); color: #fff; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 999px; pointer-events: none; max-width: 90%; text-align: center; }
 .tu-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .file-button { font: 600 14px/1 -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 11px 16px; min-height: 44px; border-radius: 10px; border: 1px solid #2a3a4a; background: #16202c; color: #cfe0ec; cursor: pointer; }
 .file-button:active { transform: scale(0.97); }
