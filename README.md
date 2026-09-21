@@ -4,6 +4,11 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.5)
+
+- Perfil con foto: "Subir foto" en Ajustes la recorta a cuadrado y la guarda a 256 px en el dispositivo (unos 5 KB); sale en el saludo del header, en Ajustes y en la tarjeta de compartir (avatar + "El mundo de ..."). Sin foto, circulo con la inicial. Boton "Quitar".
+- Export/import incluye el perfil (nombre + avatar): la copia completa restaura tambien la cara.
+
 ## Estado (v1.4)
 
 - Aviso celebratorio al entrar en territorio nuevo: al desbloquear una provincia, comunidad o pais aparece un banner sobre el mapa ("Provincia nueva: Granada - ya llevas 5 de 52") con boton de compartir, cierre automatico a los 8 s, vibracion en movil y cola si saltan varios a la vez. En importaciones (GPX/FIT/ZIP) sale un unico aviso resumen en vez de una celebracion por cada territorio. No es pantalla completa ni se repite al recargar.
