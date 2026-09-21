@@ -4,9 +4,12 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
-## Estado (v1.2)
+## Estado (v1.3)
 
-- Sistema de logros (16 en 4 categorias: superficie, paises, territorio ES, cimas y puntos GPS): celebracion a pantalla completa al desbloquear con boton de compartir (tarjeta PNG), y seccion Logros en Progreso con fecha de desbloqueo y pistas. En la primera ejecucion siembra en silencio lo ya conseguido; solo celebra logros nuevos.
+- Modo aventura: boton "Empezar aventura" en el Mapa; panel en vivo con distancia, tiempo y desbloqueos de la sesion (paises, CCAA, provincias, cimas); al terminar, resumen con boton de compartir (tarjeta PNG) y la aventura queda guardada en Progreso. La aventura en curso se persiste y sobrevive a recargas.
+- Rachas: dias seguidos revelando territorio (al menos un punto GPS). Badge "Racha: X dias" en el header (desde 2), fila de racha en Progreso y 2 logros nuevos: "En racha" (3 dias) y "Semana de conquista" (7 dias).
+- Exportar/importar completo: el archivo pasa a v2 e incluye progreso, logros, racha y aventuras; las exportaciones v1 se siguen importando.
+- Sistema de logros (18 en 5 categorias: superficie, paises, territorio ES, cimas, puntos GPS y rachas): celebracion a pantalla completa al desbloquear con boton de compartir (tarjeta PNG), y seccion Logros en Progreso con fecha de desbloqueo y pistas. En la primera ejecucion siembra en silencio lo ya conseguido; solo celebra logros nuevos.
 - HUD del mapa: barra de escala que se adapta al zoom (km/mi segun ajustes) y badge con la cima conquistable mas cercana (<25 km del centro visible).
 
 - Buscador de cimas en la pestana Cimas: filtra las 59.053 por nombre (ignora tildes), ordena por altitud y "Ver" centra el mapa en la cima con su ficha abierta.
