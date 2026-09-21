@@ -16,9 +16,10 @@ export function adventureToGpx(adv: Adventure, prof: AdventureProfile | null, no
     lines.push('  <metadata><name>' + esc(name) + '</name><time>' + new Date(adv.start).toISOString() + '</time></metadata>');
     lines.push('  <trk><name>' + esc(name) + '</name><type>hiking</type><trkseg>');
     const hasEle = !!prof && prof.e.length === track.length;
+    const hasTimes = !!adv.times && adv.times.length === track.length;
     track.forEach((pt, i) => {
-        // El track no guarda timestamps por punto: se interpolan linealmente entre inicio y fin.
-        const t = track.length > 1 ? t0 + (t1 - t0) * (i / (track.length - 1)) : t0;
+        // Aventuras en vivo (v1.16+) guardan timestamp por punto; las antiguas e importadas interpolan entre inicio y fin.
+        const t = hasTimes ? adv.times![i] : (track.length > 1 ? t0 + (t1 - t0) * (i / (track.length - 1)) : t0);
         const ele = hasEle ? '<ele>' + prof!.e[i] + '</ele>' : '';
         lines.push('    <trkpt lat="' + pt[0].toFixed(6) + '" lon="' + pt[1].toFixed(6) + '">' + ele + '<time>' + new Date(t).toISOString() + '</time></trkpt>');
     });

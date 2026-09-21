@@ -137,7 +137,7 @@ function regionRevealedCells(rg: Region, cells: string[]) {
 }
 
 // v1.3: aventuras (salida del dia) y rachas (dias seguidos revelando)
-interface ActiveAdventure { start: string; km: number; points: number; countries0: string[]; ccaa0: string[]; prov0: string[]; peaks0: string[]; points0?: number; }
+interface ActiveAdventure { start: string; km: number; points: number; countries0: string[]; ccaa0: string[]; prov0: string[]; peaks0: string[]; points0?: number; times?: number[]; }
 interface Streak { last: string; count: number; }
 const ADV_ACTIVE_KEY = 'terraunlock.adventure.active.v1';
 const ADVS_KEY = 'terraunlock.adventures.v1';
@@ -395,7 +395,7 @@ export function App() {
         const a = advRef.current;
         if (a && isNewPoint) {
             const inc = last ? distM(last, [lat, lon]) / 1000 : 0;
-            const na = { ...a, km: a.km + inc, points: a.points + 1 };
+            const na = { ...a, km: a.km + inc, points: a.points + 1, times: a.times ? [...a.times, Date.now()] : undefined };
             advRef.current = na; setAdv(na); saveJson(ADV_ACTIVE_KEY, na);
         }
         const today = dayKey(new Date());
@@ -1414,7 +1414,7 @@ export function App() {
     useEffect(() => { if (!adv) return; const t = setInterval(() => setAdvTick((x) => x + 1), 15000); return () => clearInterval(t); }, [adv]);
     const startAdventure = () => {
         const p = progressRef.current;
-        const a: ActiveAdventure = { start: new Date().toISOString(), km: 0, points: 0, countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks, points0: p.points.length };
+        const a: ActiveAdventure = { start: new Date().toISOString(), km: 0, points: 0, countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks, points0: p.points.length, times: [] };
         advRef.current = a; setAdv(a); saveJson(ADV_ACTIVE_KEY, a);
         setToast('Aventura empezada: sal a conquistar');
     };
@@ -1439,6 +1439,12 @@ export function App() {
                 const lastTr = tr[tr.length - 1];
                 if (lastTr[0] !== lastPt[0] || lastTr[1] !== lastPt[1]) tr.push(lastPt);
                 done.track = tr;
+                // v1.16: timestamps reales por punto (mismo diezmado que la traza)
+                if (a.times && a.times.length === pts.length) {
+                    const tt = a.times.filter((_, i) => i % stride === 0);
+                    if (tt.length < tr.length) tt.push(a.times[a.times.length - 1]);
+                    done.times = tt;
+                }
             }
         }
         const list = [done, ...adventures].slice(0, 50);
@@ -1855,7 +1861,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.15 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.16 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
