@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.20.1)
+
+- Porcentajes y el eje de distancia del perfil de elevacion usan el separador decimal del idioma (coma en espanol, punto en ingles).
+
 ## Estado (v1.20)
 
 - Internacionalizacion: la app habla espanol e ingles. Selector en Ajustes > Idioma; por defecto usa el idioma del navegador (espanol si empieza por "es", ingles en cualquier otro caso). La eleccion se guarda en este dispositivo.

@@ -1705,7 +1705,7 @@ export function App() {
                     {ccaaRanking.map((r, i) => <li key={r.n}>
                         <span className="tu-num">{i + 1}</span>
                         <span className="tu-pkname">{r.n}<small>{progress.ccaa.includes(r.n) ? t('Conquistada') : t('Sin conquistar')}</small></span>
-                        <span className="tu-pkele">{r.pct.toFixed(1).replace('.', ',')}%</span>
+                        <span className="tu-pkele">{dec(r.pct)}%</span>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => { setSelectedPeak(null); setSelectedRegion({ c: 'España', a: r.n, pv: null }); setViewPersist({ lon: r.c[0], lat: r.c[1], z: 6 }); setTab('mapa'); }}>{t('Ver')}</button>
                     </li>)}
                 </ol>
@@ -1907,7 +1907,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.20{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.20.1{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

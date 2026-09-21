@@ -1,6 +1,7 @@
 // v1.12: calculo y pintado reutilizable del perfil de elevacion de una aventura.
 import { sampleElevations } from './terrain';
 import type { AdventureProfile } from './types';
+import { dec } from './i18n';
 
 function distM(a: [number, number], b: [number, number]) {
     const m = (a[0] + b[0]) / 2 * Math.PI / 180;
@@ -56,6 +57,6 @@ export function drawProfile(g: CanvasRenderingContext2D, x: number, y: number, w
     for (let i = 1; i < p.e.length; i++) g.lineTo(X(p.d[i]), Y(p.e[i]));
     g.strokeStyle = '#2dc8aa'; g.lineWidth = 2.5; g.stroke();
     g.textAlign = 'right'; g.fillStyle = '#5c7080';
-    g.fillText(dMax.toFixed(1).replace('.', ',') + ' km', x + w - padR, y + h - 8);
+    g.fillText(dec(dMax) + ' km', x + w - padR, y + h - 8);
     g.textAlign = 'left'; g.fillText('0', x + padL, y + h - 8);
 }
