@@ -2169,7 +2169,7 @@ export function App() {
                     <div className="tu-celeb-ico">★</div>
                     <h2>{t('Logro desbloqueado')}</h2>
                     <strong>{t(celebration[0].title)}</strong>
-                    <p>{celebration[0].hint}</p>
+                    <p>{t(celebration[0].hint)}</p>
                     {celebration.length > 1 ? <small>{t('y {n} mas a continuacion', { n: celebration.length - 1 })}</small> : null}
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>

@@ -83,6 +83,8 @@ const EN: Record<string, string> = {
     ' ({n} archivos no se pudieron leer)': ' ({n} files could not be read)',
     '({n} archivos no se pudieron leer)': '{n} files could not be read',
     'Cada actividad se guardara como aventura en tu historial.': 'Each activity will be saved as an adventure in your history.',
+    'Aventura de {nombre}': '{nombre}\'s adventure',
+    'La semana de {nombre}': '{nombre}\'s week',
     'Aplicar lote': 'Apply batch', 'Aplicar ruta': 'Apply route', 'Cancelar': 'Cancel',
     // te falta cerca
     'Te falta cerca': 'Missing nearby',
