@@ -65,6 +65,8 @@ function regionAt(regions: Region[], lon: number, lat: number) {
     }
     return null;
 }
+type TerrBanner = { title: string; sub: string };
+
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
 // Mapa de rutas de Wikiloc centrado en la cima (bbox ~3 km): muestra las rutas que pasan por ahi, no una busqueda generica por nombre.
@@ -317,11 +319,12 @@ export function App() {
         const next: Progress = { cells: p.cells, points: p.points, countries: p.countries, ccaa: p.ccaa, prov: p.prov, peaks: p.peaks };
         if (isNewCell) next.cells = [...p.cells, cellKey];
         if (isNewPoint) next.points = [...pts.slice(-19999), [lat, lon]];
+        const terr: TerrBanner[] = [];
         if (isNewPoint) {
             const rg = regionsCached(lon, lat);
-            if (rg.c && !next.countries.includes(rg.c)) { next.countries = [...next.countries, rg.c]; news.push('Pais desbloqueado: ' + rg.c); }
-            if (rg.a && !next.ccaa.includes(rg.a)) { next.ccaa = [...next.ccaa, rg.a]; news.push('Comunidad desbloqueada: ' + rg.a); }
-            if (rg.pv && !next.prov.includes(rg.pv)) { next.prov = [...next.prov, rg.pv]; news.push('Provincia desbloqueada: ' + rg.pv); }
+            if (rg.c && !next.countries.includes(rg.c)) { next.countries = [...next.countries, rg.c]; terr.push({ title: 'Pais nuevo: ' + rg.c, sub: 'Ya llevas ' + next.countries.length + ' de 177' }); }
+            if (rg.a && !next.ccaa.includes(rg.a)) { next.ccaa = [...next.ccaa, rg.a]; terr.push({ title: 'Comunidad nueva: ' + rg.a, sub: 'Ya llevas ' + next.ccaa.length + ' de 19' }); }
+            if (rg.pv && !next.prov.includes(rg.pv)) { next.prov = [...next.prov, rg.pv]; terr.push({ title: 'Provincia nueva: ' + rg.pv, sub: 'Ya llevas ' + next.prov.length + ' de 52' }); }
             const pkSet = new Set(next.peaks);
             const gi = Math.floor(lat * 2), gj = Math.floor(lon * 2);
             for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
@@ -336,6 +339,7 @@ export function App() {
             }
         }
         if (news.length) setToast(news[news.length - 1] + (news.length > 1 ? ' (+' + (news.length - 1) + ' mas)' : ''));
+        if (terr.length) { setBanners((b) => [...b, ...terr]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
         if (isNewCell || isNewPoint || news.length) { setProgress(next); saveProgress(next); }
         setLastPos([lat, lon]);
         const a = advRef.current;
@@ -447,6 +451,12 @@ export function App() {
         if (news.prov.length) parts.push(news.prov.length + ' provincias');
         if (news.peaks.length) parts.push(news.peaks.length + ' cimas');
         setToast((b.tracksOk > 1 ? 'Lote aplicado (' + b.tracksOk + ' actividades, ' : 'Ruta aplicada (') + fmtDist(b.totalKm) + '): ' + (parts.length ? '+' + parts.join(', +') : 'zona ya desbloqueada'));
+        const tparts: string[] = [];
+        if (news.prov.length) tparts.push(news.prov.length + ' provincia' + (news.prov.length > 1 ? 's' : ''));
+        if (news.ccaa.length) tparts.push(news.ccaa.length + ' comunidad' + (news.ccaa.length > 1 ? 'es' : ''));
+        if (news.countries.length) tparts.push(news.countries.length + ' pais' + (news.countries.length > 1 ? 'es' : ''));
+        if (news.peaks.length) tparts.push(news.peaks.length + ' cima' + (news.peaks.length > 1 ? 's' : ''));
+        if (tparts.length) { setBanners((bb) => [...bb, { title: 'Territorio nuevo por importacion', sub: '+' + tparts.join(', +') }]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
     };
 
     // GPS real
@@ -895,6 +905,13 @@ export function App() {
     const [achUnlocked, setAchUnlocked] = useState<Record<string, string>>(() => loadAch() || {});
     const achSeed = useRef(loadAch() == null); // primera vez con la funcion: siembra silenciosa
     const [celebration, setCelebration] = useState<Achievement[]>([]);
+    // v1.4: aviso celebratorio al entrar en territorio nuevo (banner, no pantalla completa)
+    const [banners, setBanners] = useState<TerrBanner[]>([]);
+    useEffect(() => {
+        if (!banners.length) return;
+        const t = setTimeout(() => setBanners((b) => b.slice(1)), 8000);
+        return () => clearTimeout(t);
+    }, [banners]);
     useEffect(() => {
         const seed = achSeed.current;
         achSeed.current = false;
@@ -1236,6 +1253,18 @@ export function App() {
 
             <footer className="tu-closing">TerraUnlock v1.3 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
+
+        {banners.length ? (
+            <div className="tu-territory" role="status">
+                <div className="tu-terr-ico">⚑</div>
+                <div className="tu-terr-body">
+                    <strong>{banners[0].title}</strong>
+                    <small>{banners[0].sub}{banners.length > 1 ? ' · +' + (banners.length - 1) + ' mas a continuacion' : ''}</small>
+                </div>
+                <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>Compartir</button>
+                <button className="tu-terr-x" aria-label="Cerrar aviso" onClick={() => setBanners((b) => b.slice(1))}>×</button>
+            </div>
+        ) : null}
 
         {celebration.length ? (
             <div className="tu-celebration">
