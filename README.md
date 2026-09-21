@@ -4,7 +4,11 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
-## Estado (v0.9)
+## Estado (v1.0)
+
+- Navegacion adaptada a desktop: barra lateral con marca en pantallas anchas (>=900 px), barra inferior en movil.
+- Ficha de region al tocar el mapa: nombre de pais/comunidad/provincia en el punto tocado, si esta conquistada y % revelado dentro de ella (muestreo del area de la region).
+- Barras de progreso por nivel en la pestana Progreso.
 
 - App shell con estructura de app: barra de navegacion inferior fija con 4 pestanas (Mapa, Progreso, Cimas, Ajustes), con soporte de safe-area para moviles con notch.
 - Pantalla de bienvenida en el primer arranque (que es TerraUnlock, como se revela el mapa, que datos se guardan) y re-mostrable desde Ajustes.
