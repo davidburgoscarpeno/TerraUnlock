@@ -134,6 +134,10 @@ function draw3D(cv: HTMLCanvasElement, g: ElevGrid, shade: Uint8ClampedArray, az
         ctx.closePath();
         ctx.fillStyle = q.c;
         ctx.fill();
+        // mismo color en el borde: cierra las juntas entre quads (efecto malla)
+        ctx.strokeStyle = q.c;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
     }
     // mastil de la cima
     const ec = g.data[((n - 1) / 2 | 0) * n + ((n - 1) / 2 | 0)];
