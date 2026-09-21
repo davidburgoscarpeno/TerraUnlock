@@ -750,6 +750,83 @@ export function App() {
         }
     };
 
+    // v1.1: buscador de cimas, cimas cercanas y tarjeta para compartir
+    const [peakQuery, setPeakQuery] = useState('');
+    const normTxt = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const peakResults = useMemo(() => {
+        const q = normTxt(peakQuery.trim());
+        if (q.length < 2) return [];
+        return allPeaks.filter((p) => normTxt(p[0]).includes(q)).sort((a, b) => b[3] - a[3]).slice(0, 50);
+    }, [peakQuery, allPeaks]);
+    const nearbyPeaks = useMemo(() => {
+        if (!lastPos) return [] as { p: Peak; d: number }[];
+        return allPeaks.map((p) => ({ p, d: distM(lastPos, [p[1], p[2]]) }))
+            .filter((x) => x.d <= 100000)
+            .sort((a, b) => a.d - b.d)
+            .slice(0, 10);
+    }, [lastPos, allPeaks]);
+    const showPeakOnMap = (p: Peak) => { setSelectedPeak(p); setSelectedRegion(null); setViewPersist({ lon: p[2], lat: p[1], z: 11 }); setTab('mapa'); };
+    const locateForNearby = () => {
+        if (!('geolocation' in navigator)) { setToast('Tu navegador no soporta geolocalizacion'); return; }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude); setLastPos([pos.coords.latitude, pos.coords.longitude]); },
+            () => setToast('No se pudo obtener tu posicion'),
+            { enableHighAccuracy: true, timeout: 15000 }
+        );
+    };
+    const shareCard = async () => {
+        try {
+            const W = 1080, H = 1350;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            const mapX = 60, mapY = 290, mapW = W - 120, mapH = H - 640;
+            const px = (lon: number) => mapX + (lon + 180) / 360 * mapW;
+            const py = (lat: number) => mapY + (80 - lat) / 160 * mapH;
+            g.lineWidth = 1;
+            for (const rg of COUNTRIES) {
+                const won = progress.countries.includes(rg.n);
+                for (const ring of rg.r) {
+                    g.beginPath();
+                    for (let i = 0; i < ring.length; i += 2) { const x = px(ring[i]), y = py(ring[i + 1]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+                    g.closePath();
+                    if (won) { g.fillStyle = 'rgba(45,200,170,0.18)'; g.fill(); }
+                    g.strokeStyle = 'rgba(70,95,110,0.55)'; g.stroke();
+                }
+            }
+            g.fillStyle = '#2dc8aa';
+            for (const ck of progress.cells) {
+                const i = ck.indexOf(',');
+                const lat = +ck.slice(0, i) * CELL, lon = +ck.slice(i + 1) * CELL;
+                g.fillRect(px(lon) - 2.5, py(lat) - 2.5, 5, 5);
+            }
+            g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('TerraUnlock', 60, 110);
+            if (prefs.nombre.trim()) { g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillText('El mundo de ' + prefs.nombre.trim(), 60, 170); }
+            g.fillStyle = '#9fb0c0'; g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
+            const st = '~' + fmtAreaShort(progress.cells.length * 1.1) + ' revelados   -   ' + progress.countries.length + '/177 paises   -   ' + progress.ccaa.length + '/19 CCAA   -   ' + progress.peaks.length + ' cimas';
+            g.fillText(st, 60, 228);
+            g.fillStyle = '#5c7080'; g.font = '600 26px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('Cuantos paises has pisado? davidburgoscarpeno.github.io/TerraUnlock', 60, H - 60);
+            const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
+            if (!blob) { setToast('No se pudo generar la tarjeta'); return; }
+            const file = new File([blob], 'terraunlock.png', { type: 'image/png' });
+            const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[]; title: string }) => Promise<void> };
+            if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+                await nav.share({ files: [file], title: 'TerraUnlock' });
+            } else {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'terraunlock.png';
+                a.click();
+                setToast('Tarjeta descargada');
+            }
+        } catch (e) {
+            if (e instanceof Error && e.name === 'AbortError') return;
+            setToast('No se pudo compartir la tarjeta');
+        }
+    };
+
     const km2 = (progress.cells.length * 1.1).toFixed(0);
     const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p);
 
@@ -852,6 +929,7 @@ export function App() {
                     { label: 'Cimas conquistadas', value: progress.peaks.length + ' de ' + allPeaks.length, pct: allPeaks.length > 0 ? progress.peaks.length / allPeaks.length : 0 },
                     { label: 'Puntos GPS', value: String(progress.points.length), pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
+                <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>Compartir mi mapa</button></div>
             </section>
 
             {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>Territorio desbloqueado</h2>
@@ -864,7 +942,34 @@ export function App() {
         </> : null}
 
         {tab === 'cimas' ? <>
-            <section className="tu-group"><h2>Cimas</h2>
+            <section className="tu-group"><h2>Buscar cimas</h2>
+                <input className="tu-input tu-input-full" type="search" placeholder="Nombre de la cima (min. 2 letras)" value={peakQuery} onChange={(e) => setPeakQuery(e.target.value)} />
+                {peakQuery.trim().length >= 2 ? (
+                    peakResults.length ? <ol className="tu-peaklist tu-peaklist-full">
+                        {peakResults.map((p) => <li key={peakId(p)}>
+                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? 'Conquistada' : 'Sin conquistar'}</small></span>
+                            <span className="tu-pkele">{p[3]} m</span>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                        </li>)}
+                    </ol> : <div className="tu-callout"><strong>Sin resultados</strong><p>Prueba con otro nombre: el buscador ignora tildes y mayusculas.</p></div>
+                ) : null}
+            </section>
+
+            <section className="tu-group"><h2>Cerca de ti</h2>
+                {lastPos ? (
+                    nearbyPeaks.length ? <ol className="tu-peaklist">
+                        {nearbyPeaks.map(({ p, d }) => <li key={peakId(p)}>
+                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? 'Conquistada' : 'Sin conquistar'}</small></span>
+                            <span className="tu-pkele">{p[3]} m</span>
+                            <span className="tu-pkdist">{fmtDist(d / 1000)}</span>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>Ver</button>
+                        </li>)}
+                    </ol> : <div className="tu-callout"><strong>Nada a menos de 100 km</strong><p>No hay cimas del catalogo cerca de tu posicion actual.</p></div>
+                ) : <div className="tu-callout"><strong>Que tengo cerca que cuente?</strong><p>Dame tu posicion y te listo las cimas conquistables a menos de 100 km, con distancia.</p>
+                    <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={locateForNearby}>Usar mi posicion</button></div></div>}
+            </section>
+
+            <section className="tu-group"><h2>Tus cimas</h2>
                 <div className="tu-callout"><strong>{progress.peaks.length} de {allPeaks.length} conquistadas</strong><p>Toca cualquier triangulo del mapa para ver su ficha: altitud, si la has conquistado y rutas para subirla. Una cima cuenta cuando pasas a menos de 1 km.</p></div>
                 {conqueredPeaks.length > 0 ? (
                     <ol className="tu-peaklist tu-peaklist-full">
@@ -960,7 +1065,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.0 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.1 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         <nav className="tu-nav">
