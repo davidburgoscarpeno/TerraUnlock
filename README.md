@@ -4,6 +4,10 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
+## Estado (v1.10)
+
+- Tarjeta semanal para compartir (PNG): lo conquistado esta semana (territorios y cimas, con nombres), el rango de la semana y el estado del objetivo semanal. Boton "Compartir mi semana" en Progreso y en la tarjeta del objetivo en el Mapa. Usa la hoja de compartir del sistema si puede y si no, descarga el PNG.
+
 ## Estado (v1.9)
 
 - Objetivo semanal automatico: desbloquea 3 territorios nuevos o conquista 1 cima antes del lunes. Tarjeta en el Mapa con barras de progreso y dias restantes; al cumplirlo, celebra con el modal de logros y la tarjeta queda marcada. Se reinicia solo cada lunes (semana ISO) y el progreso se guarda en el dispositivo.

@@ -954,6 +954,125 @@ export function App() {
         }
     };
 
+    // v1.10: tarjeta semanal (pique): lo conquistado esta semana + estado del objetivo
+    const shareBlob = async (blob: Blob, filename: string, title: string) => {
+        const file = new File([blob], filename, { type: 'image/png' });
+        const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[]; title: string }) => Promise<void> };
+        if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+            await nav.share({ files: [file], title });
+        } else {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            setToast('Tarjeta descargada');
+        }
+    };
+    const shareWeekCard = async () => {
+        try {
+            const terrC = progress.countries.filter((n) => !weekly.countries0.includes(n));
+            const terrA = progress.ccaa.filter((n) => !weekly.ccaa0.includes(n));
+            const terrP = progress.prov.filter((n) => !weekly.prov0.includes(n));
+            const newPeaks = progress.peaks.filter((id) => !weekly.peaks0.includes(id)).map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+            const terrN = terrC.length + terrA.length + terrP.length;
+            const done = terrN >= WEEK_TERR || newPeaks.length >= WEEK_PEAK;
+            const W = 1080, H = 1350;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            // avatar + cabecera (mismo bloque que la tarjeta general)
+            const avImg = avatar ? await new Promise<HTMLImageElement | null>((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = avatar; }) : null;
+            g.save();
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.closePath(); g.clip();
+            if (avImg) g.drawImage(avImg, 60, 48, 128, 128);
+            else { g.fillStyle = '#14755f'; g.fillRect(60, 48, 128, 128); g.fillStyle = '#fff'; g.font = '700 64px -apple-system, Segoe UI, Roboto, sans-serif'; g.textAlign = 'center'; g.fillText((prefs.nombre.trim()[0] || '?').toUpperCase(), 124, 134); g.textAlign = 'left'; }
+            g.restore();
+            g.strokeStyle = 'rgba(45,200,170,0.8)'; g.lineWidth = 4;
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.stroke();
+            g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('TerraUnlock', 224, 110);
+            g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(prefs.nombre.trim() ? 'La semana de ' + prefs.nombre.trim() : 'Mi semana de conquista', 224, 170);
+            // rango de la semana (lunes a domingo)
+            const now = new Date();
+            const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+            const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+            const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            const rango = mon.getMonth() === sun.getMonth()
+                ? 'del ' + mon.getDate() + ' al ' + sun.getDate() + ' de ' + meses[sun.getMonth()] + ' de ' + sun.getFullYear()
+                : 'del ' + mon.getDate() + ' de ' + meses[mon.getMonth()] + ' al ' + sun.getDate() + ' de ' + meses[sun.getMonth()];
+            g.fillStyle = '#9fb0c0'; g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('Semana ' + rango, 60, 250);
+            // numeros grandes
+            g.fillStyle = '#2dc8aa'; g.font = '800 130px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('+' + terrN, 60, 420);
+            g.font = '700 40px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(terrN === 1 ? 'territorio nuevo' : 'territorios nuevos', 60, 480);
+            g.fillStyle = '#e8cd6e'; g.font = '800 130px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('+' + newPeaks.length, 560, 420);
+            g.font = '700 40px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(newPeaks.length === 1 ? 'cima conquistada' : 'cimas conquistadas', 560, 480);
+            // listado
+            const chip = (t: string, x: number, y: number, fg: string, bg: string) => {
+                g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
+                const w = g.measureText(t).width + 44;
+                g.beginPath();
+                g.moveTo(x + 14, y); g.lineTo(x + w - 14, y); g.arcTo(x + w, y, x + w, y + 14, 14); g.lineTo(x + w, y + 34); g.arcTo(x + w, y + 48, x + w - 14, y + 48, 14); g.lineTo(x + 14, y + 48); g.arcTo(x, y + 48, x, y + 34, 14); g.lineTo(x, y + 14); g.arcTo(x, y, x + 14, y, 14); g.closePath();
+                g.fillStyle = bg; g.fill();
+                g.fillStyle = fg; g.fillText(t, x + 22, y + 35);
+                return w;
+            };
+            let cy = 540;
+            const chipRow = (title: string, names: string[], fg: string, bg: string) => {
+                if (!names.length || cy > 1060) return;
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(title, 60, cy + 34);
+                cy += 52;
+                let cx = 60;
+                for (const n of names) {
+                    const w = chip(n, cx, cy, fg, bg);
+                    cx += w + 14;
+                    if (cx > W - 120) { cx = 60; cy += 62; }
+                }
+                cy += 78;
+            };
+            chipRow('PAISES', terrC, '#7ee0c8', '#123a31');
+            chipRow('COMUNIDADES', terrA, '#e8cd6e', '#2f2a12');
+            chipRow('PROVINCIAS', terrP, '#8fb8d8', '#1a2634');
+            if (newPeaks.length && cy <= 1060) {
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText('CIMAS', 60, cy + 34);
+                cy += 56;
+                g.font = '600 31px -apple-system, Segoe UI, Roboto, sans-serif';
+                for (const p of newPeaks.slice(0, 6)) {
+                    g.fillStyle = '#e6edf3'; g.fillText(p[0], 60, cy + 20);
+                    g.fillStyle = '#e8cd6e'; g.textAlign = 'right'; g.fillText(p[3] + ' m', W - 60, cy + 20); g.textAlign = 'left';
+                    cy += 48;
+                }
+                if (newPeaks.length > 6) { g.fillStyle = '#5c7080'; g.fillText('y ' + (newPeaks.length - 6) + ' mas', 60, cy + 20); cy += 48; }
+                cy += 10;
+            }
+            if (!terrN && !newPeaks.length) {
+                g.fillStyle = '#9fb0c0'; g.font = '600 34px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText('Semana tranquila... por ahora. Va a durar poco.', 60, cy + 40);
+                cy += 80;
+            }
+            // estado del objetivo
+            g.fillStyle = done ? '#123a31' : '#101823';
+            g.fillRect(60, 1150, W - 120, 84);
+            g.fillStyle = done ? '#2dc8aa' : '#9fb0c0'; g.font = '700 32px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(done ? 'Objetivo semanal: CUMPLIDO' : 'Objetivo semanal: ' + Math.min(terrN, WEEK_TERR) + '/' + WEEK_TERR + ' territorios - ' + Math.min(newPeaks.length, WEEK_PEAK) + '/' + WEEK_PEAK + ' cimas', 84, 1204);
+            g.fillStyle = '#5c7080'; g.font = '600 26px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('Tu que has conquistado esta semana? davidburgoscarpeno.github.io/TerraUnlock', 60, H - 42);
+            const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
+            if (!blob) { setToast('No se pudo generar la tarjeta'); return; }
+            await shareBlob(blob, 'terraunlock-semana.png', 'TerraUnlock: mi semana');
+        } catch (e) {
+            if (e instanceof Error && e.name === 'AbortError') return;
+            setToast('No se pudo compartir la tarjeta');
+        }
+    };
+
     // v1.3: racha (dias seguidos revelando)
     const [streak, setStreak] = useState<Streak>(() => loadJson<Streak>(STREAK_KEY) || { last: '', count: 0 });
     // v1.2: logros (desbloqueo + celebracion) y HUD (escala + cima cercana)
@@ -1169,6 +1288,7 @@ export function App() {
                     <span className="tu-weeklbl">Cimas {Math.min(peaks, WEEK_PEAK)}/{WEEK_PEAK}</span>
                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#e8cd6e', width: Math.min(100, peaks / WEEK_PEAK * 100).toFixed(0) + '%' }} /></span>
                 </div>
+                <div className="tu-controls" style={{ marginTop: 8 }}><button className="file-button is-compact" data-variant="secondary" onClick={shareWeekCard}>Compartir mi semana</button></div>
             </div>;
         })()}
 
@@ -1313,7 +1433,7 @@ export function App() {
                     { label: 'Puntos GPS', value: String(progress.points.length), pct: null },
                     { label: 'Racha', value: streak.count > 0 ? streak.count + (streak.count === 1 ? ' dia' : ' dias') : '-', pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
-                <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>Compartir mi mapa</button></div>
+                <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>Compartir mi mapa</button><button className="file-button" data-variant="primary" onClick={shareWeekCard}>Compartir mi semana</button></div>
             </section>
 
             {ccaaRanking.length ? <section className="tu-group"><h2>Comunidades mas dominadas</h2>
@@ -1503,7 +1623,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.9 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.10 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (
