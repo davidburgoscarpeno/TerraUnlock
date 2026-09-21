@@ -4,7 +4,12 @@ Mapa mundial tipo "niebla de guerra" de videojuego que se revela con tu posició
 
 **Demo:** https://davidburgoscarpeno.github.io/TerraUnlock/
 
-## Estado (v1.0)
+## Estado (v1.1)
+
+- Buscador de cimas en la pestana Cimas: filtra las 59.053 por nombre (ignora tildes), ordena por altitud y "Ver" centra el mapa en la cima con su ficha abierta.
+- Cimas cercanas: con tu posicion, lista las cimas conquistables a menos de 100 km ordenadas por distancia, con altitud y acceso al mapa.
+- Compartir progreso sin cuentas: boton en Progreso que genera una tarjeta PNG (mapa mundi con lo revelado + stats) y la comparte con Web Share API en movil o la descarga en desktop.
+- Toasts globales: los avisos se ven en cualquier pestana, no solo en Mapa.
 
 - Navegacion adaptada a desktop: barra lateral con marca en pantallas anchas (>=900 px), barra inferior en movil.
 - Ficha de region al tocar el mapa: nombre de pais/comunidad/provincia en el punto tocado, si esta conquistada y % revelado dentro de ella (muestreo del area de la region).
