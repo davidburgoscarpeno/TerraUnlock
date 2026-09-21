@@ -1103,18 +1103,29 @@ export function App() {
             g.fillStyle = '#2dc8aa'; g.font = '800 120px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText(fmtDist(adv.km), 60, 330);
             const horas = Math.max(0, (new Date(adv.end).getTime() - fecha.getTime()) / 3600000);
-            g.fillStyle = '#9fb0c0'; g.font = '600 32px -apple-system, Segoe UI, Roboto, sans-serif';
             const dur = horas >= 1 ? Math.floor(horas) + ' h ' + Math.round((horas % 1) * 60) + ' min' : Math.round(horas * 60) + ' min';
-            g.fillText(adv.points + ' puntos GPS - ' + dur + (prof ? ' - subida +' + prof.up + ' m - bajada -' + prof.down + ' m' : ''), 60, 392);
+            // fila de cajas de stats
+            const boxes: [string, string][] = [['PUNTOS GPS', String(adv.points)], ['DURACION', dur]];
+            if (prof) { boxes.push(['SUBIDA', '+' + prof.up + ' m']); boxes.push(['BAJADA', '-' + prof.down + ' m']); }
+            const bw = (W - 120 - (boxes.length - 1) * 18) / boxes.length;
+            boxes.forEach(([lab, val], i) => {
+                const bx = 60 + i * (bw + 18);
+                g.fillStyle = '#111927'; g.beginPath(); g.roundRect(bx, 400, bw, 122, 16); g.fill();
+                g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.stroke();
+                g.fillStyle = '#5c7080'; g.font = '700 24px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(lab, bx + 24, 444);
+                g.fillStyle = '#e6edf3'; g.font = '800 44px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(val, bx + 24, 500);
+            });
             // perfil
-            let cy = 430;
+            let cy = 560;
             if (prof) {
                 g.save();
-                g.beginPath(); g.rect(60, cy, W - 120, 420); g.clip();
-                drawProfile(g, 60, cy, W - 120, 420, prof, 26);
+                g.beginPath(); g.rect(60, cy, W - 120, 480); g.clip();
+                drawProfile(g, 60, cy, W - 120, 480, prof, 26);
                 g.restore();
-                g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.strokeRect(60, cy, W - 120, 420);
-                cy += 452;
+                g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.strokeRect(60, cy, W - 120, 480);
+                cy += 520;
             }
             // desbloqueos
             const terrC = adv.countries, terrA = adv.ccaa, terrP = adv.prov;
@@ -1745,7 +1756,7 @@ export function App() {
                 <p className="tu-more">Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.12 - tu progreso se guarda en este dispositivo.</footer>
+            <footer className="tu-closing">TerraUnlock v1.12.1 - tu progreso se guarda en este dispositivo.</footer>
         </> : null}
 
         {banners.length ? (

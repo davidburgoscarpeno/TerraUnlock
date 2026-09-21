@@ -29,15 +29,15 @@ export async function computeProfile(track: [number, number][]): Promise<Adventu
 
 // Pinta el perfil en la region (x, y, w, h) de cualquier contexto 2D.
 export function drawProfile(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, p: AdventureProfile, axisFont = 14) {
-    const padL = 62, padR = 12, padT = 14, padB = 30;
-    const iw = w - padL - padR, ih = h - padT - padB;
     const dMax = p.d[p.d.length - 1] || 1;
     const eMin = Math.floor(p.min / 100) * 100;
     const eMax = Math.ceil(p.max / 100) * 100 || eMin + 100;
+    g.font = '600 ' + axisFont + 'px -apple-system, Segoe UI, Roboto, sans-serif';
+    const padL = Math.ceil(g.measureText(eMax + ' m').width) + 16, padR = 12, padT = 14, padB = Math.round(axisFont * 1.2) + 14;
+    const iw = w - padL - padR, ih = h - padT - padB;
     const X = (d: number) => x + padL + d / dMax * iw;
     const Y = (e: number) => y + padT + (1 - (e - eMin) / Math.max(1, eMax - eMin)) * ih;
     g.fillStyle = '#0a0f16'; g.fillRect(x, y, w, h);
-    g.font = '600 ' + axisFont + 'px -apple-system, Segoe UI, Roboto, sans-serif';
     g.textAlign = 'right';
     const span = eMax - eMin;
     const step = span > 1200 ? 500 : span > 500 ? 200 : span > 200 ? 100 : 50;
