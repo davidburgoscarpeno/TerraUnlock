@@ -240,7 +240,7 @@ function loadAch(): Record<string, string> | null {
 function saveAch(a: Record<string, string>) { try { localStorage.setItem(ACH_KEY, JSON.stringify(a)); } catch { /* sin espacio */ } }
 
 // Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
-interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; lang?: Lang; }
+interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; lang?: Lang; routes?: boolean; }
 const PREFS_KEY = 'terraunlock.prefs.v1';
 const AVATAR_KEY = 'terraunlock.avatar.v1';
 function loadPrefs(): Prefs {
@@ -902,6 +902,26 @@ export function App() {
                 let started = false;
                 for (let i = 0; i < sc.pts.length; i += step) {
                     const q = sc.pts[i];
+                    const pt = project(q[1], q[0], z);
+                    const x = sx(pt.x), y = sy(pt.y);
+                    if (x < -60 || x > w + 60 || y < -60 || y > h + 60) { started = false; continue; }
+                    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // v1.36: trazas de todas las aventuras guardadas (atenuadas), bajo la enfocada
+        if (prefsRef.current.routes) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(45,200,170,0.4)'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+            for (const a of adventuresRef.current) {
+                if (!a.track || a.track.length < 2) continue;
+                if (focusAdv && a.start === focusAdv.start) continue;
+                ctx.beginPath();
+                let started = false;
+                for (const q of a.track) {
                     const pt = project(q[1], q[0], z);
                     const x = sx(pt.x), y = sy(pt.y);
                     if (x < -60 || x > w + 60 || y < -60 || y > h + 60) { started = false; continue; }
@@ -2014,6 +2034,7 @@ export function App() {
             <button className="file-button is-compact" data-variant={gpsOn ? 'primary' : 'secondary'} onClick={() => setGpsOn(!gpsOn)}>{gpsOn ? t('GPS activado') : t('Activar GPS')}</button>
             <button className="file-button is-compact" data-variant="secondary" onClick={centerOnMe}>{t('Centrar en mi')}</button>
             <button className="file-button is-compact" data-variant={simMode ? 'primary' : 'secondary'} onClick={() => setSimMode(!simMode)}>{simMode ? t('Modo prueba: ON') : t('Modo prueba')}</button>
+            <button className="file-button is-compact" data-variant={prefs.routes ? 'primary' : 'secondary'} onClick={() => setPrefs({ routes: !prefs.routes })}>{prefs.routes ? t('Rutas: ON') : t('Rutas')}</button>
             <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, 1)}>+</button>
             <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, -1)}>-</button>
             {!adv ? <button className="file-button is-compact" data-variant="primary" onClick={startAdventure}>{t('Empezar aventura')}</button> : null}
@@ -2405,7 +2426,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.35{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.36{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

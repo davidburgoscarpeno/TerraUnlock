@@ -245,6 +245,7 @@ const EN: Record<string, string> = {
     'TerraUnlock: mi mes': 'TerraUnlock: my month',
     'Nueva version lista': 'New version ready', 'Actualizar': 'Update',
     '{n} logros desbloqueados': '{n} achievements unlocked',
+    'Rutas': 'Routes', 'Rutas: ON': 'Routes: ON',
     'Tarjeta descargada': 'Card downloaded',
     'No se pudo generar la tarjeta': 'Could not generate the card',
     'No se pudo compartir la tarjeta': 'Could not share the card',
