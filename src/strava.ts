@@ -84,14 +84,24 @@ export async function ensureStravaToken(): Promise<StravaConn> {
     return next;
 }
 
-export type StravaTrack = { name: string; pts: [number, number][]; times: (string | null)[]; stravaId?: number };
+export type StravaTrack = { name: string; pts: [number, number][]; times: (string | null)[]; stravaId?: number; sport?: string };
+
+// v1.41: sport_type de Strava -> tipo interno ('' = desconocido, se inferira del ritmo)
+function mapStravaSport(st: string): string {
+    const s = (st || '').toLowerCase();
+    if (s.includes('run') || s.includes('jog')) return 'run';
+    if (s.includes('ride') || s.includes('bike') || s.includes('cycle') || s.includes('velo') || s.includes('gravel')) return 'ride';
+    if (s.includes('hike') || s.includes('mountaineer') || s.includes('climb')) return 'hike';
+    if (s.includes('walk')) return 'walk';
+    return '';
+}
 
 // Descarga actividades con GPS y las convierte en tracks (max 200, respeta el limite de Strava)
 export async function fetchStravaTracks(onProgress?: (done: number, total: number) => void): Promise<{ tracks: StravaTrack[]; rateLimited: boolean; noGps: number }> {
     const conn = await ensureStravaToken();
     const done = new Set(conn.importedIds);
     // 1) lista de actividades (4 paginas x 50)
-    const acts: { id: number; name: string; start_date: string }[] = [];
+    const acts: { id: number; name: string; start_date: string; sport: string }[] = [];
     for (let page = 1; page <= 4; page++) {
         const res = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=50&page=' + page, {
             headers: { Authorization: 'Bearer ' + conn.access_token }
@@ -100,7 +110,7 @@ export async function fetchStravaTracks(onProgress?: (done: number, total: numbe
         if (!res.ok) throw new Error('activities ' + res.status);
         const arr = await res.json();
         if (!Array.isArray(arr) || !arr.length) break;
-        for (const a of arr) acts.push({ id: a.id, name: a.name || 'Actividad Strava', start_date: a.start_date });
+        for (const a of arr) acts.push({ id: a.id, name: a.name || 'Actividad Strava', start_date: a.start_date, sport: mapStravaSport(a.sport_type || a.type || '') });
         if (arr.length < 50) break;
     }
     const pending = acts.filter((a) => !done.has(a.id));
@@ -127,7 +137,7 @@ export async function fetchStravaTracks(onProgress?: (done: number, total: numbe
         const times: (string | null)[] = Array.isArray(s.time && s.time.data)
             ? (s.time.data as number[]).map((sec) => new Date(t0 + sec * 1000).toISOString())
             : latlng.map(() => null);
-        tracks.push({ name: a.name, pts: latlng, times, stravaId: a.id });
+        tracks.push({ name: a.name, pts: latlng, times, stravaId: a.id, sport: a.sport || undefined });
         if (i < pending.length - 1) await new Promise((r) => setTimeout(r, 150)); // suavizar el rate limit
     }
     // marcar las procesadas sin exito (sin GPS o error) para no volver a pedirlas; las correctas se marcan al aplicar el lote

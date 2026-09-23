@@ -219,6 +219,20 @@ function fmtPace(secPerUnit: number, perMile: boolean): string {
     const m = Math.floor(secPerUnit / 60), s = Math.round(secPerUnit % 60);
     return m + ':' + String(s).padStart(2, '0') + '/' + (perMile ? 'mi' : 'km');
 }
+// v1.41: tipo de actividad (emoji en el historial). Strava lo dice; el resto se infiere del ritmo medio.
+type Sport = 'run' | 'ride' | 'walk' | 'hike';
+function sportEmoji(s?: Sport): string { return s === 'run' ? '🏃' : s === 'ride' ? '🚴' : s === 'walk' ? '🚶' : s === 'hike' ? '🥾' : ''; }
+// <3 min/km (~20+ km/h) = bici; 3-7,5 = correr; 7,5-14 = caminar; >14 = senderismo (terreno lento)
+function inferSportSecPerKm(secPerKm: number): Sport { if (secPerKm < 180) return 'ride'; if (secPerKm < 450) return 'run'; if (secPerKm < 840) return 'walk'; return 'hike'; }
+function advSport(a: Adventure): Sport | undefined {
+    const s = a.sport;
+    if (s === 'run' || s === 'ride' || s === 'walk' || s === 'hike') return s;
+    if (a.times && a.times.length >= 2 && a.km > 0.05) {
+        const sec = (a.times[a.times.length - 1] - a.times[0]) / 1000;
+        if (sec > 0) return inferSportSecPerKm(sec / a.km);
+    }
+    return undefined;
+}
 function newWeeklyGoal(p: Progress): WeeklyGoal {
     return { week: weekKey(new Date()), countries0: p.countries, ccaa0: p.ccaa, prov0: p.prov, peaks0: p.peaks, celebrated: false };
 }
@@ -296,6 +310,7 @@ type TrackScan = {
     times?: (string | null)[];
     dup?: boolean;
     stravaId?: number;
+    sport?: string;
 };
 
 function parseGpx(text: string): { name: string; pts: [number, number][]; times: (string | null)[] } {
@@ -660,7 +675,7 @@ export function App() {
     };
 
     // v1.39: escanear tracks (de archivos o de Strava) contra una copia del progreso y preparar el lote de importacion
-    const buildBatchFromTracks = (tracks: { name: string; pts: [number, number][]; times: (string | null)[]; stravaId?: number }[], files: number, failed: number): boolean => {
+    const buildBatchFromTracks = (tracks: { name: string; pts: [number, number][]; times: (string | null)[]; stravaId?: number; sport?: string }[], files: number, failed: number): boolean => {
         try {
             const p0 = progressRef.current;
             const work: Progress = { cells: [...p0.cells], points: [...p0.points], countries: [...p0.countries], ccaa: [...p0.ccaa], prov: [...p0.prov], peaks: [...p0.peaks] };
@@ -668,6 +683,7 @@ export function App() {
             for (const t of tracks) {
                 const sc = scanTrack(t.name, t.pts, work, peakGrid, t.times);
                 if (t.stravaId) sc.stravaId = t.stravaId;
+                if (t.sport) sc.sport = t.sport;
                 scansAll.push(sc);
                 work.cells = sc.cells;
                 work.countries = [...work.countries, ...sc.countries];
@@ -744,7 +760,9 @@ export function App() {
                         tt = dm;
                     }
                 }
-                newAdvs.push({ start, end, km: Math.round(sc.km * 10) / 10, points: sc.pts.length, countries: sc.countries, ccaa: sc.ccaa, prov: sc.prov, peaks: sc.peaks, track: tr.length >= 2 ? tr : undefined, times: tt, name: sc.name });
+                const vt0 = vt.length >= 2 ? (new Date(vt[vt.length - 1]).getTime() - new Date(vt[0]).getTime()) / 1000 : 0;
+                const sp = (sc.sport === 'run' || sc.sport === 'ride' || sc.sport === 'walk' || sc.sport === 'hike') ? sc.sport : (vt0 > 0 && sc.km > 0.05 ? inferSportSecPerKm(vt0 / sc.km) : undefined);
+                newAdvs.push({ start, end, km: Math.round(sc.km * 10) / 10, points: sc.pts.length, countries: sc.countries, ccaa: sc.ccaa, prov: sc.prov, peaks: sc.peaks, track: tr.length >= 2 ? tr : undefined, times: tt, name: sc.name, sport: sp });
             }
             const list = [...newAdvs.reverse(), ...adventuresRef.current].slice(0, 50);
             setAdventures(list); saveJson(ADVS_KEY, list);
@@ -1651,10 +1669,21 @@ export function App() {
             const lastPt = sc.pts[sc.pts.length - 1];
             const lastTr = tr[tr.length - 1];
             if (lastTr && (lastTr[0] !== lastPt[0] || lastTr[1] !== lastPt[1])) tr.push(lastPt);
+            let ttg: number[] | undefined;
+            if (sc.times && sc.times.length === sc.pts.length) {
+                const rawMs = sc.times.map((x) => (x ? new Date(x).getTime() : NaN));
+                if (rawMs.every((n) => isFinite(n))) {
+                    const dm = rawMs.filter((_, i) => i % stride === 0);
+                    if (dm.length < tr.length) dm.push(rawMs[rawMs.length - 1]);
+                    ttg = dm;
+                }
+            }
+            const durG = (new Date(end).getTime() - new Date(start).getTime()) / 1000;
             const done: Adventure = {
                 start, end, km: Math.round(sc.km * 10) / 10, points: sc.pts.length,
                 countries: sc.countries, ccaa: sc.ccaa, prov: sc.prov, peaks: sc.peaks,
-                track: tr.length >= 2 ? tr : undefined,
+                track: tr.length >= 2 ? tr : undefined, times: ttg,
+                sport: durG > 0 && sc.km > 0.05 ? inferSportSecPerKm(durG / sc.km) : undefined,
             };
             const list = [done, ...adventures].slice(0, 50);
             setAdventures(list); saveJson(ADVS_KEY, list);
@@ -2000,8 +2029,10 @@ export function App() {
         const a = advRef.current;
         if (!a) return;
         const p = progressRef.current;
+        const durSec = (Date.now() - new Date(a.start).getTime()) / 1000;
         const done: Adventure = {
             start: a.start, end: new Date().toISOString(), km: a.km, points: a.points,
+            sport: durSec > 0 && a.km > 0.05 ? inferSportSecPerKm(durSec / a.km) : undefined,
             countries: p.countries.filter((n) => !a.countries0.includes(n)),
             ccaa: p.ccaa.filter((n) => !a.ccaa0.includes(n)),
             prov: p.prov.filter((n) => !a.prov0.includes(n)),
@@ -2383,7 +2414,7 @@ export function App() {
                 </div>
                 {adventures.length ? <ol className="tu-peaklist tu-advlist">
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
-                        <span className="tu-pkname">{a.name || new Date(a.start).toLocaleDateString(dateLocale())}{a.name ? <small>{new Date(a.start).toLocaleDateString(dateLocale())}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || t('Sin desbloqueos nuevos')}</small></span>
+                        <span className="tu-pkname">{sportEmoji(advSport(a)) ? sportEmoji(advSport(a)) + ' ' : ''}{a.name || new Date(a.start).toLocaleDateString(dateLocale())}{a.name ? <small>{new Date(a.start).toLocaleDateString(dateLocale())}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || t('Sin desbloqueos nuevos')}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
                         {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}{(() => { const mv = movingStats(a); return mv ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('En movimiento {dur}', { dur: fmtDur(mv.moveMs) })}{mv.pauseMs >= 60000 ? t(' - Pausas {dur}', { dur: fmtDur(mv.pauseMs) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}>{a.track && a.track.length >= 2 ? <button className="file-button is-compact" data-variant="primary" onClick={() => showAdvOnMap(a)}>{t('Ver en el mapa')}</button> : null}<button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
                     </li>)}
@@ -2576,7 +2607,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.40{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.41{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
