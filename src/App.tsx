@@ -2466,7 +2466,7 @@ export function App() {
                     { label: t('Cimas'), value: String(yearStats.cur.peaks), prev: String(yearStats.prev.peaks) },
                     { label: t('Desnivel acumulado'), value: '+' + yearStats.cur.up + ' m', prev: '+' + yearStats.prev.up + ' m' },
                     ...(yearStats.cur.move ? [{ label: t('Tiempo en movimiento'), value: fmtDur(yearStats.cur.move), prev: fmtDur(yearStats.prev.move) }] : []),
-                ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el ano pasado', { v: f.prev })}</small></dd></dl>
+                ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el ano pasado', { v: f.prev })}</small></dd></div>)}</dl>
             </section> : null}
 
             <section className="tu-group"><h2>{t('Actividad')}</h2>
