@@ -2135,6 +2135,9 @@ export function App() {
     }, [adventures, sportFilter, advQuery]);
     // v1.47: orden del historial (reciente por defecto)
     const [advSort, setAdvSort] = useState<'rec' | 'km' | 'up'>('rec');
+    // v1.49: paginacion del historial (tandas de 20)
+    const [advLimit, setAdvLimit] = useState(20);
+    useEffect(() => { setAdvLimit(20); }, [sportFilter, advQuery, advSort, adventures.length]);
     const advShown = useMemo(() => {
         const list = [...advFiltered];
         if (advSort === 'rec') list.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
@@ -2487,12 +2490,13 @@ export function App() {
                     {([['rec', t('Recientes')], ['km', t('Distancia')], ['up', t('Desnivel')]] as ['rec' | 'km' | 'up', string][]).map(([k, lab]) => <span key={k} className={'tu-sportchip' + (advSort === k ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setAdvSort(k)}>{lab}</span>)}
                 </div> : null}
                 {adventures.length ? <ol className="tu-peaklist tu-advlist">
-                    {advShown.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
+                    {advShown.slice(0, advLimit).map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{sportEmoji(advSport(a)) ? sportEmoji(advSport(a)) + ' ' : ''}{a.name || new Date(a.start).toLocaleDateString(dateLocale())}{a.name ? <small>{new Date(a.start).toLocaleDateString(dateLocale())}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || t('Sin desbloqueos nuevos')}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
                         {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}{(() => { const mv = movingStats(a); return mv ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('En movimiento {dur}', { dur: fmtDur(mv.moveMs) })}{mv.pauseMs >= 60000 ? t(' - Pausas {dur}', { dur: fmtDur(mv.pauseMs) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><PaceChart adv={a} imp={imp} /><span className="tu-controls" style={{ marginTop: 6 }}>{a.track && a.track.length >= 2 ? <button className="file-button is-compact" data-variant="primary" onClick={() => showAdvOnMap(a)}>{t('Ver en el mapa')}</button> : null}<button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
                     </li>)}
                 </ol> : null}
+                {advShown.length > advLimit ? <div className="tu-controls" style={{ marginTop: 6 }}><button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvLimit((n) => n + 20)}>{t('Cargar mas ({shown} de {total})', { shown: advLimit, total: advShown.length })}</button></div> : null}
             </section>
 
             {progress.countries.length + progress.ccaa.length + progress.prov.length > 0 ? <section className="tu-group"><h2>{t('Territorio desbloqueado')}</h2>
