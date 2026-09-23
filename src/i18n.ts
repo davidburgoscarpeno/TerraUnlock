@@ -218,6 +218,7 @@ const EN: Record<string, string> = {
     'En movimiento {dur}': 'Moving time {dur}',
     ' - Pausas {dur}': ' - Pauses {dur}',
     // v1.46: filtro por deporte
+    'Buscar por nombre, fecha o territorio': 'Search by name, date or territory',
     'Desnivel': 'Elevation',
     'Ordenar': 'Sort',
     'Recientes': 'Recent',

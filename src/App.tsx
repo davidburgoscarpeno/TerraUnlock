@@ -2123,7 +2123,16 @@ export function App() {
     }, [adventures]);
     // v1.46: filtro del historial por deporte
     const [sportFilter, setSportFilter] = useState<Sport | null>(null);
-    const advFiltered = useMemo(() => sportFilter ? adventures.filter((a) => advSport(a) === sportFilter) : adventures, [adventures, sportFilter]);
+    // v1.48: buscador de texto en el historial (nombre, fecha o territorio desbloqueado)
+    const [advQuery, setAdvQuery] = useState('');
+    const advFiltered = useMemo(() => {
+        let list = sportFilter ? adventures.filter((a) => advSport(a) === sportFilter) : adventures;
+        const q = advQuery.trim().toLowerCase();
+        if (q) list = list.filter((a) => (a.name || '').toLowerCase().includes(q)
+            || new Date(a.start).toLocaleDateString(dateLocale()).includes(q)
+            || [...a.countries, ...a.ccaa, ...a.prov].some((n) => n.toLowerCase().includes(q)));
+        return list;
+    }, [adventures, sportFilter, advQuery]);
     // v1.47: orden del historial (reciente por defecto)
     const [advSort, setAdvSort] = useState<'rec' | 'km' | 'up'>('rec');
     const advShown = useMemo(() => {
@@ -2472,6 +2481,7 @@ export function App() {
                     <span className={'tu-sportchip' + (sportFilter === null ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setSportFilter(null)}>{t('Todos')}</span>
                     {sportsPresent.map((sp) => <span key={sp} className={'tu-sportchip' + (sportFilter === sp ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setSportFilter(sportFilter === sp ? null : sp)}>{sportEmoji(sp)} {adventures.filter((a) => advSport(a) === sp).length}</span>)}
                 </div> : null}
+                {adventures.length >= 3 ? <input className="tu-input tu-input-full" type="search" style={{ marginBottom: 8 }} placeholder={t('Buscar por nombre, fecha o territorio')} value={advQuery} onChange={(e) => setAdvQuery(e.target.value)} /> : null}
                 {advFiltered.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
                     <small>{t('Ordenar')}</small>
                     {([['rec', t('Recientes')], ['km', t('Distancia')], ['up', t('Desnivel')]] as ['rec' | 'km' | 'up', string][]).map(([k, lab]) => <span key={k} className={'tu-sportchip' + (advSort === k ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setAdvSort(k)}>{lab}</span>)}
