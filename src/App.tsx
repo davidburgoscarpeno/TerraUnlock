@@ -13,6 +13,7 @@ import { computeProfile, drawProfile } from './adventureProfile';
 import { adventureToGpx, gpxFilename } from './gpxExport';
 import { t, setLang, detectLang, dateLocale, monthName, dec, compass8, LANGS, type Lang } from './i18n';
 import type { Adventure, AdventureProfile } from './types';
+import { beginStravaConnect, completeStravaConnect, fetchStravaTracks, loadStrava, saveStrava, type StravaConn } from './strava';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
 const TILE_URL = (tz: number, j: number, i: number) => 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + tz + '/' + j + '/' + i;
@@ -271,6 +272,7 @@ type TrackScan = {
     countries: string[]; ccaa: string[]; prov: string[]; peaks: string[]; cells: string[];
     times?: (string | null)[];
     dup?: boolean;
+    stravaId?: number;
 };
 
 function parseGpx(text: string): { name: string; pts: [number, number][]; times: (string | null)[] } {
@@ -448,6 +450,34 @@ export function App() {
     const [confirmReset, setConfirmReset] = useState(false);
     type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress; dups: number };
     const [importBatch, setImportBatch] = useState<ImportBatch | null>(null);
+    // v1.39: Strava
+    const [strava, setStrava] = useState<StravaConn | null>(() => loadStrava());
+    const [stravaBusy, setStravaBusy] = useState(false);
+    useEffect(() => {
+        const q = new URLSearchParams(window.location.search);
+        if (!q.get('code') || !q.get('state')) return;
+        completeStravaConnect()
+            .then((name) => { setStrava(loadStrava()); setToast(t('Strava conectado{who}. Pulsa Importar de Strava para traer tus actividades.', { who: name ? ' (' + name + ')' : '' })); })
+            .catch(() => setToast(t('No se pudo conectar con Strava')));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const importFromStrava = async () => {
+        if (stravaBusy) return;
+        setStravaBusy(true);
+        try {
+            const r = await fetchStravaTracks((d, tot) => setToast(t('Descargando de Strava: {d}/{tot}', { d, tot })));
+            setStrava(loadStrava());
+            if (!r.tracks.length) {
+                setToast(r.rateLimited ? t('Strava ha llegado a su limite de peticiones: prueba de nuevo en 15 minutos') : t('No hay actividades nuevas con GPS en tu Strava'));
+                return;
+            }
+            const ok = buildBatchFromTracks(r.tracks, r.tracks.length, 0);
+            if (ok && r.rateLimited) setToast(t('Strava limito la descarga: faltan actividades por traer. Repite en 15 minutos.'));
+        } catch (e) {
+            setStrava(loadStrava());
+            setToast(t('Error con Strava: {msg}', { msg: e instanceof Error ? e.message : 'error' }));
+        } finally { setStravaBusy(false); }
+    };
     const [wStep, setWStep] = useState(0);
     const [focusAdv, setFocusAdv] = useState<Adventure | null>(null);
     const [batchBusy, setBatchBusy] = useState(false);
@@ -601,12 +631,20 @@ export function App() {
                 }
             }
             if (!tracks.length) { setToast(failed ? t('No se pudo leer ninguna actividad ({n} con error)', { n: failed }) : t('No se encontraron actividades GPX/FIT')); return; }
-            // Escanear en lote contra una copia del progreso que se actualiza entre tracks
+            buildBatchFromTracks(tracks, files.length, failed);
+        } catch (e) { setToast(t('Importacion fallida: {msg}', { msg: e instanceof Error ? e.message : 'error' })); }
+        finally { setBatchBusy(false); }
+    };
+
+    // v1.39: escanear tracks (de archivos o de Strava) contra una copia del progreso y preparar el lote de importacion
+    const buildBatchFromTracks = (tracks: { name: string; pts: [number, number][]; times: (string | null)[]; stravaId?: number }[], files: number, failed: number): boolean => {
+        try {
             const p0 = progressRef.current;
             const work: Progress = { cells: [...p0.cells], points: [...p0.points], countries: [...p0.countries], ccaa: [...p0.ccaa], prov: [...p0.prov], peaks: [...p0.peaks] };
             const scansAll: TrackScan[] = [];
             for (const t of tracks) {
                 const sc = scanTrack(t.name, t.pts, work, peakGrid, t.times);
+                if (t.stravaId) sc.stravaId = t.stravaId;
                 scansAll.push(sc);
                 work.cells = sc.cells;
                 work.countries = [...work.countries, ...sc.countries];
@@ -626,7 +664,7 @@ export function App() {
                 if (isDup) { sc.dup = true; dups++; } else { batchSig.add(sig); batchGeom.add(g); }
             }
             const scans = scansAll.filter((s) => !s.dup);
-            if (!scans.length) { setToast(t(dups > 1 ? 'Esas {n} actividades ya las tenias importadas' : 'Esa actividad ya la tenias importada', { n: dups })); return; }
+            if (!scans.length) { setToast(t(dups > 1 ? 'Esas {n} actividades ya las tenias importadas' : 'Esa actividad ya la tenias importada', { n: dups })); return false; }
             let totalKm = 0;
             let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
             for (const sc of scans) {
@@ -638,10 +676,10 @@ export function App() {
             const zx = Math.log2((w * 0.7 * 360) / (256 * spanLon));
             const zy = Math.log2((h * 0.7 * 360) / (256 * spanLat * 1.4));
             setViewPersist({ lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2, z: Math.max(3, Math.min(14, Math.min(zx, zy))) });
-            setImportBatch({ scans, files: files.length, tracksOk: scans.length, failed, totalKm, work, dups });
+            setImportBatch({ scans, files, tracksOk: scans.length, failed, totalKm, work, dups });
             setTab('mapa');
-        } catch (e) { setToast(t('Importacion fallida: {msg}', { msg: e instanceof Error ? e.message : 'error' })); }
-        finally { setBatchBusy(false); }
+            return true;
+        } catch (e) { setToast(t('Importacion fallida: {msg}', { msg: e instanceof Error ? e.message : 'error' })); return false; }
     };
 
     const applyBatch = () => {
@@ -657,6 +695,9 @@ export function App() {
         for (const sc of b.scans) newPts.push(...sc.pts);
         const next: Progress = { ...b.work, points: [...b.work.points, ...newPts].slice(-50000) };
         setProgress(next); saveProgress(next); setImportBatch(null);
+        // v1.39: marcar actividades de Strava ya importadas para no volver a traerlas
+        const sids = b.scans.map((s) => s.stravaId).filter((x): x is number => typeof x === 'number');
+        if (sids.length) { const c = loadStrava(); if (c) { c.importedIds = [...new Set([...c.importedIds, ...sids])]; saveStrava(c); } }
         // v1.27: cada actividad importada queda guardada como aventura (historial + traza para perfil/ritmo)
         if (b.scans.length <= 20) {
             const newAdvs: Adventure[] = [];
@@ -2453,6 +2494,23 @@ export function App() {
                 </div>
             </section>
 
+            <section className="tu-group"><h2>Strava</h2>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>{strava ? t('Strava conectado{who}', { who: strava.athlete && strava.athlete.firstname ? ' - ' + strava.athlete.firstname : '' }) : t('Conecta tu Strava')}</b>
+                        <small>{strava ? t('Trae tus actividades con GPS directamente desde tu cuenta.') : t('Autoriza una vez y trae tus actividades con GPS, sin exportar archivos.')}</small>
+                    </div>
+                    <div className="tu-controls" style={{ margin: 0 }}>
+                        {!strava ? (
+                            <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => { setStravaBusy(true); beginStravaConnect().catch(() => { setStravaBusy(false); setToast(t('No se pudo conectar con Strava')); }); }}>{stravaBusy ? t('Conectando...') : t('Conectar Strava')}</button>
+                        ) : (<>
+                            <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => void importFromStrava()}>{stravaBusy ? t('Importando...') : t('Importar de Strava')}</button>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => { saveStrava(null); setStrava(null); setToast(t('Strava desconectado')); }}>{t('Desconectar')}</button>
+                        </>)}
+                    </div>
+                </div>
+            </section>
+
             <section className="tu-group"><h2>{t('Datos')}</h2>
                 <div className="tu-io">
                     <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder={t('Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo.')} rows={3} />
@@ -2490,7 +2548,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.38{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.39{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
