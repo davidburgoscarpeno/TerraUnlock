@@ -493,14 +493,6 @@ export function App() {
     // v1.39: Strava
     const [strava, setStrava] = useState<StravaConn | null>(() => loadStrava());
     const [stravaBusy, setStravaBusy] = useState(false);
-    useEffect(() => {
-        const q = new URLSearchParams(window.location.search);
-        if (!q.get('code') || !q.get('state')) return;
-        completeStravaConnect()
-            .then((name) => { setStrava(loadStrava()); setToast(t('Strava conectado{who}. Pulsa Importar de Strava para traer tus actividades.', { who: name ? ' (' + name + ')' : '' })); })
-            .catch(() => setToast(t('No se pudo conectar con Strava')));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
     const importFromStrava = async () => {
         if (stravaBusy) return;
         setStravaBusy(true);
@@ -518,6 +510,19 @@ export function App() {
             setToast(t('Error con Strava: {msg}', { msg: e instanceof Error ? e.message : 'error' }));
         } finally { setStravaBusy(false); }
     };
+    // v1.44: al volver del OAuth de Strava, conectar y lanzar la primera importacion sin mas toques
+    useEffect(() => {
+        const q = new URLSearchParams(window.location.search);
+        if (!q.get('code') || !q.get('state')) return;
+        completeStravaConnect()
+            .then((name) => {
+                setStrava(loadStrava());
+                setToast(t('Strava conectado{who}. Importando tus actividades...', { who: name ? ' (' + name + ')' : '' }));
+                void importFromStrava();
+            })
+            .catch(() => setToast(t('No se pudo conectar con Strava')));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [wStep, setWStep] = useState(0);
     const [focusAdv, setFocusAdv] = useState<Adventure | null>(null);
     const [batchBusy, setBatchBusy] = useState(false);

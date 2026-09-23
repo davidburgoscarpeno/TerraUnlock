@@ -207,7 +207,7 @@ const EN: Record<string, string> = {
     'Importando...': 'Importing...',
     'Desconectar': 'Disconnect',
     'Strava desconectado': 'Strava disconnected',
-    'Strava conectado{who}. Pulsa Importar de Strava para traer tus actividades.': 'Strava connected{who}. Tap Import from Strava to pull your activities.',
+    'Strava conectado{who}. Importando tus actividades...': 'Strava connected{who}. Importing your activities...',
     'No se pudo conectar con Strava': 'Could not connect to Strava',
     'Descargando de Strava: {d}/{tot}': 'Downloading from Strava: {d}/{tot}',
     'Strava ha llegado a su limite de peticiones: prueba de nuevo en 15 minutos': 'Strava hit its request limit: try again in 15 minutes',
