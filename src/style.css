@@ -215,3 +215,10 @@ input[type="range"] { accent-color: #2dc8aa; }
 /* v1.34: aviso de actualizacion disponible */
 .tu-updbar { position: fixed; bottom: 84px; z-index: 91; left: 50%; transform: translateX(-50%); background: #101823; border: 1px solid #2dc8aa; color: #e6edf3; font-size: 14px; font-weight: 600; padding: 8px 10px 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 10px; max-width: 92%; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
 @media (min-width: 900px) { .tu-updbar { bottom: 24px; } }
+
+/* v1.35: varios logros en un solo modal */
+.tu-celeb-list { list-style: none; margin: 10px 0 0; padding: 0; text-align: left; max-height: 46vh; overflow-y: auto; }
+.tu-celeb-list li { padding: 8px 2px; border-bottom: 1px solid #1c2733; }
+.tu-celeb-list li:last-child { border-bottom: none; }
+.tu-celeb-list strong { display: block; color: #2dc8aa; }
+.tu-celeb-list small { display: block; color: #9fb0c0; margin-top: 2px; }

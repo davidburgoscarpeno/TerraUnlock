@@ -2405,7 +2405,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.34{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.35{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
@@ -2424,13 +2424,17 @@ export function App() {
             <div className="tu-celebration">
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">★</div>
-                    <h2>{t('Logro desbloqueado')}</h2>
-                    <strong>{t(celebration[0].title)}</strong>
-                    <p>{t(celebration[0].hint)}</p>
-                    {celebration.length > 1 ? <small>{t('y {n} mas a continuacion', { n: celebration.length - 1 })}</small> : null}
+                    <h2>{celebration.length > 1 ? t('{n} logros desbloqueados', { n: celebration.length }) : t('Logro desbloqueado')}</h2>
+                    {celebration.length === 1 ? <>
+                        <strong>{t(celebration[0].title)}</strong>
+                        <p>{t(celebration[0].hint)}</p>
+                    </> : <ul className="tu-celeb-list">
+                        {celebration.slice(0, 6).map((a) => <li key={a.id}><strong>{t(a.title)}</strong><small>{t(a.hint)}</small></li>)}
+                        {celebration.length > 6 ? <li><small>{t('y {n} mas', { n: celebration.length - 6 })}</small></li> : null}
+                    </ul>}
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration((c) => c.slice(1))}>{t('Seguir explorando')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration([])}>{t('Seguir explorando')}</button>
                     </div>
                 </div>
             </div>
