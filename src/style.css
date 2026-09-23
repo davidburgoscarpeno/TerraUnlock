@@ -211,3 +211,7 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-weekshape span { font-size: 11px; color: #c7d4e0; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tu-weekshape:active { border-color: #2dc8aa; }
 .tu-weekmore { font-size: 12px; color: #9fb0c0; padding-bottom: 10px; }
+
+/* v1.34: aviso de actualizacion disponible */
+.tu-updbar { position: fixed; bottom: 84px; z-index: 91; left: 50%; transform: translateX(-50%); background: #101823; border: 1px solid #2dc8aa; color: #e6edf3; font-size: 14px; font-weight: 600; padding: 8px 10px 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 10px; max-width: 92%; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+@media (min-width: 900px) { .tu-updbar { bottom: 24px; } }

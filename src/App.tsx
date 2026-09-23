@@ -431,12 +431,19 @@ export function App() {
         setPrefsState(next);
         try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* sin espacio */ }
     };
+    // v1.34: aviso persistente cuando el SW detecta una version nueva
+    useEffect(() => {
+        const onUpd = () => setSwUpdate(true);
+        window.addEventListener('tu-sw-update', onUpd);
+        return () => window.removeEventListener('tu-sw-update', onUpd);
+    }, []);
     const imp = prefs.units === 'imperial';
     const fmtDist = (km: number) => imp ? dec(km * 0.621371) + ' mi' : dec(km) + ' km';
     const fmtAreaShort = (k2: number) => (imp ? dec(k2 * 0.386102, 0) + ' mi2' : dec(k2, 0) + ' km2');
     const [gpsMsg, setGpsMsg] = useState('');
     const [lastPos, setLastPos] = useState<[number, number] | null>(null);
     const [toast, setToast] = useState('');
+    const [swUpdate, setSwUpdate] = useState(false);
     const [ioText, setIoText] = useState('');
     const [confirmReset, setConfirmReset] = useState(false);
     type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress; dups: number };
@@ -2398,7 +2405,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.33{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.34{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
@@ -2472,6 +2479,10 @@ export function App() {
         ) : null}
 
         {toast ? <div className="tu-toast">{toast}</div> : null}
+        {swUpdate ? <div className="tu-updbar">
+            <span>{t('Nueva version lista')}</span>
+            <button className="file-button is-compact" data-variant="primary" onClick={() => window.location.reload()}>{t('Actualizar')}</button>
+        </div> : null}
 
         <nav className="tu-nav">
             <div className="tu-brand">TerraUnlock</div>
