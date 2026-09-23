@@ -246,6 +246,7 @@ const EN: Record<string, string> = {
     'Nueva version lista': 'New version ready', 'Actualizar': 'Update',
     '{n} logros desbloqueados': '{n} achievements unlocked',
     'Rutas': 'Routes', 'Rutas: ON': 'Routes: ON',
+    'Tiempo en movimiento': 'Moving time', 'Desnivel acumulado': 'Total elevation gain', '{d} d {h} h': '{d}d {h}h',
     'Tarjeta descargada': 'Card downloaded',
     'No se pudo generar la tarjeta': 'Could not generate the card',
     'No se pudo compartir la tarjeta': 'Could not share the card',

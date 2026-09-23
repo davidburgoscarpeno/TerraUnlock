@@ -1984,6 +1984,25 @@ export function App() {
     const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p);
 
     // v1.23: estadisticas del mes actual vs el anterior (a partir de las aventuras)
+    // v1.37: totales historicos de aventuras (tiempo en movimiento y desnivel)
+    const totalStats = useMemo(() => {
+        let ms = 0, up = 0, profN = 0;
+        for (const a of adventures) {
+            const t0 = new Date(a.start).getTime(), t1 = new Date(a.end).getTime();
+            if (isFinite(t0) && isFinite(t1) && t1 >= t0) ms += t1 - t0;
+            if (a.profile) { up += a.profile.up; profN++; }
+        }
+        return { ms, up, profN, n: adventures.length };
+    }, [adventures]);
+    const fmtDurTotal = (ms: number) => {
+        const m = Math.round(ms / 60000);
+        if (m < 60) return m + ' min';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + ' h ' + String(m % 60).padStart(2, '0') + ' min';
+        const d = Math.floor(h / 24);
+        return t('{d} d {h} h', { d, h: h % 24 });
+    };
+
     const monthStats = (() => {
         const now = new Date();
         const mStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -2205,6 +2224,8 @@ export function App() {
                     { label: t('Cimas conquistadas'), value: t('{n} de {total}', { n: progress.peaks.length, total: allPeaks.length }), pct: allPeaks.length > 0 ? progress.peaks.length / allPeaks.length : 0 },
                     { label: t('Puntos GPS'), value: String(progress.points.length), pct: null },
                     { label: t('Racha'), value: streak.count > 0 ? t(streak.count === 1 ? '{n} dia' : '{n} dias', { n: streak.count }) : '-', pct: null },
+                    { label: t('Tiempo en movimiento'), value: totalStats.n ? fmtDurTotal(totalStats.ms) : '-', pct: null },
+                    { label: t('Desnivel acumulado'), value: totalStats.profN ? '+' + Math.round(totalStats.up) + ' m' : '-', pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>{t('Compartir mi mapa')}</button><button className="file-button" data-variant="primary" onClick={shareWeekCard}>{t('Compartir mi semana')}</button></div>
             </section>
@@ -2426,7 +2447,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.36{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.37{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
