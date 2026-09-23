@@ -372,6 +372,40 @@ function RegionShape({ rg, cells }: { rg: Region; cells: string[] }) {
     return <canvas ref={ref} width={640} height={300} style={{ width: '100%', borderRadius: 12, border: '1px solid #1c2733', display: 'block', margin: '8px 0' }} />;
 }
 
+// v1.32: silueta reutilizable de una region en una caja cualquiera (panel semanal y tarjeta)
+function drawRegionShape(g: CanvasRenderingContext2D, rg: Region, px: number, py: number, pw: number, ph: number, pad: number, fill: string, stroke: string, lw = 1.5) {
+    const spanLo = Math.max(1e-9, rg.b[2] - rg.b[0]), spanLa = Math.max(1e-9, rg.b[3] - rg.b[1]);
+    const sc = Math.min((pw - pad * 2) / spanLo, (ph - pad * 2) / spanLa);
+    const offX = px + pad + ((pw - pad * 2) - spanLo * sc) / 2;
+    const offTop = pad + ((ph - pad * 2) - spanLa * sc) / 2;
+    const X = (lo: number) => offX + (lo - rg.b[0]) * sc;
+    const Y = (la: number) => py + ph - offTop - (la - rg.b[1]) * sc;
+    g.beginPath();
+    for (const ring of rg.r) {
+        for (let i = 0; i < ring.length; i += 2) { const x = X(ring[i]), y = Y(ring[i + 1]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+        g.closePath();
+    }
+    g.fillStyle = fill; g.fill();
+    g.strokeStyle = stroke; g.lineWidth = lw; g.stroke();
+}
+
+function regionZoom(rg: Region): number {
+    const span = Math.max(rg.b[2] - rg.b[0], rg.b[3] - rg.b[1]);
+    return span > 40 ? 3 : span > 20 ? 4 : span > 10 ? 5 : span > 5 ? 6 : span > 2 ? 7 : 9;
+}
+
+// silueta pequena para la fila de la semana
+function WeekShape({ rg, stroke }: { rg: Region; stroke: string }) {
+    const ref = useRef<HTMLCanvasElement | null>(null);
+    useEffect(() => {
+        const cv = ref.current; if (!cv) return;
+        const g = cv.getContext('2d'); if (!g) return;
+        g.clearRect(0, 0, cv.width, cv.height);
+        drawRegionShape(g, rg, 0, 0, cv.width, cv.height, 10, 'rgba(45,200,170,0.10)', stroke, 2);
+    }, [rg, stroke]);
+    return <canvas ref={ref} width={128} height={84} style={{ width: 64, height: 42, display: 'block', margin: '0 auto' }} />;
+}
+
 export function App() {
     const [progress, setProgress] = useState<Progress>(loadProgress);
     const progressRef = useRef(progress); progressRef.current = progress;
@@ -1326,33 +1360,37 @@ export function App() {
             g.fillText('+' + newPeaks.length, 560, 420);
             g.font = '700 40px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText(newPeaks.length === 1 ? t('cima conquistada') : t('cimas conquistadas'), 560, 480);
-            // listado
-            const chip = (t: string, x: number, y: number, fg: string, bg: string) => {
-                g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
-                const w = g.measureText(t).width + 44;
-                g.beginPath();
-                g.moveTo(x + 14, y); g.lineTo(x + w - 14, y); g.arcTo(x + w, y, x + w, y + 14, 14); g.lineTo(x + w, y + 34); g.arcTo(x + w, y + 48, x + w - 14, y + 48, 14); g.lineTo(x + 14, y + 48); g.arcTo(x, y + 48, x, y + 34, 14); g.lineTo(x, y + 14); g.arcTo(x, y, x + 14, y, 14); g.closePath();
-                g.fillStyle = bg; g.fill();
-                g.fillStyle = fg; g.fillText(t, x + 22, y + 35);
-                return w;
-            };
+            // v1.32: listado con siluetas de los territorios nuevos
+            const FONT = '-apple-system, Segoe UI, Roboto, sans-serif';
+            const newRegsCard: { rg: Region; lvl: string; stroke: string }[] = [];
+            for (const n of terrC) { const rg = COUNTRIES.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Pais'), stroke: '#7ee0c8' }); }
+            for (const n of terrA) { const rg = CCAA.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Comunidad'), stroke: '#e8cd6e' }); }
+            for (const n of terrP) { const rg = PROV.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Provincia'), stroke: '#8fb8d8' }); }
             let cy = 540;
-            const chipRow = (title: string, names: string[], fg: string, bg: string) => {
-                if (!names.length || cy > 1060) return;
-                g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
-                g.fillText(title, 60, cy + 34);
-                cy += 52;
-                let cx = 60;
-                for (const n of names) {
-                    const w = chip(n, cx, cy, fg, bg);
-                    cx += w + 14;
-                    if (cx > W - 120) { cx = 60; cy += 62; }
-                }
-                cy += 78;
-            };
-            chipRow(t('PAISES'), terrC, '#7ee0c8', '#123a31');
-            chipRow(t('COMUNIDADES'), terrA, '#e8cd6e', '#2f2a12');
-            chipRow(t('PROVINCIAS'), terrP, '#8fb8d8', '#1a2634');
+            if (newRegsCard.length && cy <= 1060) {
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px ' + FONT;
+                g.fillText(t('TERRITORIOS NUEVOS'), 60, cy + 34);
+                cy += 56;
+                const shown = newRegsCard.slice(0, 6);
+                const tw = (W - 120 - 2 * 18) / 3, th = 240;
+                shown.forEach(({ rg, lvl, stroke }, i) => {
+                    const col = i % 3, row = Math.floor(i / 3);
+                    const tx = 60 + col * (tw + 18), ty = cy + row * (th + 16);
+                    g.fillStyle = '#0d1420'; g.beginPath(); g.roundRect(tx, ty, tw, th, 16); g.fill();
+                    g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.stroke();
+                    drawRegionShape(g, rg, tx + 12, ty + 12, tw - 24, th - 82, 8, 'rgba(45,200,170,0.10)', stroke, 2.5);
+                    let fs2 = 30;
+                    g.font = '700 ' + fs2 + 'px ' + FONT;
+                    while (fs2 > 17 && g.measureText(rg.n).width > tw - 36) { fs2 -= 3; g.font = '700 ' + fs2 + 'px ' + FONT; }
+                    g.fillStyle = '#e6edf3'; g.textAlign = 'center';
+                    g.fillText(rg.n, tx + tw / 2, ty + th - 40);
+                    g.fillStyle = stroke; g.font = '600 20px ' + FONT;
+                    g.fillText(lvl, tx + tw / 2, ty + th - 14);
+                    g.textAlign = 'left';
+                });
+                cy += Math.ceil(shown.length / 3) * (th + 16) + 8;
+                if (newRegsCard.length > 6) { g.fillStyle = '#5c7080'; g.font = '600 28px ' + FONT; g.fillText(t('y {n} mas', { n: newRegsCard.length - 6 }), 60, cy + 22); cy += 48; }
+            }
             if (newPeaks.length && cy <= 1060) {
                 g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
                 g.fillText(t('CIMAS'), 60, cy + 34);
@@ -1878,6 +1916,10 @@ export function App() {
             const peaks = Math.max(0, progress.peaks.length - weekly.peaks0.length);
             const done = terr >= WEEK_TERR || peaks >= WEEK_PEAK;
             const left = daysLeftThisWeek(new Date());
+            const newRegs: { rg: Region; stroke: string }[] = [];
+            for (const n of progress.countries) { if (!weekly.countries0.includes(n)) { const rg = COUNTRIES.find((r) => r.n === n); if (rg) newRegs.push({ rg, stroke: '#7ee0c8' }); } }
+            for (const n of progress.ccaa) { if (!weekly.ccaa0.includes(n)) { const rg = CCAA.find((r) => r.n === n); if (rg) newRegs.push({ rg, stroke: '#e8cd6e' }); } }
+            for (const n of progress.prov) { if (!weekly.prov0.includes(n)) { const rg = PROV.find((r) => r.n === n); if (rg) newRegs.push({ rg, stroke: '#8fb8d8' }); } }
             return <div className={done ? 'tu-callout tu-week done' : 'tu-callout tu-week'}>
                 <strong>{done ? t('Objetivo semanal cumplido') : t('Objetivo de la semana')} <small style={{ fontWeight: 400, opacity: 0.75 }}>{done ? t('a por la siguiente') : left === 0 ? t('hoy es el ultimo dia') : t(left === 1 ? 'quedan 1 dia' : 'quedan {n} dias', { n: left })}{weekStreak.count > 0 ? t(weekStreak.count === 1 ? ' - racha: {n} semana' : ' - racha: {n} semanas', { n: weekStreak.count }) : ''}</small></strong>
                 <p>{t('Desbloquea {t} territorios nuevos o conquista {p} cima antes del lunes.', { t: WEEK_TERR, p: WEEK_PEAK })}</p>
@@ -1887,6 +1929,15 @@ export function App() {
                     <span className="tu-weeklbl">{t('Cimas')} {Math.min(peaks, WEEK_PEAK)}/{WEEK_PEAK}</span>
                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#e8cd6e', width: Math.min(100, peaks / WEEK_PEAK * 100).toFixed(0) + '%' }} /></span>
                 </div>
+                {newRegs.length ? <div className="tu-weekshapes">
+                    {newRegs.slice(0, 6).map(({ rg, stroke }) => (
+                        <button key={rg.n} className="tu-weekshape" title={rg.n} onClick={() => setViewPersist({ lon: rg.c[0], lat: rg.c[1], z: regionZoom(rg) })}>
+                            <WeekShape rg={rg} stroke={stroke} />
+                            <span>{rg.n}</span>
+                        </button>
+                    ))}
+                    {newRegs.length > 6 ? <span className="tu-weekmore">{t('+{n} mas', { n: newRegs.length - 6 })}</span> : null}
+                </div> : null}
                 <div className="tu-controls" style={{ marginTop: 8 }}><button className="file-button is-compact" data-variant="secondary" onClick={shareWeekCard}>{t('Compartir mi semana')}</button></div>
             </div>;
         })()}
@@ -2245,7 +2296,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.31{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.32{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

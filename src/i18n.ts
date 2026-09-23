@@ -231,6 +231,8 @@ const EN: Record<string, string> = {
     'REVELADO': 'REVEALED', 'Cuanto conoces de {n}? davidburgoscarpeno.github.io/TerraUnlock': 'How much of {n} have you seen? davidburgoscarpeno.github.io/TerraUnlock',
     'PUNTOS GPS': 'GPS POINTS', 'DURACION': 'DURATION', 'SUBIDA': 'ASCENT', 'BAJADA': 'DESCENT',
     'y {n} mas': 'and {n} more',
+    '+{n} mas': '+{n} more',
+    'TERRITORIOS NUEVOS': 'NEW TERRITORIES',
     'Tarjeta descargada': 'Card downloaded',
     'No se pudo generar la tarjeta': 'Could not generate the card',
     'No se pudo compartir la tarjeta': 'Could not share the card',

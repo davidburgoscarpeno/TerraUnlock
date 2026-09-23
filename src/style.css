@@ -204,3 +204,10 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-focuschip { position: absolute; top: 10px; right: 10px; display: flex; align-items: center; gap: 8px; background: rgba(6,10,16,0.85); border: 1px solid rgba(45,212,191,0.45); border-radius: 999px; padding: 6px 8px 6px 14px; font-size: 13px; font-weight: 600; color: #7ee0c8; z-index: 6; }
 .tu-focuschip button { background: none; border: 0; color: #8fa2b3; font-size: 14px; cursor: pointer; padding: 4px 6px; }
 .tu-focuschip button:hover { color: #e6edf3; }
+
+/* v1.32: siluetas de territorios nuevos en el panel semanal */
+.tu-weekshapes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: flex-end; }
+.tu-weekshape { display: flex; flex-direction: column; gap: 4px; align-items: center; width: 84px; padding: 8px 4px 6px; border-radius: 10px; border: 1px solid #1c2733; background: #0d1420; cursor: pointer; }
+.tu-weekshape span { font-size: 11px; color: #c7d4e0; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tu-weekshape:active { border-color: #2dc8aa; }
+.tu-weekmore { font-size: 12px; color: #9fb0c0; padding-bottom: 10px; }
