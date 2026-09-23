@@ -1746,7 +1746,7 @@ export function App() {
             g.fillText('TerraUnlock', 224, 110);
             g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
             const fecha = new Date(adv.start);
-            g.fillText((adv.name ? adv.name + ' - ' : (prefs.nombre.trim() ? t('Aventura de {nombre}', { nombre: prefs.nombre.trim() }) : t('Mi aventura')) + ' - ') + fecha.toLocaleDateString(dateLocale()), 224, 170);
+            g.fillText((sportEmoji(advSport(adv)) ? sportEmoji(advSport(adv)) + ' ' : '') + (adv.name ? adv.name + ' - ' : (prefs.nombre.trim() ? t('Aventura de {nombre}', { nombre: prefs.nombre.trim() }) : t('Mi aventura')) + ' - ') + fecha.toLocaleDateString(dateLocale()), 224, 170);
             // cifras grandes
             g.fillStyle = '#2dc8aa'; g.font = '800 120px -apple-system, Segoe UI, Roboto, sans-serif';
             g.fillText(fmtDist(adv.km), 60, 330);
@@ -1771,8 +1771,14 @@ export function App() {
                 g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
                 g.fillText(t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) }) + (ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''), 60, 575);
             }
+            // v1.45: tiempo en movimiento y pausas en la tarjeta (si hay timestamps)
+            const mvCard = movingStats(adv);
+            if (mvCard) {
+                g.fillStyle = '#8fb8d8'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(t('En movimiento {dur}', { dur: fmtDur(mvCard.moveMs) }) + (mvCard.pauseMs >= 60000 ? t(' - Pausas {dur}', { dur: fmtDur(mvCard.pauseMs) }) : ''), 60, ps ? 615 : 575);
+            }
             // v1.22: mini-mapa de la ruta (polyline teal con inicio y fin)
-            let cy = ps ? 615 : 560;
+            let cy = ps && mvCard ? 655 : ps || mvCard ? 615 : 560;
             if (hasRoute && adv.track) {
                 const tr = adv.track;
                 let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
