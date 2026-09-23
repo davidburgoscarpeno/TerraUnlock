@@ -222,3 +222,14 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-celeb-list li:last-child { border-bottom: none; }
 .tu-celeb-list strong { display: block; color: #2dc8aa; }
 .tu-celeb-list small { display: block; color: #9fb0c0; margin-top: 2px; }
+
+/* v1.38: calendario de actividad */
+.tu-heat { display: flex; gap: 3px; overflow-x: auto; padding: 4px 0; }
+.tu-heatcol { display: flex; flex-direction: column; gap: 3px; }
+.tu-heatcell { width: 13px; height: 13px; border-radius: 3px; background: #101823; display: block; }
+.tu-heatcell.future { background: transparent; }
+.tu-heatcell.lv1 { background: rgba(45,200,170,0.30); }
+.tu-heatcell.lv2 { background: rgba(45,200,170,0.60); }
+.tu-heatcell.lv3 { background: #2dc8aa; }
+.tu-heatlegend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #9fb0c0; margin-top: 6px; }
+.tu-heatlegend .tu-heatcell { width: 10px; height: 10px; }

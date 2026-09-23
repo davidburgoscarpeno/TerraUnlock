@@ -1994,6 +1994,36 @@ export function App() {
         }
         return { ms, up, profN, n: adventures.length };
     }, [adventures]);
+    // v1.38: calendario de actividad (km por dia, ultimas 20 semanas)
+    const heatWeeks = useMemo(() => {
+        const days = new Map<string, number>();
+        for (const a of adventures) {
+            const d = new Date(a.start);
+            if (!isFinite(d.getTime())) continue;
+            const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            days.set(k, (days.get(k) || 0) + a.km);
+        }
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const dow = (today.getDay() + 6) % 7; // lunes = 0
+        const end = new Date(today); end.setDate(end.getDate() + (6 - dow));
+        const start = new Date(end); start.setDate(start.getDate() - 20 * 7 + 1);
+        const weeks: ({ k: string; lv: number; km: number; label: string } | null)[][] = [];
+        const cur = new Date(start);
+        while (cur <= end) {
+            const col: ({ k: string; lv: number; km: number; label: string } | null)[] = [];
+            for (let i = 0; i < 7; i++) {
+                if (cur > today) { col.push(null); cur.setDate(cur.getDate() + 1); continue; }
+                const k = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+                const km = days.get(k) || 0;
+                const lv = km <= 0 ? 0 : km < 5 ? 1 : km < 15 ? 2 : 3;
+                col.push({ k, lv, km, label: cur.getDate() + ' ' + monthName(cur.getMonth()) });
+                cur.setDate(cur.getDate() + 1);
+            }
+            weeks.push(col);
+        }
+        return weeks;
+    }, [adventures]);
+
     const fmtDurTotal = (ms: number) => {
         const m = Math.round(ms / 60000);
         if (m < 60) return m + ' min';
@@ -2240,6 +2270,19 @@ export function App() {
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareMonthCard}>{t('Compartir mi mes')}</button></div>
             </section>
 
+            <section className="tu-group"><h2>{t('Actividad')}</h2>
+                {adventures.length ? <>
+                    <div className="tu-heat">
+                        {heatWeeks.map((w, wi) => <div key={wi} className="tu-heatcol">
+                            {w.map((d, di) => d
+                                ? <span key={d.k} className={'tu-heatcell lv' + d.lv} title={d.label + (d.km > 0 ? ' - ' + fmtDist(d.km) : '')} />
+                                : <span key={wi + '-' + di} className="tu-heatcell future" />)}
+                        </div>)}
+                    </div>
+                    <div className="tu-heatlegend"><span>{t('Menos')}</span><span className="tu-heatcell lv0" /><span className="tu-heatcell lv1" /><span className="tu-heatcell lv2" /><span className="tu-heatcell lv3" /><span>{t('Mas')}</span></div>
+                </> : <p className="tu-more">{t('Aun no hay actividad: tus dias con aventura apareceran aqui.')}</p>}
+            </section>
+
             {ccaaRanking.length ? <section className="tu-group"><h2>{t('Comunidades mas dominadas')}</h2>
                 <ol className="tu-peaklist tu-peaklist-full">
                     {ccaaRanking.map((r, i) => <li key={r.n}>
@@ -2447,7 +2490,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.37{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.38{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
