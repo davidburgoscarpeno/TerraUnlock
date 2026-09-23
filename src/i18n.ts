@@ -214,6 +214,9 @@ const EN: Record<string, string> = {
     'No hay actividades nuevas con GPS en tu Strava': 'No new GPS activities on your Strava',
     'Strava limito la descarga: faltan actividades por traer. Repite en 15 minutos.': 'Strava limited the download: some activities are still pending. Try again in 15 minutes.',
     'Error con Strava: {msg}': 'Strava error: {msg}',
+    // v1.40: tiempo en movimiento
+    'En movimiento {dur}': 'Moving time {dur}',
+    ' - Pausas {dur}': ' - Pauses {dur}',
     'Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.': 'Route import accepts GPX, FIT, loose .gz files and the full Strava or Garmin Connect export ZIP.',
     ' - tu progreso se guarda en este dispositivo.': ' - your progress is stored on this device.',
     // celebraciones y banners

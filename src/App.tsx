@@ -192,6 +192,29 @@ function paceStats(adv: Adventure, perMile: boolean): PaceStats | null {
     }
     return { avg, best };
 }
+// v1.40: tiempo en movimiento y pausas a partir de los timestamps por punto.
+// Umbral de pausa adaptativo: el mayor de 90 s o 5x el delta mediano (la traza va diezmada a ~300 puntos).
+function movingStats(adv: Adventure): { moveMs: number; pauseMs: number } | null {
+    if (!adv.times || adv.times.length < 2) return null;
+    const ds: number[] = [];
+    for (let i = 1; i < adv.times.length; i++) {
+        const dt = adv.times[i] - adv.times[i - 1];
+        if (dt > 0) ds.push(dt);
+    }
+    if (!ds.length) return null;
+    const med = [...ds].sort((a, b) => a - b)[Math.floor(ds.length / 2)];
+    const GAP = Math.max(90000, med * 5);
+    let move = 0;
+    for (const dt of ds) if (dt <= GAP) move += dt;
+    const total = adv.times[adv.times.length - 1] - adv.times[0];
+    if (total <= 0) return null;
+    return { moveMs: move, pauseMs: Math.max(0, total - move) };
+}
+function fmtDur(ms: number): string {
+    const m = Math.round(ms / 60000);
+    if (m >= 60) return Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min';
+    return m + ' min';
+}
 function fmtPace(secPerUnit: number, perMile: boolean): string {
     const m = Math.floor(secPerUnit / 60), s = Math.round(secPerUnit % 60);
     return m + ':' + String(s).padStart(2, '0') + '/' + (perMile ? 'mi' : 'km');
@@ -2029,8 +2052,13 @@ export function App() {
     const totalStats = useMemo(() => {
         let ms = 0, up = 0, profN = 0;
         for (const a of adventures) {
-            const t0 = new Date(a.start).getTime(), t1 = new Date(a.end).getTime();
-            if (isFinite(t0) && isFinite(t1) && t1 >= t0) ms += t1 - t0;
+            // v1.40: con timestamps por punto se suma el tiempo en movimiento (sin pausas)
+            const mv = movingStats(a);
+            if (mv) ms += mv.moveMs;
+            else {
+                const t0 = new Date(a.start).getTime(), t1 = new Date(a.end).getTime();
+                if (isFinite(t0) && isFinite(t1) && t1 >= t0) ms += t1 - t0;
+            }
             if (a.profile) { up += a.profile.up; profN++; }
         }
         return { ms, up, profN, n: adventures.length };
@@ -2357,7 +2385,7 @@ export function App() {
                     {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{a.name || new Date(a.start).toLocaleDateString(dateLocale())}{a.name ? <small>{new Date(a.start).toLocaleDateString(dateLocale())}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || t('Sin desbloqueos nuevos')}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
-                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}>{a.track && a.track.length >= 2 ? <button className="file-button is-compact" data-variant="primary" onClick={() => showAdvOnMap(a)}>{t('Ver en el mapa')}</button> : null}<button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
+                        {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}{(() => { const mv = movingStats(a); return mv ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('En movimiento {dur}', { dur: fmtDur(mv.moveMs) })}{mv.pauseMs >= 60000 ? t(' - Pausas {dur}', { dur: fmtDur(mv.pauseMs) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><span className="tu-controls" style={{ marginTop: 6 }}>{a.track && a.track.length >= 2 ? <button className="file-button is-compact" data-variant="primary" onClick={() => showAdvOnMap(a)}>{t('Ver en el mapa')}</button> : null}<button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
                     </li>)}
                 </ol> : null}
             </section>
@@ -2548,7 +2576,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.39{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.40{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
@@ -2615,6 +2643,7 @@ export function App() {
                     <strong>{fmtDist(advSummary.km)}</strong>
                     <p>{t('{n} puntos GPS', { n: advSummary.points })}{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? t(' - Desbloqueos: ').replace(' - ', ' · ') + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + t('{n} cimas', { n: advSummary.peaks.length }) : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? t(' - Sin desbloqueos nuevos esta vez').replace(' - ', ' · ') : ''}</p>
                     {(() => { const ps = paceStats(advSummary, imp); return ps ? <p style={{ color: '#2dc8aa', fontWeight: 600 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</p> : null; })()}
+                    {(() => { const mv = movingStats(advSummary); return mv ? <p style={{ color: '#2dc8aa', fontWeight: 600 }}>{t('En movimiento {dur}', { dur: fmtDur(mv.moveMs) })}{mv.pauseMs >= 60000 ? t(' - Pausas {dur}', { dur: fmtDur(mv.pauseMs) }) : ''}</p> : null; })()}
                     <ElevChart adv={advSummary} onProfile={saveProfile} />
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>{t('Compartir aventura')}</button>
