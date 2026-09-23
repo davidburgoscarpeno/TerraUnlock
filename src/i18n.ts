@@ -221,6 +221,8 @@ const EN: Record<string, string> = {
     'Por deporte': 'By sport',
     'Multideporte': 'Multi-sport',
     'Registra aventuras de 3 deportes distintos': 'Log adventures of 3 different sports',
+    // v1.43: grafico de ritmo
+    'Ritmo por tramo: entre {fast} y {slow} (media {avg})': 'Pace along the route: between {fast} and {slow} (avg {avg})',
     'Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.': 'Route import accepts GPX, FIT, loose .gz files and the full Strava or Garmin Connect export ZIP.',
     ' - tu progreso se guarda en este dispositivo.': ' - your progress is stored on this device.',
     // celebraciones y banners
