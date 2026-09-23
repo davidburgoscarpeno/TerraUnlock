@@ -1425,6 +1425,107 @@ export function App() {
         }
     };
 
+    // v1.33: tarjeta PNG del resumen mensual (km, territorios con silueta, cimas)
+    const shareMonthCard = async () => {
+        try {
+            const now = new Date();
+            const mStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= mStart && t0 <= now.getTime(); });
+            const km = list.reduce((n, a) => n + a.km, 0);
+            const terrC = [...new Set(list.flatMap((a) => a.countries))];
+            const terrA = [...new Set(list.flatMap((a) => a.ccaa))];
+            const terrP = [...new Set(list.flatMap((a) => a.prov))];
+            const peakIds = [...new Set(list.flatMap((a) => a.peaks))];
+            const mPeaks = peakIds.map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+            const terrN = terrC.length + terrA.length + terrP.length;
+            const W = 1080, H = 1350;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            const FONT = '-apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            const avImg = avatar ? await new Promise<HTMLImageElement | null>((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = avatar; }) : null;
+            g.save();
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.closePath(); g.clip();
+            if (avImg) g.drawImage(avImg, 60, 48, 128, 128);
+            else { g.fillStyle = '#14755f'; g.fillRect(60, 48, 128, 128); g.fillStyle = '#fff'; g.font = '700 64px ' + FONT; g.textAlign = 'center'; g.fillText((prefs.nombre.trim()[0] || '?').toUpperCase(), 124, 134); g.textAlign = 'left'; }
+            g.restore();
+            g.strokeStyle = 'rgba(45,200,170,0.8)'; g.lineWidth = 4;
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.stroke();
+            g.fillStyle = '#e6edf3'; g.font = '800 62px ' + FONT;
+            g.fillText('TerraUnlock', 224, 110);
+            g.fillStyle = '#2dc8aa'; g.font = '700 34px ' + FONT;
+            g.fillText(prefs.nombre.trim() ? t('El mes de {nombre}', { nombre: prefs.nombre.trim() }) : t('Mi mes de conquista'), 224, 170);
+            // titulo del mes
+            const mesTitulo = monthName(now.getMonth()) + ' ' + t('de') + ' ' + now.getFullYear();
+            g.fillStyle = '#e6edf3'; g.font = '800 58px ' + FONT;
+            g.fillText(mesTitulo.charAt(0).toUpperCase() + mesTitulo.slice(1), 60, 268);
+            // numeros grandes en dos filas
+            const big = (val: string, lab: string, x: number, y: number, col: string) => {
+                g.fillStyle = col; g.font = '800 110px ' + FONT; g.fillText(val, x, y);
+                g.font = '700 38px ' + FONT; g.fillText(lab, x, y + 58);
+            };
+            big(dec(km, 1), t('km recorridos'), 60, 430, '#2dc8aa');
+            big('+' + terrN, terrN === 1 ? t('territorio nuevo') : t('territorios nuevos'), 560, 430, '#2dc8aa');
+            big(String(list.length), list.length === 1 ? t('aventura') : t('aventuras'), 60, 640, '#e6edf3');
+            big('+' + mPeaks.length, mPeaks.length === 1 ? t('cima conquistada') : t('cimas conquistadas'), 560, 640, '#e8cd6e');
+            // siluetas de territorios del mes
+            let cy = 730;
+            const newRegsCard: { rg: Region; lvl: string; stroke: string }[] = [];
+            for (const n of terrC) { const rg = COUNTRIES.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Pais'), stroke: '#7ee0c8' }); }
+            for (const n of terrA) { const rg = CCAA.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Comunidad'), stroke: '#e8cd6e' }); }
+            for (const n of terrP) { const rg = PROV.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Provincia'), stroke: '#8fb8d8' }); }
+            if (newRegsCard.length) {
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px ' + FONT;
+                g.fillText(t('TERRITORIOS NUEVOS'), 60, cy + 30);
+                cy += 48;
+                const shown = newRegsCard.slice(0, 6);
+                const tw = (W - 120 - 2 * 18) / 3, th = 200;
+                shown.forEach(({ rg, lvl, stroke }, i) => {
+                    const col = i % 3, row = Math.floor(i / 3);
+                    const tx = 60 + col * (tw + 18), ty = cy + row * (th + 14);
+                    g.fillStyle = '#0d1420'; g.beginPath(); g.roundRect(tx, ty, tw, th, 16); g.fill();
+                    g.strokeStyle = '#1c2733'; g.lineWidth = 2; g.stroke();
+                    drawRegionShape(g, rg, tx + 12, ty + 10, tw - 24, th - 72, 6, 'rgba(45,200,170,0.10)', stroke, 2.5);
+                    let fs2 = 28;
+                    g.font = '700 ' + fs2 + 'px ' + FONT;
+                    while (fs2 > 16 && g.measureText(rg.n).width > tw - 36) { fs2 -= 3; g.font = '700 ' + fs2 + 'px ' + FONT; }
+                    g.fillStyle = '#e6edf3'; g.textAlign = 'center';
+                    g.fillText(rg.n, tx + tw / 2, ty + th - 34);
+                    g.fillStyle = stroke; g.font = '600 19px ' + FONT;
+                    g.fillText(lvl, tx + tw / 2, ty + th - 11);
+                    g.textAlign = 'left';
+                });
+                cy += Math.ceil(shown.length / 3) * (th + 14) + 6;
+                if (newRegsCard.length > 6) { g.fillStyle = '#5c7080'; g.font = '600 26px ' + FONT; g.fillText(t('y {n} mas', { n: newRegsCard.length - 6 }), 60, cy + 20); cy += 42; }
+            }
+            // cimas del mes (solo si cabe comodo)
+            if (mPeaks.length && cy <= 1060) {
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px ' + FONT;
+                g.fillText(t('CIMAS'), 60, cy + 30);
+                cy += 50;
+                g.font = '600 31px ' + FONT;
+                for (const p of mPeaks.slice(0, 4)) {
+                    g.fillStyle = '#e6edf3'; g.fillText(p[0], 60, cy + 20);
+                    g.fillStyle = '#e8cd6e'; g.textAlign = 'right'; g.fillText(p[3] + ' m', W - 60, cy + 20); g.textAlign = 'left';
+                    cy += 46;
+                }
+                if (mPeaks.length > 4) { g.fillStyle = '#5c7080'; g.fillText(t('y {n} mas', { n: mPeaks.length - 4 }), 60, cy + 20); }
+            }
+            if (!list.length) {
+                g.fillStyle = '#9fb0c0'; g.font = '600 34px ' + FONT;
+                g.fillText(t('Mes tranquilo... por ahora. Va a durar poco.'), 60, cy + 40);
+            }
+            g.fillStyle = '#5c7080'; g.font = '600 26px ' + FONT;
+            g.fillText(t('Tu que has conquistado este mes? davidburgoscarpeno.github.io/TerraUnlock'), 60, H - 42);
+            const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
+            if (!blob) { setToast(t('No se pudo generar la tarjeta')); return; }
+            await shareBlob(blob, 'terraunlock-mes.png', t('TerraUnlock: mi mes'));
+        } catch (e) {
+            if (e instanceof Error && e.name === 'AbortError') return;
+            setToast(t('No se pudo compartir la tarjeta'));
+        }
+    };
+
     // v1.12: tarjeta PNG de una aventura (perfil + cifras + desbloqueos)
     // v1.14: importar un GPX suelto como aventura completa (revela niebla + entra en la lista)
     const importGpxAdventure = async (file: File) => {
@@ -2087,6 +2188,7 @@ export function App() {
                     { label: t('Territorios nuevos'), value: String(monthStats.cur.terr), prev: String(monthStats.prev.terr) },
                     { label: t('Cimas'), value: String(monthStats.cur.peaks), prev: String(monthStats.prev.peaks) },
                 ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el mes pasado', { v: f.prev })}</small></dd></div>)}</dl>
+                <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareMonthCard}>{t('Compartir mi mes')}</button></div>
             </section>
 
             {ccaaRanking.length ? <section className="tu-group"><h2>{t('Comunidades mas dominadas')}</h2>
@@ -2296,7 +2398,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.32{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.33{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
