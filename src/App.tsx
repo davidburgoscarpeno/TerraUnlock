@@ -2215,6 +2215,26 @@ export function App() {
         };
         return { cur: agg(mStart, now.getTime() + 60000), prev: agg(pStart, mStart), month: monthName(now.getMonth()) };
     })();
+    // v1.50: el ano en numeros (vs ano anterior)
+    const yearStats = (() => {
+        const now = new Date();
+        const yStart = new Date(now.getFullYear(), 0, 1).getTime();
+        const pStart = new Date(now.getFullYear() - 1, 0, 1).getTime();
+        const agg = (lo: number, hi: number) => {
+            const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= lo && t0 < hi; });
+            let move = 0;
+            for (const a of list) { const mv = movingStats(a); if (mv) move += mv.moveMs; }
+            return {
+                km: list.reduce((n, a) => n + a.km, 0),
+                n: list.length,
+                terr: list.reduce((n, a) => n + a.countries.length + a.ccaa.length + a.prov.length, 0),
+                peaks: list.reduce((n, a) => n + a.peaks.length, 0),
+                up: list.reduce((n, a) => n + (a.profile?.up || 0), 0),
+                move,
+            };
+        };
+        return { cur: agg(yStart, now.getTime() + 60000), prev: agg(pStart, yStart), year: now.getFullYear() };
+    })();
 
     return <div className="tu-app">
         {tab === 'mapa' ? <>
@@ -2437,6 +2457,17 @@ export function App() {
                 ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el mes pasado', { v: f.prev })}</small></dd></div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareMonthCard}>{t('Compartir mi mes')}</button></div>
             </section>
+
+            {yearStats.cur.n ? <section className="tu-group"><h2>{t('Este ano')} · {yearStats.year}</h2>
+                <dl className="tu-factsdl">{([
+                    { label: t('Distancia'), value: fmtDist(yearStats.cur.km), prev: fmtDist(yearStats.prev.km) },
+                    { label: t('Aventuras'), value: String(yearStats.cur.n), prev: String(yearStats.prev.n) },
+                    { label: t('Territorios nuevos'), value: String(yearStats.cur.terr), prev: String(yearStats.prev.terr) },
+                    { label: t('Cimas'), value: String(yearStats.cur.peaks), prev: String(yearStats.prev.peaks) },
+                    { label: t('Desnivel acumulado'), value: '+' + yearStats.cur.up + ' m', prev: '+' + yearStats.prev.up + ' m' },
+                    ...(yearStats.cur.move ? [{ label: t('Tiempo en movimiento'), value: fmtDur(yearStats.cur.move), prev: fmtDur(yearStats.prev.move) }] : []),
+                ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el ano pasado', { v: f.prev })}</small></dd></dl>
+            </section> : null}
 
             <section className="tu-group"><h2>{t('Actividad')}</h2>
                 {adventures.length ? <>
