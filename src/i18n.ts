@@ -217,6 +217,8 @@ const EN: Record<string, string> = {
     // v1.40: tiempo en movimiento
     'En movimiento {dur}': 'Moving time {dur}',
     ' - Pausas {dur}': ' - Pauses {dur}',
+    // v1.46: filtro por deporte
+    'Todos': 'All',
     // v1.42: por deporte
     'Por deporte': 'By sport',
     'Multideporte': 'Multi-sport',

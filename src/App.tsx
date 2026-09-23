@@ -2121,6 +2121,14 @@ export function App() {
         }
         return { ms, up, profN, n: adventures.length };
     }, [adventures]);
+    // v1.46: filtro del historial por deporte
+    const [sportFilter, setSportFilter] = useState<Sport | null>(null);
+    const advFiltered = useMemo(() => sportFilter ? adventures.filter((a) => advSport(a) === sportFilter) : adventures, [adventures, sportFilter]);
+    const sportsPresent = useMemo(() => {
+        const set = new Set<Sport>();
+        for (const a of adventures) { const sp = advSport(a); if (sp) set.add(sp); }
+        return [...set];
+    }, [adventures]);
     // v1.42: distancia y aventuras por deporte (Strava lo indica; el resto inferido del ritmo)
     const sportChips = useMemo(() => {
         const m = new Map<Sport, { km: number; n: number }>();
@@ -2451,8 +2459,12 @@ export function App() {
                         <input type="file" accept=".gpx,application/gpx+xml" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) importGpxAdventure(f); e.target.value = ''; }} />
                     </label>
                 </div>
+                {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
+                    <span className={'tu-sportchip' + (sportFilter === null ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setSportFilter(null)}>{t('Todos')}</span>
+                    {sportsPresent.map((sp) => <span key={sp} className={'tu-sportchip' + (sportFilter === sp ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setSportFilter(sportFilter === sp ? null : sp)}>{sportEmoji(sp)} {adventures.filter((a) => advSport(a) === sp).length}</span>)}
+                </div> : null}
                 {adventures.length ? <ol className="tu-peaklist tu-advlist">
-                    {adventures.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
+                    {advFiltered.map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>
                         <span className="tu-pkname">{sportEmoji(advSport(a)) ? sportEmoji(advSport(a)) + ' ' : ''}{a.name || new Date(a.start).toLocaleDateString(dateLocale())}{a.name ? <small>{new Date(a.start).toLocaleDateString(dateLocale())}</small> : null}<small>{[...a.countries, ...a.ccaa, ...a.prov].join(', ') || t('Sin desbloqueos nuevos')}</small></span>
                         <span className="tu-pkele">{fmtDist(a.km)}</span>
                         {advOpen === a.start ? <span className="tu-advprof" onClick={(e) => e.stopPropagation()}>{(() => { const ps = paceStats(a, imp); return ps ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</span> : null; })()}{(() => { const mv = movingStats(a); return mv ? <span className="tu-terrnote" style={{ display: 'block', marginBottom: 4 }}>{t('En movimiento {dur}', { dur: fmtDur(mv.moveMs) })}{mv.pauseMs >= 60000 ? t(' - Pausas {dur}', { dur: fmtDur(mv.pauseMs) }) : ''}</span> : null; })()}<ElevChart adv={a} onProfile={saveProfile} /><PaceChart adv={a} imp={imp} /><span className="tu-controls" style={{ marginTop: 6 }}>{a.track && a.track.length >= 2 ? <button className="file-button is-compact" data-variant="primary" onClick={() => showAdvOnMap(a)}>{t('Ver en el mapa')}</button> : null}<button className="file-button is-compact" data-variant="secondary" onClick={() => shareAdventureCard(a)}>{t('Compartir aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(a)}>{t('Exportar GPX')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { const n = window.prompt(t('Nombre de la aventura'), a.name || ''); if (n !== null) { const list = adventures.map((x) => x.start === a.start ? { ...x, name: n.trim() || undefined } : x); setAdventures(list); saveJson(ADVS_KEY, list); } }}>{t('Renombrar')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => { if (window.confirm(t('Borrar esta aventura? El territorio revelado se queda como esta.'))) { const list = adventures.filter((x) => x.start !== a.start); setAdventures(list); saveJson(ADVS_KEY, list); setAdvOpen(null); setToast(t('Aventura borrada')); } }}>{t('Borrar')}</button></span></span> : null}
