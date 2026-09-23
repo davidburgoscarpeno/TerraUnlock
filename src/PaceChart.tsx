@@ -19,12 +19,12 @@ function paceSeries(adv: Adventure, perMile: boolean): Series | null {
     for (let i = 1; i < adv.track.length; i++) d.push(d[i - 1] + distM(adv.track[i - 1], adv.track[i]) / 1000);
     const totalKm = d[d.length - 1];
     if (totalKm < 0.3) return null;
-    const segs: { at: number; pace: number }[] = [];
+    const segs: { at: number; pace: number; dt: number; dd: number }[] = [];
     for (let i = 1; i < d.length; i++) {
         const dd = d[i] - d[i - 1], dt = (adv.times[i] - adv.times[i - 1]) / 1000;
         if (dd <= 0 || dt <= 0) continue;
         const pace = dt / (dd / unit);
-        if (pace >= 15) segs.push({ at: d[i], pace });
+        if (pace >= 15) segs.push({ at: d[i], pace, dt, dd });
     }
     if (segs.length < 6) return null;
     const med = [...segs].sort((a, b) => a.pace - b.pace)[Math.floor(segs.length / 2)].pace;
@@ -46,8 +46,9 @@ function paceSeries(adv: Adventure, perMile: boolean): Series | null {
         return s / (hi - lo + 1);
     });
     const min = Math.min(...ys), max = Math.max(...ys);
-    const totalSec = (adv.times[adv.times.length - 1] - adv.times[0]) / 1000;
-    const avg = totalSec / (totalKm / unit);
+    // media coherente con la curva: solo los tramos filtrados (sin pausas ni outliers)
+    const sec = ok.reduce((a, s) => a + s.dt, 0), km = ok.reduce((a, s) => a + s.dd, 0);
+    const avg = km > 0 ? sec / (km / unit) : (min + max) / 2;
     return { x, y: ys, min, max, avg, totalKm };
 }
 
@@ -77,8 +78,9 @@ export default function PaceChart({ adv, imp }: { adv: Adventure; imp: boolean }
         g.lineTo(px(data.x[data.x.length - 1]), H - padB); g.lineTo(px(data.x[0]), H - padB); g.closePath();
         g.fillStyle = 'rgba(45,200,170,0.18)'; g.fill();
         // media
+        const avgY = Math.min(Math.max(py(data.avg), padT), H - padB); // nunca fuera del lienzo
         g.setLineDash([6, 5]);
-        g.beginPath(); g.moveTo(padL, py(data.avg)); g.lineTo(W - padR, py(data.avg));
+        g.beginPath(); g.moveTo(padL, avgY); g.lineTo(W - padR, avgY);
         g.strokeStyle = 'rgba(230,205,110,0.7)'; g.lineWidth = 2; g.stroke();
         g.setLineDash([]);
         // extremos
@@ -86,7 +88,7 @@ export default function PaceChart({ adv, imp }: { adv: Adventure; imp: boolean }
         g.fillText(fmtP(data.min, imp), padL + 2, padT + 8);
         g.fillText(fmtP(data.max, imp), padL + 2, H - padB - 4);
         g.textAlign = 'right';
-        g.fillText(fmtP(data.avg, imp), W - padR - 2, py(data.avg) - 6);
+        g.fillText(fmtP(data.avg, imp), W - padR - 2, avgY - 6);
         g.textAlign = 'left';
     }, [data, imp]);
     if (!data) return null;
