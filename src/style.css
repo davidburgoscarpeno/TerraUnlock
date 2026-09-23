@@ -233,3 +233,8 @@ input[type="range"] { accent-color: #2dc8aa; }
 .tu-heatcell.lv3 { background: #2dc8aa; }
 .tu-heatlegend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #9fb0c0; margin-top: 6px; }
 .tu-heatlegend .tu-heatcell { width: 10px; height: 10px; }
+
+/* v1.42: chips por deporte */
+.tu-sportrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 2px; }
+.tu-sportrow small { opacity: 0.6; font-size: 12px; margin-right: 2px; }
+.tu-sportchip { background: rgba(45,200,170,0.12); border: 1px solid rgba(45,200,170,0.35); color: #cfe8e0; border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 600; }

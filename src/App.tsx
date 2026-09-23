@@ -261,6 +261,7 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'points-1000', title: 'Imparable', hint: 'Registra 1.000 puntos GPS', test: (p) => p.points.length >= 1000 },
     { id: 'streak-3', title: 'En racha', hint: 'Revela territorio 3 dias seguidos', test: (p, st) => st.count >= 3 },
     { id: 'streak-7', title: 'Semana de conquista', hint: 'Revela territorio 7 dias seguidos', test: (p, st) => st.count >= 7 },
+    { id: 'multi-3', title: 'Multideporte', hint: 'Registra aventuras de 3 deportes distintos', test: () => false },
     { id: 'wstreak-2', title: 'Constancia', hint: 'Cumple el objetivo semanal 2 semanas seguidas', test: () => false },
     { id: 'wstreak-4', title: 'Mes imparable', hint: 'Cumple el objetivo semanal 4 semanas seguidas', test: () => false },
     { id: 'wstreak-8', title: 'Dos meses conquistando', hint: 'Cumple el objetivo semanal 8 semanas seguidas', test: () => false },
@@ -1965,6 +1966,20 @@ export function App() {
     const advRef = useRef(adv);
     useEffect(() => { advRef.current = adv; }, [adv]);
     const [adventures, setAdventures] = useState<Adventure[]>(() => loadJson<Adventure[]>(ADVS_KEY) || []);
+    const multiSeed = useRef(true);
+    useEffect(() => {
+        const seed2 = multiSeed.current;
+        multiSeed.current = false;
+        if (achUnlocked['multi-3']) return;
+        const sports = new Set<Sport>();
+        for (const a of adventures) { const s = advSport(a); if (s) sports.add(s); }
+        if (sports.size < 3) return;
+        const a2 = ACHIEVEMENTS.find((x) => x.id === 'multi-3');
+        if (!a2) return;
+        const next = { ...achUnlocked, 'multi-3': new Date().toISOString() };
+        setAchUnlocked(next); saveAch(next);
+        if (!seed2) setCelebration((c) => [...c, a2]);
+    }, [adventures, achUnlocked]);
     const adventuresRef = useRef(adventures); adventuresRef.current = adventures;
     // v1.15: racha de objetivos semanales cumplidos seguidos
     const [weekStreak, setWeekStreak] = useState<WeekStreak>(() => loadJson<WeekStreak>(WSTREAK_KEY) || { last: '', count: 0 });
@@ -2093,6 +2108,17 @@ export function App() {
             if (a.profile) { up += a.profile.up; profN++; }
         }
         return { ms, up, profN, n: adventures.length };
+    }, [adventures]);
+    // v1.42: distancia y aventuras por deporte (Strava lo indica; el resto inferido del ritmo)
+    const sportChips = useMemo(() => {
+        const m = new Map<Sport, { km: number; n: number }>();
+        for (const a of adventures) {
+            const s = advSport(a); if (!s) continue;
+            const cur = m.get(s) || { km: 0, n: 0 };
+            cur.km += a.km; cur.n++;
+            m.set(s, cur);
+        }
+        return [...m.entries()].map(([s, v]) => ({ s, ...v })).sort((x, y) => y.km - x.km);
     }, [adventures]);
     // v1.38: calendario de actividad (km por dia, ultimas 20 semanas)
     const heatWeeks = useMemo(() => {
@@ -2357,6 +2383,7 @@ export function App() {
                     { label: t('Tiempo en movimiento'), value: totalStats.n ? fmtDurTotal(totalStats.ms) : '-', pct: null },
                     { label: t('Desnivel acumulado'), value: totalStats.profN ? '+' + Math.round(totalStats.up) + ' m' : '-', pct: null },
                 ] as { label: string; value: string; pct: number | null }[]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value}</dd>{f.pct != null ? <div className="tu-bar"><div style={{ width: Math.max(f.pct * 100, f.pct > 0 ? 2 : 0).toFixed(1) + '%' }} /></div> : null}</div>)}</dl>
+                {sportChips.length ? <div className="tu-sportrow"><small>{t('Por deporte')}</small>{sportChips.map((sc2) => <span key={sc2.s} className="tu-sportchip">{sportEmoji(sc2.s)} {fmtDist(sc2.km)} · {sc2.n}</span>)}</div> : null}
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareCard}>{t('Compartir mi mapa')}</button><button className="file-button" data-variant="primary" onClick={shareWeekCard}>{t('Compartir mi semana')}</button></div>
             </section>
 
@@ -2607,7 +2634,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.41{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v1.42{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (

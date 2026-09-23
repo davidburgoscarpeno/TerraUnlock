@@ -217,6 +217,10 @@ const EN: Record<string, string> = {
     // v1.40: tiempo en movimiento
     'En movimiento {dur}': 'Moving time {dur}',
     ' - Pausas {dur}': ' - Pauses {dur}',
+    // v1.42: por deporte
+    'Por deporte': 'By sport',
+    'Multideporte': 'Multi-sport',
+    'Registra aventuras de 3 deportes distintos': 'Log adventures of 3 different sports',
     'Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.': 'Route import accepts GPX, FIT, loose .gz files and the full Strava or Garmin Connect export ZIP.',
     ' - tu progreso se guarda en este dispositivo.': ' - your progress is stored on this device.',
     // celebraciones y banners
