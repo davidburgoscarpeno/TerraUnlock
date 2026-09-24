@@ -1451,12 +1451,26 @@ export function App() {
             setToast(t('Tarjeta descargada'));
         }
     };
-    const shareWeekCard = async () => {
+    const shareWeekCard = async (prev?: unknown) => {
         try {
-            const terrC = progress.countries.filter((n) => !weekly.countries0.includes(n));
-            const terrA = progress.ccaa.filter((n) => !weekly.ccaa0.includes(n));
-            const terrP = progress.prov.filter((n) => !weekly.prov0.includes(n));
-            const newPeaks = progress.peaks.filter((id) => !weekly.peaks0.includes(id)).map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+            // v1.66: prev === true -> tarjeta de la SEMANA PASADA (se usa desde el resumen semanal)
+            let terrC: string[], terrA: string[], terrP: string[], newPeaks: Peak[], kmW = 0;
+            if (prev === true) {
+                const now0 = new Date();
+                const mon0 = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate() - ((now0.getDay() + 6) % 7)).getTime();
+                const prevMon0 = mon0 - 7 * 86400000;
+                const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= prevMon0 && t0 < mon0; });
+                kmW = list.reduce((n, a) => n + a.km, 0);
+                terrC = [...new Set(list.flatMap((a) => a.countries))];
+                terrA = [...new Set(list.flatMap((a) => a.ccaa))];
+                terrP = [...new Set(list.flatMap((a) => a.prov))];
+                newPeaks = [...new Set(list.flatMap((a) => a.peaks))].map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+            } else {
+                terrC = progress.countries.filter((n) => !weekly.countries0.includes(n));
+                terrA = progress.ccaa.filter((n) => !weekly.ccaa0.includes(n));
+                terrP = progress.prov.filter((n) => !weekly.prov0.includes(n));
+                newPeaks = progress.peaks.filter((id) => !weekly.peaks0.includes(id)).map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+            }
             const terrN = terrC.length + terrA.length + terrP.length;
             const done = terrN >= WEEK_TERR || newPeaks.length >= WEEK_PEAK;
             const W = 1080, H = 1350;
@@ -1479,6 +1493,7 @@ export function App() {
             // rango de la semana (lunes a domingo)
             const now = new Date();
             const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+            if (prev === true) mon.setDate(mon.getDate() - 7);
             const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
             const rango = mon.getMonth() === sun.getMonth()
                 ? t('del {d1} de {m1} al {d2} de {m2} de {y}', { d1: mon.getDate(), d2: sun.getDate(), m1: monthName(sun.getMonth()), m2: monthName(sun.getMonth()), y: sun.getFullYear() })
@@ -1540,7 +1555,7 @@ export function App() {
             }
             if (!terrN && !newPeaks.length) {
                 g.fillStyle = '#9fb0c0'; g.font = '600 34px -apple-system, Segoe UI, Roboto, sans-serif';
-                g.fillText(t('Semana tranquila... por ahora. Va a durar poco.'), 60, cy + 40);
+                g.fillText(prev === true ? t('{km} en movimiento - semana sin conquistas nuevas', { km: fmtDist(kmW) }) : t('Semana tranquila... por ahora. Va a durar poco.'), 60, cy + 40);
                 cy += 80;
             }
             // estado del objetivo
@@ -3035,7 +3050,8 @@ export function App() {
                     <strong>{recap.advs === 1 ? t('{km} en 1 aventura', { km: fmtDist(recap.km) }) : t('{km} en {n} aventuras', { km: fmtDist(recap.km), n: recap.advs })}</strong>
                     <p>{recap.terr > 0 ? t('{n} territorios nuevos', { n: recap.terr }) : t('Sin territorios nuevos')}{recap.peaks > 0 ? t(' - {n} cimas', { n: recap.peaks }) : ''}</p>
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
-                        <button className="file-button is-compact" data-variant="primary" onClick={() => setRecap(null)}>{t('A por esta semana')}</button>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareWeekCard(true)}>{t('Compartir')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setRecap(null)}>{t('A por esta semana')}</button>
                     </div>
                 </div>
             </div>
