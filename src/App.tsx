@@ -263,6 +263,12 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'streak-3', title: 'En racha', hint: 'Revela territorio 3 dias seguidos', test: (p, st) => st.count >= 3 },
     { id: 'streak-7', title: 'Semana de conquista', hint: 'Revela territorio 7 dias seguidos', test: (p, st) => st.count >= 7 },
     { id: 'multi-3', title: 'Multideporte', hint: 'Registra aventuras de 3 deportes distintos', test: () => false },
+    { id: 'km-50', title: 'En ruta', hint: 'Recorre 50 km en aventuras', test: () => false },
+    { id: 'km-250', title: 'Viajero incansable', hint: 'Recorre 250 km en aventuras', test: () => false },
+    { id: 'km-1000', title: 'Mil kilometros', hint: 'Recorre 1.000 km en aventuras', test: () => false },
+    { id: 'up-1000', title: 'Piernas de acero', hint: 'Acumula 1.000 m de desnivel', test: () => false },
+    { id: 'up-5000', title: 'Altitud seria', hint: 'Acumula 5.000 m de desnivel', test: () => false },
+    { id: 'up-8848', title: 'Everest', hint: 'Acumula 8.848 m de desnivel: la altura del Everest', test: () => false },
     { id: 'wstreak-2', title: 'Constancia', hint: 'Cumple el objetivo semanal 2 semanas seguidas', test: () => false },
     { id: 'wstreak-4', title: 'Mes imparable', hint: 'Cumple el objetivo semanal 4 semanas seguidas', test: () => false },
     { id: 'wstreak-8', title: 'Dos meses conquistando', hint: 'Cumple el objetivo semanal 8 semanas seguidas', test: () => false },
@@ -2091,15 +2097,24 @@ export function App() {
     useEffect(() => {
         const seed2 = multiSeed.current;
         multiSeed.current = false;
-        if (achUnlocked['multi-3']) return;
+        // v1.54: logros basados en aventuras (multideporte + totales de distancia y desnivel)
         const sports = new Set<Sport>();
-        for (const a of adventures) { const s = advSport(a); if (s) sports.add(s); }
-        if (sports.size < 3) return;
-        const a2 = ACHIEVEMENTS.find((x) => x.id === 'multi-3');
-        if (!a2) return;
-        const next = { ...achUnlocked, 'multi-3': new Date().toISOString() };
+        let kmTot = 0, upTot = 0;
+        for (const a of adventures) { const sp = advSport(a); if (sp) sports.add(sp); kmTot += a.km; upTot += a.profile?.up || 0; }
+        const earned: string[] = [];
+        if (sports.size >= 3) earned.push('multi-3');
+        for (const [id, th] of [['km-50', 50], ['km-250', 250], ['km-1000', 1000]] as [string, number][]) if (kmTot >= th) earned.push(id);
+        for (const [id, th] of [['up-1000', 1000], ['up-5000', 5000], ['up-8848', 8848]] as [string, number][]) if (upTot >= th) earned.push(id);
+        const fresh = earned.filter((id) => !achUnlocked[id]);
+        if (!fresh.length) return;
+        const now = new Date().toISOString();
+        const next = { ...achUnlocked };
+        for (const id of fresh) next[id] = now;
         setAchUnlocked(next); saveAch(next);
-        if (!seed2) setCelebration((c) => [...c, a2]);
+        if (!seed2) {
+            const news = ACHIEVEMENTS.filter((x) => fresh.includes(x.id));
+            if (news.length) setCelebration((c) => [...c, ...news]);
+        }
     }, [adventures, achUnlocked]);
     const adventuresRef = useRef(adventures); adventuresRef.current = adventures;
     // v1.15: racha de objetivos semanales cumplidos seguidos
