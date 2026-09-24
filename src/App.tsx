@@ -2961,7 +2961,9 @@ export function App() {
                     {(() => { const ps = paceStats(advSummary, imp); return ps ? <p style={{ color: '#2dc8aa', fontWeight: 600 }}>{t('Ritmo medio {pace}', { pace: fmtPace(ps.avg, imp) })}{ps.best ? t(imp ? ' - Mejor milla {pace}' : ' - Mejor km {pace}', { pace: fmtPace(ps.best, imp) }) : ''}</p> : null; })()}
                     {(() => { const mv = movingStats(advSummary); return mv ? <p style={{ color: '#2dc8aa', fontWeight: 600 }}>{t('En movimiento {dur}', { dur: fmtDur(mv.moveMs) })}{mv.pauseMs >= 60000 ? t(' - Pausas {dur}', { dur: fmtDur(mv.pauseMs) }) : ''}</p> : null; })()}
                     <ElevChart adv={advSummary} onProfile={saveProfile} />
+                    <PaceChart adv={advSummary} imp={imp} />
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
+                        {advSummary.track && advSummary.track.length >= 2 ? <button className="file-button is-compact" data-variant="secondary" onClick={() => { setAdvSummary(null); showAdvOnMap(advSummary); }}>{t('Ver en el mapa')}</button> : null}
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>{t('Compartir aventura')}</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(advSummary)}>{t('Exportar GPX')}</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>{t('Cerrar')}</button>
