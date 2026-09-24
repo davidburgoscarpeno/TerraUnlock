@@ -251,37 +251,37 @@ function saveJson(key: string, v: unknown) { try { localStorage.setItem(key, JSO
 function dayKey(d: Date) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
 // v1.2: logros. Definicion declarativa; el desbloqueo se evalua sobre el progreso actual.
-interface Achievement { id: string; title: string; hint: string; test: (p: Progress, s: { count: number }) => boolean; }
+interface Achievement { id: string; ico: string; title: string; hint: string; test: (p: Progress, s: { count: number }) => boolean; }
 const ACHIEVEMENTS: Achievement[] = [
-    { id: 'first-zone', title: 'Primeros pasos', hint: 'Revela tu primera zona del mapa', test: (p) => p.cells.length >= 1 },
-    { id: 'km-10', title: 'Barrio propio', hint: 'Revela 10 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 10 },
-    { id: 'km-100', title: 'Cartografo local', hint: 'Revela 100 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 100 },
-    { id: 'km-1000', title: 'Cartografo nacional', hint: 'Revela 1.000 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 1000 },
-    { id: 'country-1', title: 'Primera bandera', hint: 'Pisa tu primer pais', test: (p) => p.countries.length >= 1 },
-    { id: 'country-5', title: 'Pasaporte sellado', hint: 'Pisa 5 paises distintos', test: (p) => p.countries.length >= 5 },
-    { id: 'country-10', title: 'Trotamundos', hint: 'Pisa 10 paises distintos', test: (p) => p.countries.length >= 10 },
-    { id: 'country-25', title: 'Sin fronteras', hint: 'Pisa 25 paises distintos', test: (p) => p.countries.length >= 25 },
-    { id: 'ccaa-1', title: 'Comunidad propia', hint: 'Desbloquea tu primera comunidad', test: (p) => p.ccaa.length >= 1 },
-    { id: 'ccaa-19', title: 'Espana completa', hint: 'Desbloquea las 19 comunidades', test: (p) => p.ccaa.length >= 19 },
-    { id: 'prov-1', title: 'Provincia propia', hint: 'Desbloquea tu primera provincia', test: (p) => p.prov.length >= 1 },
-    { id: 'peak-1', title: 'Primera cima', hint: 'Conquista tu primera cima', test: (p) => p.peaks.length >= 1 },
-    { id: 'peak-10', title: 'Coleccionista de cimas', hint: 'Conquista 10 cimas', test: (p) => p.peaks.length >= 10 },
-    { id: 'peak-25', title: 'Montanero de verdad', hint: 'Conquista 25 cimas', test: (p) => p.peaks.length >= 25 },
-    { id: 'points-100', title: 'En movimiento', hint: 'Registra 100 puntos GPS', test: (p) => p.points.length >= 100 },
-    { id: 'points-1000', title: 'Imparable', hint: 'Registra 1.000 puntos GPS', test: (p) => p.points.length >= 1000 },
-    { id: 'streak-3', title: 'En racha', hint: 'Revela territorio 3 dias seguidos', test: (p, st) => st.count >= 3 },
-    { id: 'streak-7', title: 'Semana de conquista', hint: 'Revela territorio 7 dias seguidos', test: (p, st) => st.count >= 7 },
-    { id: 'multi-3', title: 'Multideporte', hint: 'Registra aventuras de 3 deportes distintos', test: () => false },
-    { id: 'dist-50', title: 'En ruta', hint: 'Recorre 50 km en aventuras', test: () => false },
-    { id: 'dist-250', title: 'Viajero incansable', hint: 'Recorre 250 km en aventuras', test: () => false },
-    { id: 'dist-1000', title: 'Mil kilometros', hint: 'Recorre 1.000 km en aventuras', test: () => false },
-    { id: 'up-1000', title: 'Piernas de acero', hint: 'Acumula 1.000 m de desnivel', test: () => false },
-    { id: 'up-5000', title: 'Altitud seria', hint: 'Acumula 5.000 m de desnivel', test: () => false },
-    { id: 'up-8848', title: 'Everest', hint: 'Acumula 8.848 m de desnivel: la altura del Everest', test: () => false },
-    { id: 'wstreak-2', title: 'Constancia', hint: 'Cumple el objetivo semanal 2 semanas seguidas', test: () => false },
-    { id: 'wstreak-4', title: 'Mes imparable', hint: 'Cumple el objetivo semanal 4 semanas seguidas', test: () => false },
-    { id: 'wstreak-8', title: 'Dos meses conquistando', hint: 'Cumple el objetivo semanal 8 semanas seguidas', test: () => false },
-    { id: 'wstreak-12', title: 'Trimestre de leyenda', hint: 'Cumple el objetivo semanal 12 semanas seguidas', test: () => false },
+    { id: 'first-zone', ico: '👣', title: 'Primeros pasos', hint: 'Revela tu primera zona del mapa', test: (p) => p.cells.length >= 1 },
+    { id: 'km-10', ico: '🏘️', title: 'Barrio propio', hint: 'Revela 10 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 10 },
+    { id: 'km-100', ico: '🗺️', title: 'Cartografo local', hint: 'Revela 100 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 100 },
+    { id: 'km-1000', ico: '🌐', title: 'Cartografo nacional', hint: 'Revela 1.000 km2 de superficie', test: (p) => p.cells.length * 1.1 >= 1000 },
+    { id: 'country-1', ico: '🚩', title: 'Primera bandera', hint: 'Pisa tu primer pais', test: (p) => p.countries.length >= 1 },
+    { id: 'country-5', ico: '🛂', title: 'Pasaporte sellado', hint: 'Pisa 5 paises distintos', test: (p) => p.countries.length >= 5 },
+    { id: 'country-10', ico: '🌍', title: 'Trotamundos', hint: 'Pisa 10 paises distintos', test: (p) => p.countries.length >= 10 },
+    { id: 'country-25', ico: '🌏', title: 'Sin fronteras', hint: 'Pisa 25 paises distintos', test: (p) => p.countries.length >= 25 },
+    { id: 'ccaa-1', ico: '🏠', title: 'Comunidad propia', hint: 'Desbloquea tu primera comunidad', test: (p) => p.ccaa.length >= 1 },
+    { id: 'ccaa-19', ico: '🇪🇸', title: 'Espana completa', hint: 'Desbloquea las 19 comunidades', test: (p) => p.ccaa.length >= 19 },
+    { id: 'prov-1', ico: '📍', title: 'Provincia propia', hint: 'Desbloquea tu primera provincia', test: (p) => p.prov.length >= 1 },
+    { id: 'peak-1', ico: '⛰️', title: 'Primera cima', hint: 'Conquista tu primera cima', test: (p) => p.peaks.length >= 1 },
+    { id: 'peak-10', ico: '🎒', title: 'Coleccionista de cimas', hint: 'Conquista 10 cimas', test: (p) => p.peaks.length >= 10 },
+    { id: 'peak-25', ico: '🗻', title: 'Montanero de verdad', hint: 'Conquista 25 cimas', test: (p) => p.peaks.length >= 25 },
+    { id: 'points-100', ico: '🏃', title: 'En movimiento', hint: 'Registra 100 puntos GPS', test: (p) => p.points.length >= 100 },
+    { id: 'points-1000', ico: '💨', title: 'Imparable', hint: 'Registra 1.000 puntos GPS', test: (p) => p.points.length >= 1000 },
+    { id: 'streak-3', ico: '🔥', title: 'En racha', hint: 'Revela territorio 3 dias seguidos', test: (p, st) => st.count >= 3 },
+    { id: 'streak-7', ico: '📅', title: 'Semana de conquista', hint: 'Revela territorio 7 dias seguidos', test: (p, st) => st.count >= 7 },
+    { id: 'multi-3', ico: '🚴', title: 'Multideporte', hint: 'Registra aventuras de 3 deportes distintos', test: () => false },
+    { id: 'dist-50', ico: '🛤️', title: 'En ruta', hint: 'Recorre 50 km en aventuras', test: () => false },
+    { id: 'dist-250', ico: '🚞', title: 'Viajero incansable', hint: 'Recorre 250 km en aventuras', test: () => false },
+    { id: 'dist-1000', ico: '🚀', title: 'Mil kilometros', hint: 'Recorre 1.000 km en aventuras', test: () => false },
+    { id: 'up-1000', ico: '🧗', title: 'Piernas de acero', hint: 'Acumula 1.000 m de desnivel', test: () => false },
+    { id: 'up-5000', ico: '🦅', title: 'Altitud seria', hint: 'Acumula 5.000 m de desnivel', test: () => false },
+    { id: 'up-8848', ico: '🏔️', title: 'Everest', hint: 'Acumula 8.848 m de desnivel: la altura del Everest', test: () => false },
+    { id: 'wstreak-2', ico: '✅', title: 'Constancia', hint: 'Cumple el objetivo semanal 2 semanas seguidas', test: () => false },
+    { id: 'wstreak-4', ico: '📆', title: 'Mes imparable', hint: 'Cumple el objetivo semanal 4 semanas seguidas', test: () => false },
+    { id: 'wstreak-8', ico: '🗓️', title: 'Dos meses conquistando', hint: 'Cumple el objetivo semanal 8 semanas seguidas', test: () => false },
+    { id: 'wstreak-12', ico: '🏆', title: 'Trimestre de leyenda', hint: 'Cumple el objetivo semanal 12 semanas seguidas', test: () => false },
 ];
 // v1.15: racha de semanas seguidas cumpliendo el objetivo semanal
 interface WeekStreak { last: string; count: number; }
@@ -2372,6 +2372,7 @@ export function App() {
             setWeekly(w); saveJson(WEEK_KEY, w);
             setCelebration((c) => [...c, {
                 id: 'weekly-' + weekly.week,
+                ico: '🎯',
                 title: 'Objetivo semanal cumplido',
                 hint: newPeaks >= WEEK_PEAK
                     ? t(newPeaks === 1 ? 'Has conquistado {n} cima esta semana' : 'Has conquistado {n} cimas esta semana', { n: newPeaks })
@@ -2705,7 +2706,7 @@ export function App() {
         const wk = weekKey(new Date());
         if (weekKmCmp.cur >= goal && weekKmDone !== wk) {
             setWeekKmDone(wk); saveJson(WEEKKM_DONE_KEY, wk);
-            setCelebration((c) => [...c, { id: 'weekkm-' + wk, title: t('Objetivo de distancia cumplido'), hint: t('Has recorrido {km} esta semana', { km: fmtDist(weekKmCmp.cur) }), test: () => true }]);
+            setCelebration((c) => [...c, { id: 'weekkm-' + wk, ico: '🏅', title: t('Objetivo de distancia cumplido'), hint: t('Has recorrido {km} esta semana', { km: fmtDist(weekKmCmp.cur) }), test: () => true }]);
         }
     }, [weekKmCmp.cur, prefs.weekKm]);
     // v1.65: resumen de la semana pasada al primer arranque de la semana
@@ -3186,12 +3187,14 @@ export function App() {
                 <div className="tu-terrnote">{t('Porcentaje de superficie revelada dentro de cada comunidad. Toca "Ver" para abrirla en el mapa.')}</div>
             </section> : null}
 
-            <section className="tu-group"><h2>{t('Logros')}</h2>
+            <section className="tu-group"><h2>{t('Logros')} <small className="tu-dim">{ACHIEVEMENTS.filter((x) => achUnlocked[x.id]).length}/{ACHIEVEMENTS.length}</small></h2>
                 <div className="tu-ach-grid">
                     {ACHIEVEMENTS.map((a) => { const at = achUnlocked[a.id]; const pr = !at ? achProgress[a.id] : undefined; return (
                         <div key={a.id} className={'tu-ach' + (at ? ' on' : '')}>
-                            <b>{at ? '★ ' : ''}{t(a.title)}</b>
+                            <span className="tu-ach-ico" aria-hidden="true">{a.ico}</span>
+                            <b>{t(a.title)}</b>
                             <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}{pr ? ' - ' + (Number.isInteger(pr[0]) ? String(Math.min(pr[0], pr[1])) : dec(Math.min(pr[0], pr[1]), 1)) + '/' + pr[1] : ''}</small>
+                            {!at && pr ? <div className="tu-bar tu-ach-bar"><div style={{ width: Math.min(100, pr[0] / pr[1] * 100).toFixed(0) + '%' }} /></div> : null}
                             {at ? <button className="tu-achshare" title={t('Compartir logro')} aria-label={t('Compartir logro')} onClick={() => { void shareAchievementCard(a); }}>\u2197</button> : null}
                         </div>); })}
                 </div>
