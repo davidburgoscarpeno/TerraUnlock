@@ -2592,17 +2592,20 @@ export function App() {
         const dow = (now.getDay() + 6) % 7;
         const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow).getTime();
         const prevMon = mon - 7 * 86400000;
-        let km = 0, advs = 0; const terr = new Set<string>(); const peaks = new Set<string>();
+        let km = 0, advs = 0; const tc = new Set<string>(), ta = new Set<string>(), tp = new Set<string>(); const peaks = new Set<string>();
         for (const a of adventures) {
             const t0 = new Date(a.start).getTime();
             if (t0 >= prevMon && t0 < mon) {
                 km += a.km; advs += 1;
-                for (const n of [...a.countries, ...a.ccaa, ...a.prov]) terr.add(n);
+                // v1.76: mismo conteo que la tarjeta (nombres unicos por nivel: pais + CCAA + provincia)
+                for (const n of a.countries) tc.add(n);
+                for (const n of a.ccaa) ta.add(n);
+                for (const n of a.prov) tp.add(n);
                 for (const p of a.peaks) peaks.add(p);
             }
         }
         saveJson(RECAP_KEY, weekKey(new Date()));
-        if (km > 0) setRecap({ km, advs, terr: terr.size, peaks: peaks.size });
+        if (km > 0) setRecap({ km, advs, terr: tc.size + ta.size + tp.size, peaks: peaks.size });
     }, []);
     // v1.68: resumen del mes pasado al primer arranque del mes
     const MRECAP_KEY = 'terraunlock.monthrecap.v1';
@@ -2613,17 +2616,20 @@ export function App() {
         if (loadJson<string>(MRECAP_KEY) === mKey) return;
         const first = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         const prevFirst = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
-        let km = 0, advs = 0; const terr = new Set<string>(); const peaks = new Set<string>();
+        let km = 0, advs = 0; const tc = new Set<string>(), ta = new Set<string>(), tp = new Set<string>(); const peaks = new Set<string>();
         for (const a of adventures) {
             const t0 = new Date(a.start).getTime();
             if (t0 >= prevFirst && t0 < first) {
                 km += a.km; advs += 1;
-                for (const n of [...a.countries, ...a.ccaa, ...a.prov]) terr.add(n);
+                // v1.76: mismo conteo que la tarjeta (nombres unicos por nivel)
+                for (const n of a.countries) tc.add(n);
+                for (const n of a.ccaa) ta.add(n);
+                for (const n of a.prov) tp.add(n);
                 for (const p of a.peaks) peaks.add(p);
             }
         }
         saveJson(MRECAP_KEY, mKey);
-        if (km > 0) setMrecap({ km, advs, terr: terr.size, peaks: peaks.size, month: monthName(new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()) });
+        if (km > 0) setMrecap({ km, advs, terr: tc.size + ta.size + tp.size, peaks: peaks.size, month: monthName(new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()) });
     }, []);
     // v1.58: progreso hacia los logros bloqueados numericos
     const achProgress = useMemo(() => {
