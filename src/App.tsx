@@ -2364,6 +2364,18 @@ export function App() {
         }
         return weeks;
     }, [adventures, heatSport]);
+    // v1.71: etiquetas de mes bajo el calendario (cambia cuando el lunes de la columna entra en un mes nuevo)
+    const heatMonths = useMemo(() => {
+        let prev = -1;
+        return heatWeeks.map((col) => {
+            const first = col.find((d) => d !== null);
+            if (!first) return '';
+            const m = parseInt(first.k.slice(5, 7), 10) - 1;
+            if (m === prev) return '';
+            prev = m;
+            return monthName(m).slice(0, 3);
+        });
+    }, [heatWeeks]);
 
     const fmtDurTotal = (ms: number) => {
         const m = Math.round(ms / 60000);
@@ -2796,6 +2808,7 @@ export function App() {
                                 : <span key={wi + '-' + di} className="tu-heatcell future" />)}
                         </div>)}
                     </div>
+                    <div className="tu-heatmonths">{heatMonths.map((m, i) => <span key={i}>{m}</span>)}</div>
                     <div className="tu-heatlegend"><span>{t('Menos')}</span><span className="tu-heatcell lv0" /><span className="tu-heatcell lv1" /><span className="tu-heatcell lv2" /><span className="tu-heatcell lv3" /><span>{t('Mas')}</span></div>
                 </> : <p className="tu-more">{t('Aun no hay actividad: tus dias con aventura apareceran aqui.')}</p>}
             </section>
