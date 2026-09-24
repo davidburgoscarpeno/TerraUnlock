@@ -218,6 +218,11 @@ const EN: Record<string, string> = {
     'En movimiento {dur}': 'Moving time {dur}',
     ' - Pausas {dur}': ' - Pauses {dur}',
     // v1.46: filtro por deporte
+    'Compartir mi ano': 'Share my year', 'TerraUnlock: mi ano': 'TerraUnlock: my year',
+    'El ano de {nombre}': "{nombre}'s year", 'Mi ano de conquista': 'My year of conquest',
+    'desnivel acumulado': 'elevation gained', 'en movimiento': 'moving time',
+    'Tu que has conquistado este ano? davidburgoscarpeno.github.io/TerraUnlock': 'What have you conquered this year? davidburgoscarpeno.github.io/TerraUnlock',
+    'Ano tranquilo... por ahora. Va a durar poco.': 'Quiet year... so far. It will not last.',
     'Este ano': 'This year', '{v} el ano pasado': '{v} last year',
     'Cargar mas ({shown} de {total})': 'Load more ({shown} of {total})',
     'Buscar por nombre, fecha o territorio': 'Search by name, date or territory',
