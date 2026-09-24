@@ -2227,7 +2227,12 @@ export function App() {
     const advElapsed = adv ? (() => { const m = Math.max(0, Math.floor((Date.now() + advTick * 0 - new Date(adv.start).getTime()) / 60000)); return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min'; })() : '';
 
     const km2 = (progress.cells.length * 1.1).toFixed(0);
-    const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p);
+    const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+    // v1.59: las 20 cimas mas altas aun sin conquistar
+    const pendingTopPeaks = useMemo(() => {
+        const won = new Set(progress.peaks);
+        return allPeaks.filter((pk) => !won.has(peakId(pk))).sort((a, b) => b[3] - a[3]).slice(0, 20);
+    }, [allPeaks, progress.peaks]);
 
     // v1.23: estadisticas del mes actual vs el anterior (a partir de las aventuras)
     // v1.37: totales historicos de aventuras (tiempo en movimiento y desnivel)
@@ -2760,6 +2765,18 @@ export function App() {
                     </ol> : <div className="tu-callout"><strong>{t('Nada a menos de 100 km')}</strong><p>{t('No hay cimas del catalogo cerca de tu posicion actual.')}</p></div>
                 ) : <div className="tu-callout"><strong>{t('Que tengo cerca que cuente?')}</strong><p>{t('Dame tu posicion y te listo las cimas conquistables a menos de 100 km, con distancia.')}</p>
                     <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={locateForNearby}>{t('Usar mi posicion')}</button></div></div>}
+            </section>
+
+            <section className="tu-group"><h2>{t('Por conquistar')}</h2>
+                <div className="tu-terrnote" style={{ marginBottom: 6 }}>{t('Las 20 cimas mas altas del catalogo que aun no tienes.')}</div>
+                <ol className="tu-peaklist tu-peaklist-full">
+                    {pendingTopPeaks.map((p, i) => <li key={peakId(p)}>
+                        <span className="tu-num">{i + 1}</span>
+                        <span className="tu-pkname">{p[0]}</span>
+                        <span className="tu-pkele">{p[3]} m</span>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
+                    </li>)}
+                </ol>
             </section>
 
             <section className="tu-group"><h2>{t('Tus cimas')}</h2>
