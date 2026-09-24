@@ -2422,6 +2422,27 @@ export function App() {
             setCelebration((c) => [...c, { id: 'weekkm-' + wk, title: t('Objetivo de distancia cumplido'), hint: t('Has recorrido {km} esta semana', { km: fmtDist(weekKmCmp.cur) }), test: () => true }]);
         }
     }, [weekKmCmp.cur, prefs.weekKm]);
+    // v1.65: resumen de la semana pasada al primer arranque de la semana
+    const RECAP_KEY = 'terraunlock.weekrecap.v1';
+    const [recap, setRecap] = useState<{ km: number; advs: number; terr: number; peaks: number } | null>(null);
+    useEffect(() => {
+        if (loadJson<string>(RECAP_KEY) === weekKey(new Date())) return;
+        const now = new Date();
+        const dow = (now.getDay() + 6) % 7;
+        const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow).getTime();
+        const prevMon = mon - 7 * 86400000;
+        let km = 0, advs = 0; const terr = new Set<string>(); const peaks = new Set<string>();
+        for (const a of adventures) {
+            const t0 = new Date(a.start).getTime();
+            if (t0 >= prevMon && t0 < mon) {
+                km += a.km; advs += 1;
+                for (const n of [...a.countries, ...a.ccaa, ...a.prov]) terr.add(n);
+                for (const p of a.peaks) peaks.add(p);
+            }
+        }
+        saveJson(RECAP_KEY, weekKey(new Date()));
+        if (km > 0) setRecap({ km, advs, terr: terr.size, peaks: peaks.size });
+    }, []);
     // v1.58: progreso hacia los logros bloqueados numericos
     const achProgress = useMemo(() => {
         let kmTot = 0, upTot = 0;
@@ -3003,6 +3024,20 @@ export function App() {
                 </div>
                 <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
                 <button className="tu-terr-x" aria-label={t('Cerrar aviso')} onClick={() => setBanners((b) => b.slice(1))}>×</button>
+            </div>
+        ) : null}
+
+        {recap ? (
+            <div className="tu-celebration">
+                <div className="tu-celeb-card">
+                    <div className="tu-celeb-ico">☀</div>
+                    <h2>{t('Resumen de tu semana')}</h2>
+                    <strong>{t('{km} en {n} aventuras', { km: fmtDist(recap.km), n: recap.advs })}</strong>
+                    <p>{recap.terr > 0 ? t('{n} territorios nuevos', { n: recap.terr }) : t('Sin territorios nuevos')}{recap.peaks > 0 ? t(' - {n} cimas', { n: recap.peaks }) : ''}</p>
+                    <div className="tu-controls" style={{ justifyContent: 'center' }}>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => setRecap(null)}>{t('A por esta semana')}</button>
+                    </div>
+                </div>
             </div>
         ) : null}
 
