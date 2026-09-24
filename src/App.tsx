@@ -2713,6 +2713,27 @@ export function App() {
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [advSummary, importBatch, celebration, recap, mrecap]);
+    // v1.85: foco en dialogos - al abrir va al boton principal y Tab queda atrapado dentro
+    const dialogOpen = advSummary || importBatch || celebration.length || recap || mrecap;
+    useEffect(() => {
+        if (!dialogOpen) return;
+        const dlg = () => { const all = document.querySelectorAll('.tu-celebration[role="dialog"]'); return all.length ? all[all.length - 1] : null; };
+        const d0 = dlg();
+        const primary = d0?.querySelector('button[data-variant="primary"]') as HTMLElement | null;
+        const anyBtn = d0?.querySelector('button') as HTMLElement | null;
+        (primary || anyBtn)?.focus();
+        const onTab = (e: KeyboardEvent) => {
+            if (e.key !== 'Tab') return;
+            const d = dlg(); if (!d) return;
+            const items = [...d.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])')].filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+            if (!items.length) return;
+            const first = items[0], last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        };
+        window.addEventListener('keydown', onTab);
+        return () => window.removeEventListener('keydown', onTab);
+    }, [dialogOpen]);
     useEffect(() => {
         const now = new Date();
         const mKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
