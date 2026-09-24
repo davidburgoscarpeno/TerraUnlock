@@ -1558,6 +1558,18 @@ export function App() {
                 g.fillText(prev === true ? t('{km} en movimiento - semana sin conquistas nuevas', { km: fmtDist(kmW) }) : t('Semana tranquila... por ahora. Va a durar poco.'), 60, cy + 40);
                 cy += 80;
             }
+            // v1.67: progreso del objetivo de distancia semanal (si esta activado en Ajustes)
+            if ((prefs.weekKm || 0) > 0 && cy + 84 <= 1140) {
+                const goal = prefs.weekKm || 0;
+                const cur = prev === true ? kmW : weekKmCmp.cur;
+                g.fillStyle = '#9fb0c0'; g.font = '700 28px ' + FONT;
+                g.fillText(t('OBJETIVO DE DISTANCIA'), 60, cy + 30);
+                g.fillStyle = '#e6edf3'; g.font = '600 26px ' + FONT;
+                g.textAlign = 'right'; g.fillText(fmtDist(Math.min(cur, goal)) + ' / ' + fmtDist(goal), W - 60, cy + 30); g.textAlign = 'left';
+                g.fillStyle = '#101823'; g.beginPath(); g.roundRect(60, cy + 44, W - 120, 16, 8); g.fill();
+                g.fillStyle = cur >= goal ? '#2dc8aa' : '#8fb8d8'; g.beginPath(); g.roundRect(60, cy + 44, Math.max(16, (W - 120) * Math.min(1, cur / goal)), 16, 8); g.fill();
+                cy += 84;
+            }
             // estado del objetivo
             g.fillStyle = done ? '#123a31' : '#101823';
             g.fillRect(60, 1150, W - 120, 84);
