@@ -1587,11 +1587,14 @@ export function App() {
     };
 
     // v1.33: tarjeta PNG del resumen mensual (km, territorios con silueta, cimas)
-    const shareMonthCard = async () => {
+    const shareMonthCard = async (prev?: unknown) => {
         try {
+            // v1.68: prev === true -> tarjeta del MES PASADO (se usa desde el resumen mensual)
             const now = new Date();
             const mStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-            const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= mStart && t0 <= now.getTime(); });
+            const rangeStart = prev === true ? new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime() : mStart;
+            const rangeEnd = prev === true ? mStart : now.getTime();
+            const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= rangeStart && t0 <= rangeEnd; });
             const km = list.reduce((n, a) => n + a.km, 0);
             const terrC = [...new Set(list.flatMap((a) => a.countries))];
             const terrA = [...new Set(list.flatMap((a) => a.ccaa))];
@@ -1617,7 +1620,7 @@ export function App() {
             g.fillStyle = '#2dc8aa'; g.font = '700 34px ' + FONT;
             g.fillText(prefs.nombre.trim() ? t('El mes de {nombre}', { nombre: prefs.nombre.trim() }) : t('Mi mes de conquista'), 224, 170);
             // titulo del mes
-            const mesTitulo = monthName(now.getMonth()) + ' ' + t('de') + ' ' + now.getFullYear();
+            const mesTitulo = (prev === true ? monthName(new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()) + ' ' + t('de') + ' ' + new Date(now.getFullYear(), now.getMonth() - 1, 1).getFullYear() : monthName(now.getMonth()) + ' ' + t('de') + ' ' + now.getFullYear());
             g.fillStyle = '#e6edf3'; g.font = '800 58px ' + FONT;
             g.fillText(mesTitulo.charAt(0).toUpperCase() + mesTitulo.slice(1), 60, 268);
             // numeros grandes en dos filas
@@ -2470,6 +2473,27 @@ export function App() {
         saveJson(RECAP_KEY, weekKey(new Date()));
         if (km > 0) setRecap({ km, advs, terr: terr.size, peaks: peaks.size });
     }, []);
+    // v1.68: resumen del mes pasado al primer arranque del mes
+    const MRECAP_KEY = 'terraunlock.monthrecap.v1';
+    const [mrecap, setMrecap] = useState<{ km: number; advs: number; terr: number; peaks: number; month: string } | null>(null);
+    useEffect(() => {
+        const now = new Date();
+        const mKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        if (loadJson<string>(MRECAP_KEY) === mKey) return;
+        const first = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const prevFirst = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+        let km = 0, advs = 0; const terr = new Set<string>(); const peaks = new Set<string>();
+        for (const a of adventures) {
+            const t0 = new Date(a.start).getTime();
+            if (t0 >= prevFirst && t0 < first) {
+                km += a.km; advs += 1;
+                for (const n of [...a.countries, ...a.ccaa, ...a.prov]) terr.add(n);
+                for (const p of a.peaks) peaks.add(p);
+            }
+        }
+        saveJson(MRECAP_KEY, mKey);
+        if (km > 0) setMrecap({ km, advs, terr: terr.size, peaks: peaks.size, month: monthName(new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()) });
+    }, []);
     // v1.58: progreso hacia los logros bloqueados numericos
     const achProgress = useMemo(() => {
         let kmTot = 0, upTot = 0;
@@ -3051,6 +3075,21 @@ export function App() {
                 </div>
                 <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
                 <button className="tu-terr-x" aria-label={t('Cerrar aviso')} onClick={() => setBanners((b) => b.slice(1))}>×</button>
+            </div>
+        ) : null}
+
+        {mrecap ? (
+            <div className="tu-celebration">
+                <div className="tu-celeb-card">
+                    <div className="tu-celeb-ico">☾</div>
+                    <h2>{t('Resumen de {mes}', { mes: mrecap.month })}</h2>
+                    <strong>{mrecap.advs === 1 ? t('{km} en 1 aventura', { km: fmtDist(mrecap.km) }) : t('{km} en {n} aventuras', { km: fmtDist(mrecap.km), n: mrecap.advs })}</strong>
+                    <p>{mrecap.terr > 0 ? t('{n} territorios nuevos', { n: mrecap.terr }) : t('Sin territorios nuevos')}{mrecap.peaks > 0 ? t(' - {n} cimas', { n: mrecap.peaks }) : ''}</p>
+                    <div className="tu-controls" style={{ justifyContent: 'center' }}>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareMonthCard(true)}>{t('Compartir')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setMrecap(null)}>{t('A por este mes')}</button>
+                    </div>
+                </div>
             </div>
         ) : null}
 

@@ -197,6 +197,7 @@ const EN: Record<string, string> = {
     'Resumen de tu semana': 'Your week in review', '{km} en {n} aventuras': '{km} in {n} adventures', '{km} en 1 aventura': '{km} in 1 adventure', 'Sin territorios nuevos': 'No new territories', ' - {n} cimas': ' - {n} peaks', 'A por esta semana': "Let's go this week",
     '{km} en movimiento - semana sin conquistas nuevas': '{km} on the move - week with no new conquests',
     'OBJETIVO DE DISTANCIA': 'DISTANCE GOAL',
+    'Resumen de {mes}': 'Your {mes} in review', 'A por este mes': "Let's go this month",
     'Datos': 'Data',
     'Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo.': 'Your progress appears here for export; paste a previous one to import it.',
     'Exportar': 'Export', 'Importar': 'Import',
