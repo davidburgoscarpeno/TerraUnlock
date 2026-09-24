@@ -2524,6 +2524,7 @@ export function App() {
                     : t('Aun sin conquistar: pasa a menos de 1 km de la cima para que cuente.')}</p>
                 <div className="tu-controls">
                     <a className="file-button is-compact" data-variant="primary" href={wikilocMapUrl(selectedPeak)} target="_blank" rel="noopener noreferrer">{t('Rutas en Wikiloc')}</a>
+                    <a className="file-button is-compact" data-variant="secondary" href={'https://www.google.com/maps/dir/?api=1&destination=' + selectedPeak[1] + ',' + selectedPeak[2]} target="_blank" rel="noopener noreferrer">{t('Como llegar')}</a>
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedPeak(null)}>{t('Cerrar')}</button>
                 </div>
                 <TerrainCard peak={selectedPeak} />
