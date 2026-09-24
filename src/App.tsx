@@ -476,6 +476,7 @@ export function App() {
     const prefsRef = useRef(prefs); prefsRef.current = prefs;
     const setPrefs = (patch: Partial<Prefs>) => {
         const next = { ...prefsRef.current, ...patch };
+        prefsRef.current = next; // v1.63b: dos setPrefs seguidos en el mismo handler (importar) no se pisan
         if (patch.lang) setLang(patch.lang);
         setPrefsState(next);
         try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* sin espacio */ }
