@@ -198,6 +198,7 @@ const EN: Record<string, string> = {
     '{km} en movimiento - semana sin conquistas nuevas': '{km} on the move - week with no new conquests',
     'OBJETIVO DE DISTANCIA': 'DISTANCE GOAL',
     'Resumen de {mes}': 'Your {mes} in review', 'A por este mes': "Let's go this month",
+    'Acercar el mapa': 'Zoom in', 'Alejar el mapa': 'Zoom out', 'Calendario de actividad de las ultimas 20 semanas: cada celda es un dia, mas intenso es mas distancia.': 'Activity calendar for the last 20 weeks: each cell is a day, more intense means more distance.',
     'Datos': 'Data',
     'Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo.': 'Your progress appears here for export; paste a previous one to import it.',
     'Exportar': 'Export', 'Importar': 'Import',

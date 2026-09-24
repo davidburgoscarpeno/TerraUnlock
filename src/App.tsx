@@ -2575,8 +2575,8 @@ export function App() {
             <button className="file-button is-compact" data-variant="secondary" onClick={centerOnMe}>{t('Centrar en mi')}</button>
             <button className="file-button is-compact" data-variant={simMode ? 'primary' : 'secondary'} onClick={() => setSimMode(!simMode)}>{simMode ? t('Modo prueba: ON') : t('Modo prueba')}</button>
             <button className="file-button is-compact" data-variant={prefs.routes ? 'primary' : 'secondary'} onClick={() => setPrefs({ routes: !prefs.routes })}>{prefs.routes ? t('Rutas: ON') : t('Rutas')}</button>
-            <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, 1)}>+</button>
-            <button className="file-button is-compact" data-variant="secondary" onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, -1)}>-</button>
+            <button className="file-button is-compact" data-variant="secondary" aria-label={t('Acercar el mapa')} onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, 1)}>+</button>
+            <button className="file-button is-compact" data-variant="secondary" aria-label={t('Alejar el mapa')} onClick={() => zoomAt((wrapRef.current?.clientWidth || 0) / 2, (wrapRef.current?.clientHeight || 0) / 2, -1)}>-</button>
             {!adv ? <button className="file-button is-compact" data-variant="primary" onClick={startAdventure}>{t('Empezar aventura')}</button> : null}
         </div>
 
@@ -2802,7 +2802,7 @@ export function App() {
                         <Chip on={heatSport === null} label={t('Todos')} onPick={() => setHeatSport(null)} />
                         {sportsPresent.map((sp) => <Chip key={sp} on={heatSport === sp} label={sportEmoji(sp)} onPick={() => setHeatSport(heatSport === sp ? null : sp)} />)}
                     </div> : null}
-                    <div className="tu-heat">
+                    <div className="tu-heat" role="img" aria-label={t('Calendario de actividad de las ultimas 20 semanas: cada celda es un dia, mas intenso es mas distancia.')}>
                         {heatWeeks.map((w, wi) => <div key={wi} className="tu-heatcol">
                             {w.map((d, di) => d
                                 ? <span key={d.k} className={'tu-heatcell lv' + d.lv} title={d.label + (d.km > 0 ? ' - ' + fmtDist(d.km) + ' - ' + t('toca para filtrar') : '')}
