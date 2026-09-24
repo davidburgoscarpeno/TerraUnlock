@@ -13,6 +13,7 @@ import PaceChart from './PaceChart';
 import { computeProfile, drawProfile } from './adventureProfile';
 import { adventureToGpx, gpxFilename } from './gpxExport';
 import { t, setLang, detectLang, dateLocale, monthName, dec, compass8, LANGS, type Lang } from './i18n';
+import { APP_VERSION } from './version';
 import type { Adventure, AdventureProfile } from './types';
 import { beginStravaConnect, completeStravaConnect, fetchStravaTracks, loadStrava, saveStrava, type StravaConn } from './strava';
 
@@ -2990,7 +2991,7 @@ export function App() {
                 <p className="tu-more">{t('Importar rutas acepta GPX, FIT, .gz sueltos y el ZIP completo de exportacion de Strava o Garmin Connect.')}</p>
             </section>
 
-            <footer className="tu-closing">TerraUnlock v1.43{t(' - tu progreso se guarda en este dispositivo.')}</footer>
+            <footer className="tu-closing">TerraUnlock v{APP_VERSION}{t(' - tu progreso se guarda en este dispositivo.')}</footer>
         </> : null}
 
         {banners.length ? (
