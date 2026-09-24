@@ -2946,7 +2946,7 @@ export function App() {
                 <div className="tu-io">
                     <textarea className="tu-textarea" value={ioText} onChange={(e) => setIoText(e.target.value)} placeholder={t('Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo.')} rows={3} />
                     <div className="tu-controls">
-                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, weekStreak, adventures, profile: { nombre: prefs.nombre, avatar } }))}>{t('Exportar')}</button>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => setIoText(JSON.stringify({ v: 2, progress: progressRef.current, achievements: achUnlocked, streak, weekStreak, adventures, profile: { nombre: prefs.nombre, avatar }, prefs: { fog: prefs.fog, peakLabels: prefs.peakLabels, units: prefs.units, lang: prefs.lang, theme: prefs.theme, weekKm: prefs.weekKm } }))}>{t('Exportar')}</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                             try {
                                 const data = JSON.parse(ioText);
@@ -2958,6 +2958,16 @@ export function App() {
                                     if (data.streak && typeof data.streak.count === 'number') { setStreak(data.streak); saveJson(STREAK_KEY, data.streak); }
                                     if (Array.isArray(data.adventures)) { setAdventures(data.adventures); saveJson(ADVS_KEY, data.adventures); }
                     if (data.weekStreak && typeof data.weekStreak.count === 'number') { setWeekStreak(data.weekStreak); saveJson(WSTREAK_KEY, data.weekStreak); }
+                                    if (data.prefs && typeof data.prefs === 'object') {
+                                        const sp = data.prefs as Record<string, unknown>; const patch: Partial<Prefs> = {};
+                                        if (typeof sp.fog === 'number') patch.fog = sp.fog as number;
+                                        if (typeof sp.peakLabels === 'boolean') patch.peakLabels = sp.peakLabels as boolean;
+                                        if (sp.units === 'metric' || sp.units === 'imperial') patch.units = sp.units;
+                                        if (sp.lang === 'es' || sp.lang === 'en') patch.lang = sp.lang;
+                                        if (sp.theme === 'dark' || sp.theme === 'light') patch.theme = sp.theme;
+                                        if (typeof sp.weekKm === 'number') patch.weekKm = sp.weekKm as number;
+                                        if (Object.keys(patch).length) setPrefs(patch);
+                                    }
                                     if (data.profile && typeof data.profile === 'object') {
                                         if (typeof data.profile.nombre === 'string') setPrefs({ nombre: data.profile.nombre });
                                         if (typeof data.profile.avatar === 'string') setAvatar(data.profile.avatar);
