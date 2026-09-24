@@ -2644,7 +2644,13 @@ export function App() {
                     <div className="tu-heat">
                         {heatWeeks.map((w, wi) => <div key={wi} className="tu-heatcol">
                             {w.map((d, di) => d
-                                ? <span key={d.k} className={'tu-heatcell lv' + d.lv} title={d.label + (d.km > 0 ? ' - ' + fmtDist(d.km) : '')} />
+                                ? <span key={d.k} className={'tu-heatcell lv' + d.lv} title={d.label + (d.km > 0 ? ' - ' + fmtDist(d.km) + ' - ' + t('toca para filtrar') : '')}
+                                    style={d.km > 0 ? { cursor: 'pointer' } : undefined}
+                                    onClick={d.km > 0 ? () => {
+                                        const ds = new Date(d.k + 'T12:00:00').toLocaleDateString(dateLocale());
+                                        setAdvQuery((q) => q === ds ? '' : ds);
+                                        document.getElementById('tu-advsec')?.scrollIntoView({ block: 'start' });
+                                    } : undefined} />
                                 : <span key={wi + '-' + di} className="tu-heatcell future" />)}
                         </div>)}
                     </div>
@@ -2674,7 +2680,7 @@ export function App() {
                 </div>
             </section>
 
-            <section className="tu-group"><h2>{t('Aventuras')}</h2>
+            <section className="tu-group" id="tu-advsec"><h2>{t('Aventuras')}</h2>
                 <div className="tu-terrnote" style={{ marginBottom: 6 }}>{adventures.length ? t('Toca una aventura para ver su perfil de elevacion.') : t('Aun no hay aventuras: empieza una desde el mapa o importa un GPX.')}</div>
                 <div className="tu-controls" style={{ marginBottom: 8 }}>
                     <label className="file-button is-compact" data-variant="secondary">{t('Importar GPX como aventura')}

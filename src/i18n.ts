@@ -230,6 +230,7 @@ const EN: Record<string, string> = {
     'Altitud seria': 'Serious altitude', 'Acumula 5.000 m de desnivel': 'Accumulate 5,000 m of elevation gain',
     'Everest': 'Everest', 'Acumula 8.848 m de desnivel: la altura del Everest': 'Accumulate 8,848 m of elevation gain: the height of Everest',
     'Llevas {a} esta semana - la pasada a estas alturas: {b}': 'You have {a} this week - last week by now: {b}',
+    'toca para filtrar': 'tap to filter',
     'Records': 'Personal records', 'Aventura mas larga': 'Longest adventure', 'Mayor desnivel': 'Most elevation',
     'Mejor ritmo medio': 'Best average pace', 'Dia con mas territorios': 'Most territories in a day',
     'Este ano': 'This year', '{v} el ano pasado': '{v} last year',
