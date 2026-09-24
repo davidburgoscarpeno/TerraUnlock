@@ -2271,6 +2271,24 @@ export function App() {
     const adventuresRef = useRef(adventures); adventuresRef.current = adventures;
     // v1.15: racha de objetivos semanales cumplidos seguidos
     const [weekStreak, setWeekStreak] = useState<WeekStreak>(() => loadJson<WeekStreak>(WSTREAK_KEY) || { last: '', count: 0 });
+    // v1.77: instalacion PWA (beforeinstallprompt en Android/desktop, instrucciones manuales en iOS)
+    const deferredInstall = useRef<{ prompt: () => void; userChoice: Promise<{ outcome: string }> } | null>(null);
+    const [canInstall, setCanInstall] = useState(false);
+    const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream, []);
+    const isStandalone = useMemo(() => window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true, []);
+    useEffect(() => {
+        const onBIP = (e: Event) => { e.preventDefault(); deferredInstall.current = e as unknown as { prompt: () => void; userChoice: Promise<{ outcome: string }> }; setCanInstall(true); };
+        const onInstalled = () => { deferredInstall.current = null; setCanInstall(false); };
+        window.addEventListener('beforeinstallprompt', onBIP);
+        window.addEventListener('appinstalled', onInstalled);
+        return () => { window.removeEventListener('beforeinstallprompt', onBIP); window.removeEventListener('appinstalled', onInstalled); };
+    }, []);
+    const installApp = async () => {
+        const e = deferredInstall.current; if (!e) return;
+        e.prompt();
+        try { await e.userChoice; } catch { /* ignorado */ }
+        deferredInstall.current = null; setCanInstall(false);
+    };
     // v1.9: objetivo semanal automatico (3 territorios nuevos o 1 cima; se reinicia cada lunes)
     const [weekly, setWeekly] = useState<WeeklyGoal>(() => {
         const saved = loadJson<WeeklyGoal>(WEEK_KEY);
@@ -3047,6 +3065,10 @@ export function App() {
         </> : null}
 
         {tab === 'ajustes' ? <>
+            {!isStandalone && (canInstall || isIOS) ? <section className="tu-group"><h2>{t('Instalar la app')}</h2>
+                {canInstall ? <button className="file-button is-compact" data-variant="primary" style={{ alignSelf: 'flex-start' }} onClick={() => { void installApp(); }}>{t('Instalar TerraUnlock en este dispositivo')}</button> : null}
+                {isIOS ? <small className="tu-dim">{t('En iPhone o iPad: abre TerraUnlock en Safari, pulsa Compartir y elige Anadir a pantalla de inicio.')}</small> : null}
+            </section> : null}
             <section className="tu-group"><h2>{t('Perfil')}</h2>
                 <div className="tu-setrow">
                     {avatar ? <img className="tu-avatar tu-avatar-img" src={avatar} alt="Tu foto de perfil" /> : <div className="tu-avatar">{(prefs.nombre.trim()[0] || '?').toUpperCase()}</div>}
