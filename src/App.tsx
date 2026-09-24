@@ -1593,6 +1593,109 @@ export function App() {
         }
     };
 
+    // v1.75: tarjeta PNG del calendario de actividad (heatmap de 20 semanas)
+    const shareHeatCard = async () => {
+        try {
+            // mismos datos que el calendario de Progreso, siempre con TODOS los deportes
+            const days = new Map<string, number>();
+            for (const a of adventures) {
+                const d = new Date(a.start);
+                if (!isFinite(d.getTime())) continue;
+                const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                days.set(k, (days.get(k) || 0) + a.km);
+            }
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const dow = (today.getDay() + 6) % 7;
+            const end = new Date(today); end.setDate(end.getDate() + (6 - dow));
+            const start = new Date(end); start.setDate(start.getDate() - 20 * 7 + 1);
+            const weeks: ({ k: string; km: number } | null)[][] = [];
+            let totalKm = 0, activeDays = 0, bestKm = 0, bestK = '';
+            const cur = new Date(start);
+            while (cur <= end) {
+                const col: ({ k: string; km: number } | null)[] = [];
+                for (let i = 0; i < 7; i++) {
+                    if (cur > today) { col.push(null); cur.setDate(cur.getDate() + 1); continue; }
+                    const k = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+                    const km = days.get(k) || 0;
+                    if (km > 0) { totalKm += km; activeDays += 1; if (km > bestKm) { bestKm = km; bestK = k; } }
+                    col.push({ k, km });
+                    cur.setDate(cur.getDate() + 1);
+                }
+                weeks.push(col);
+            }
+            const W = 1080, H = 1350;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            const avImg = avatar ? await new Promise<HTMLImageElement | null>((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = avatar; }) : null;
+            g.save();
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.closePath(); g.clip();
+            if (avImg) g.drawImage(avImg, 60, 48, 128, 128);
+            else { g.fillStyle = '#14755f'; g.fillRect(60, 48, 128, 128); g.fillStyle = '#fff'; g.font = '700 64px -apple-system, Segoe UI, Roboto, sans-serif'; g.textAlign = 'center'; g.fillText((prefs.nombre.trim()[0] || '?').toUpperCase(), 124, 134); g.textAlign = 'left'; }
+            g.restore();
+            g.strokeStyle = 'rgba(45,200,170,0.8)'; g.lineWidth = 4;
+            g.beginPath(); g.arc(124, 112, 64, 0, Math.PI * 2); g.stroke();
+            g.fillStyle = '#e6edf3'; g.font = '800 62px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText('TerraUnlock', 224, 110);
+            g.fillStyle = '#2dc8aa'; g.font = '700 34px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(prefs.nombre.trim() ? t('La actividad de {nombre}', { nombre: prefs.nombre.trim() }) : t('Mi actividad de conquista'), 224, 170);
+            g.fillStyle = '#9fb0c0'; g.font = '600 30px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(t('Ultimas 20 semanas'), 60, 250);
+            // numeros grandes
+            g.fillStyle = '#2dc8aa'; g.font = '800 110px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(fmtDist(totalKm), 60, 400);
+            g.font = '700 38px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(t('km recorridos'), 60, 456);
+            g.fillStyle = '#e8cd6e'; g.font = '800 110px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(String(activeDays), 560, 400);
+            g.font = '700 38px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(activeDays === 1 ? t('dia activo') : t('dias activos'), 560, 456);
+            // grid del heatmap
+            const cell = 38, gap = 10, step = cell + gap;
+            const gx = 60, gy = 520;
+            const LV = ['#161c26', 'rgba(45,200,170,0.30)', 'rgba(45,200,170,0.60)', '#2dc8aa'];
+            weeks.forEach((col, wi) => {
+                col.forEach((d, di) => {
+                    if (!d) return;
+                    const lv = d.km <= 0 ? 0 : d.km < 5 ? 1 : d.km < 15 ? 2 : 3;
+                    g.fillStyle = LV[lv];
+                    g.beginPath(); g.roundRect(gx + wi * step, gy + di * step, cell, cell, 7); g.fill();
+                });
+            });
+            // etiquetas de mes
+            g.fillStyle = '#5c7080'; g.font = '600 22px -apple-system, Segoe UI, Roboto, sans-serif';
+            let prevM = -1;
+            weeks.forEach((col, wi) => {
+                const first = col.find((d) => d !== null);
+                if (!first) return;
+                const m = parseInt(first.k.slice(5, 7), 10) - 1;
+                if (m === prevM) return;
+                prevM = m;
+                g.fillText(monthName(m).slice(0, 3), gx + wi * step, gy + 7 * step + 26);
+            });
+            // mejor dia
+            let cy2 = gy + 7 * step + 90;
+            g.fillStyle = '#9fb0c0'; g.font = '700 28px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(t('MEJOR DIA'), 60, cy2 + 30);
+            if (bestK) {
+                const bd = new Date(bestK + 'T12:00:00');
+                g.fillStyle = '#e6edf3'; g.font = '600 34px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(fmtDist(bestKm) + ' - ' + bd.toLocaleDateString(dateLocale()), 60, cy2 + 76);
+            } else {
+                g.fillStyle = '#e6edf3'; g.font = '600 34px -apple-system, Segoe UI, Roboto, sans-serif';
+                g.fillText(t('Aun sin actividad: el primer paso es el que cuenta.'), 60, cy2 + 76);
+            }
+            g.fillStyle = '#5c7080'; g.font = '600 26px -apple-system, Segoe UI, Roboto, sans-serif';
+            g.fillText(t('Y tu? Empieza a conquistar: davidburgoscarpeno.github.io/TerraUnlock'), 60, H - 42);
+            const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
+            if (!blob) { setToast(t('No se pudo generar la tarjeta')); return; }
+            await shareBlob(blob, 'terraunlock-actividad.png', t('TerraUnlock: mi actividad'));
+        } catch (e) {
+            if (e instanceof Error && e.name === 'AbortError') return;
+            setToast(t('No se pudo compartir la tarjeta'));
+        }
+    };
+
     // v1.33: tarjeta PNG del resumen mensual (km, territorios con silueta, cimas)
     const shareMonthCard = async (prev?: unknown) => {
         try {
@@ -2826,6 +2929,7 @@ export function App() {
                     </div>
                     <div className="tu-heatmonths">{heatMonths.map((m, i) => <span key={i}>{m}</span>)}</div>
                     <div className="tu-heatlegend"><span>{t('Menos')}</span><span className="tu-heatcell lv0" /><span className="tu-heatcell lv1" /><span className="tu-heatcell lv2" /><span className="tu-heatcell lv3" /><span>{t('Mas')}</span></div>
+                    <div className="tu-controls" style={{ marginTop: 8 }}><button className="file-button" data-variant="primary" onClick={shareHeatCard}>{t('Compartir mi actividad')}</button></div>
                 </> : <p className="tu-more">{t('Aun no hay actividad: tus dias con aventura apareceran aqui.')}</p>}
             </section>
 

@@ -199,6 +199,7 @@ const EN: Record<string, string> = {
     'OBJETIVO DE DISTANCIA': 'DISTANCE GOAL',
     'Resumen de {mes}': 'Your {mes} in review', 'A por este mes': "Let's go this month",
     'Sin actividad de este deporte este ano': 'No activity for this sport this year', 'Todavia no hay aventuras de este tipo en {y}.': 'No adventures of this type in {y} yet.',
+    'Compartir mi actividad': 'Share my activity', 'La actividad de {nombre}': "{nombre}'s activity", 'Mi actividad de conquista': 'My conquest activity', 'Ultimas 20 semanas': 'Last 20 weeks', 'dia activo': 'active day', 'dias activos': 'active days', 'MEJOR DIA': 'BEST DAY', 'Aun sin actividad: el primer paso es el que cuenta.': 'No activity yet: the first step is the one that counts.', 'Y tu? Empieza a conquistar: davidburgoscarpeno.github.io/TerraUnlock': 'And you? Start conquering: davidburgoscarpeno.github.io/TerraUnlock', 'TerraUnlock: mi actividad': 'TerraUnlock: my activity',
     'Acercar el mapa': 'Zoom in', 'Alejar el mapa': 'Zoom out', 'Calendario de actividad de las ultimas 20 semanas: cada celda es un dia, mas intenso es mas distancia.': 'Activity calendar for the last 20 weeks: each cell is a day, more intense means more distance.',
     'Datos': 'Data',
     'Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo.': 'Your progress appears here for export; paste a previous one to import it.',
