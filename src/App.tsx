@@ -1688,6 +1688,15 @@ export function App() {
             big('+' + up + ' m', t('desnivel acumulado'), 60, 850, '#e8cd6e');
             big(fmtDur(move), t('en movimiento'), 560, 850, '#8fb8d8');
             let cy = 940;
+            // v1.52: desglose por deporte si hay mas de uno
+            const ySports = new Map<Sport, number>();
+            for (const a of list) { const sp = advSport(a); if (sp) ySports.set(sp, (ySports.get(sp) || 0) + a.km); }
+            if (ySports.size > 1) {
+                const line = [...ySports.entries()].sort((a, b) => b[1] - a[1]).map(([sp, k2]) => sportEmoji(sp) + ' ' + dec(k2, 1) + ' km').join('   ');
+                g.fillStyle = '#9fb0c0'; g.font = '600 34px ' + FONT;
+                g.fillText(line, 60, cy + 8);
+                cy += 60;
+            }
             const newRegsCard: { rg: Region; lvl: string; stroke: string }[] = [];
             for (const n of terrC) { const rg = COUNTRIES.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Pais'), stroke: '#7ee0c8' }); }
             for (const n of terrA) { const rg = CCAA.find((r) => r.n === n); if (rg) newRegsCard.push({ rg, lvl: t('Comunidad'), stroke: '#e8cd6e' }); }
