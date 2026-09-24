@@ -2409,12 +2409,14 @@ export function App() {
         return { cur: agg(mStart, now.getTime() + 60000), prev: agg(pStart, mStart), month: monthName(now.getMonth()) };
     })();
     // v1.50: el ano en numeros (vs ano anterior)
+    // v1.74: estadisticas del ano por deporte
+    const [yearSport, setYearSport] = useState<Sport | null>(null);
     const yearStats = (() => {
         const now = new Date();
         const yStart = new Date(now.getFullYear(), 0, 1).getTime();
         const pStart = new Date(now.getFullYear() - 1, 0, 1).getTime();
         const agg = (lo: number, hi: number) => {
-            const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= lo && t0 < hi; });
+            const list = adventures.filter((a) => { const t0 = new Date(a.start).getTime(); return t0 >= lo && t0 < hi && (!yearSport || advSport(a) === yearSport); });
             let move = 0;
             for (const a of list) { const mv = movingStats(a); if (mv) move += mv.moveMs; }
             return {
@@ -2768,7 +2770,13 @@ export function App() {
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareMonthCard}>{t('Compartir mi mes')}</button></div>
             </section>
 
-            {yearStats.cur.n ? <section className="tu-group"><h2>{t('Este ano')} · {yearStats.year}</h2>
+            {yearStats.cur.n || (yearSport && sportsPresent.length > 1) ? <section className="tu-group"><h2>{t('Este ano')} · {yearStats.year}</h2>
+                {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
+                    <Chip on={yearSport === null} label={t('Todos')} onPick={() => setYearSport(null)} />
+                    {sportsPresent.map((sp) => <Chip key={sp} on={yearSport === sp} label={sportEmoji(sp)} onPick={() => setYearSport(yearSport === sp ? null : sp)} />)}
+                </div> : null}
+                {!yearStats.cur.n ? <div className="tu-callout"><strong>{t('Sin actividad de este deporte este ano')}</strong><p>{t('Todavia no hay aventuras de este tipo en {y}.', { y: yearStats.year })}</p></div> : null}
+            {yearStats.cur.n ? <>
                 <dl className="tu-factsdl">{([
                     { label: t('Distancia'), value: fmtDist(yearStats.cur.km), prev: fmtDist(yearStats.prev.km) },
                     { label: t('Aventuras'), value: String(yearStats.cur.n), prev: String(yearStats.prev.n) },
@@ -2778,6 +2786,7 @@ export function App() {
                     ...(yearStats.cur.move ? [{ label: t('Tiempo en movimiento'), value: fmtDur(yearStats.cur.move), prev: fmtDur(yearStats.prev.move) }] : []),
                 ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el ano pasado', { v: f.prev })}</small></dd></div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareYearCard}>{t('Compartir mi ano')}</button></div>
+            </> : null}
             </section> : null}
 
             {records || (recSport && sportsPresent.length > 1) ? <section className="tu-group"><h2>{t('Records')}</h2>
