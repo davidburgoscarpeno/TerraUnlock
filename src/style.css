@@ -294,5 +294,5 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-cta:active { transform: scale(0.98); }
 .tu-cta-ico { font-size: 14px; }
 .tu-nextach-body { display: flex; flex-direction: column; gap: 6px; }
-.tu-nextach-bar { width: 100%; }
+.tu-nextach-bar { width: 100%; flex-basis: auto; }
 .tu-home-actions { margin-top: 4px; }
