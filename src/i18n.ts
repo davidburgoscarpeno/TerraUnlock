@@ -223,6 +223,8 @@ const EN: Record<string, string> = {
     'desnivel acumulado': 'elevation gained', 'en movimiento': 'moving time',
     'Tu que has conquistado este ano? davidburgoscarpeno.github.io/TerraUnlock': 'What have you conquered this year? davidburgoscarpeno.github.io/TerraUnlock',
     'Ano tranquilo... por ahora. Va a durar poco.': 'Quiet year... so far. It will not last.',
+    'Records': 'Personal records', 'Aventura mas larga': 'Longest adventure', 'Mayor desnivel': 'Most elevation',
+    'Mejor ritmo medio': 'Best average pace', 'Dia con mas territorios': 'Most territories in a day',
     'Este ano': 'This year', '{v} el ano pasado': '{v} last year',
     'Cargar mas ({shown} de {total})': 'Load more ({shown} of {total})',
     'Buscar por nombre, fecha o territorio': 'Search by name, date or territory',

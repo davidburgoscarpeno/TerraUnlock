@@ -2344,6 +2344,26 @@ export function App() {
         };
         return { cur: agg(yStart, now.getTime() + 60000), prev: agg(pStart, yStart), year: now.getFullYear() };
     })();
+    // v1.53: records personales
+    const records = (() => {
+        if (!adventures.length) return null;
+        const byDay = new Map<string, { terr: number; first: Adventure }>();
+        let larga: Adventure | null = null, desnivel: Adventure | null = null, ritmo: { a: Adventure; pace: number } | null = null;
+        for (const a of adventures) {
+            if (!larga || a.km > larga.km) larga = a;
+            if ((a.profile?.up || 0) > (desnivel?.profile?.up || 0)) desnivel = a;
+            const ps = paceStats(a, imp);
+            if (ps && (!ritmo || ps.avg < ritmo.pace)) ritmo = { a, pace: ps.avg };
+            const day = a.start.slice(0, 10);
+            const terr = a.countries.length + a.ccaa.length + a.prov.length;
+            const cur = byDay.get(day);
+            if (!cur) byDay.set(day, { terr, first: a });
+            else cur.terr += terr;
+        }
+        let diaBest: { day: string; terr: number; first: Adventure } | null = null;
+        for (const [day, v] of byDay) if (v.terr > 0 && (!diaBest || v.terr > diaBest.terr)) diaBest = { day, terr: v.terr, first: v.first };
+        return { larga, desnivel, ritmo, diaBest };
+    })();
 
     return <div className="tu-app">
         {tab === 'mapa' ? <>
@@ -2577,6 +2597,15 @@ export function App() {
                     ...(yearStats.cur.move ? [{ label: t('Tiempo en movimiento'), value: fmtDur(yearStats.cur.move), prev: fmtDur(yearStats.prev.move) }] : []),
                 ]).map((f) => <div key={f.label} className="tu-factrow"><dt>{f.label}</dt><dd>{f.value} <small style={{ fontWeight: 400, opacity: 0.6 }}>{t('{v} el ano pasado', { v: f.prev })}</small></dd></div>)}</dl>
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareYearCard}>{t('Compartir mi ano')}</button></div>
+            </section> : null}
+
+            {records ? <section className="tu-group"><h2>{t('Records')}</h2>
+                <ol className="tu-peaklist">
+                    {records.larga ? <li className="tu-advrow" onClick={() => setAdvOpen(records.larga!.start)}><span className="tu-pkname">{t('Aventura mas larga')}<small>{records.larga.name || new Date(records.larga.start).toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">{fmtDist(records.larga.km)}</span></li> : null}
+                    {records.desnivel && (records.desnivel.profile?.up || 0) > 0 ? <li className="tu-advrow" onClick={() => setAdvOpen(records.desnivel!.start)}><span className="tu-pkname">{t('Mayor desnivel')}<small>{records.desnivel.name || new Date(records.desnivel.start).toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">+{records.desnivel.profile!.up} m</span></li> : null}
+                    {records.ritmo ? <li className="tu-advrow" onClick={() => setAdvOpen(records.ritmo!.a.start)}><span className="tu-pkname">{t('Mejor ritmo medio')}<small>{records.ritmo.a.name || new Date(records.ritmo.a.start).toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">{fmtPace(records.ritmo.pace, imp)}</span></li> : null}
+                    {records.diaBest ? <li className="tu-advrow" onClick={() => setAdvOpen(records.diaBest!.first.start)}><span className="tu-pkname">{t('Dia con mas territorios')}<small>{new Date(records.diaBest.day + 'T12:00:00').toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">+{records.diaBest.terr}</span></li> : null}
+                </ol>
             </section> : null}
 
             <section className="tu-group"><h2>{t('Actividad')}</h2>
