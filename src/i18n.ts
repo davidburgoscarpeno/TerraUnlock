@@ -399,6 +399,8 @@ const EN: Record<string, string> = {
 
     'Si Strava te da Error 403 de limite de deportistas, el cupo de conexion esta lleno y ya lo estamos ampliando. Mientras tanto, importa tus rutas con GPX, FIT o el ZIP de exportacion de Strava desde la seccion Importar rutas.': 'If Strava shows an Error 403 athlete limit, the connection quota is full and we are already expanding it. In the meantime, import your routes with GPX, FIT or the Strava export ZIP from the Import routes section.',
     'Conexion con Strava cancelada': 'Strava connection cancelled',
+    'Tu cima mas alta': 'Your highest peak',
+    'Metros de cima': 'Peak meters',
 };
 // v1.83: frances (tercer idioma)
 const FR: Record<string, string> = {
@@ -876,6 +878,9 @@ const FR: Record<string, string> = {
 
     'Si Strava te da Error 403 de limite de deportistas, el cupo de conexion esta lleno y ya lo estamos ampliando. Mientras tanto, importa tus rutas con GPX, FIT o el ZIP de exportacion de Strava desde la seccion Importar rutas.': 'Si Strava affiche une erreur 403 de limite d athletes, le quota de connexion est plein et nous l agrandissons deja. En attendant, importez vos parcours en GPX, FIT ou le ZIP d export Strava depuis la section Importer des parcours.',
     'Conexion con Strava cancelada': 'Connexion Strava annulee',
+    'Cimas conquistadas': 'Sommets conquis',
+    'Tu cima mas alta': 'Ton plus haut sommet',
+    'Metros de cima': 'Metres de sommet',
 };
 
 
