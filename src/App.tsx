@@ -2379,6 +2379,21 @@ export function App() {
         for (const [day, v] of byDay) if (v.terr > 0 && (!diaBest || v.terr > diaBest.terr)) diaBest = { day, terr: v.terr, first: v.first };
         return { larga, desnivel, ritmo, diaBest };
     })();
+    // v1.55: ritmo de la semana vs la pasada a estas alturas
+    const weekKmCmp = (() => {
+        const now = new Date();
+        const dow = (now.getDay() + 6) % 7;
+        const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow).getTime();
+        const elapsed = now.getTime() - mon;
+        const prev = mon - 7 * 86400000;
+        let cur = 0, ant = 0;
+        for (const a of adventures) {
+            const t0 = new Date(a.start).getTime();
+            if (t0 >= mon && t0 <= now.getTime()) cur += a.km;
+            else if (t0 >= prev && t0 <= prev + elapsed) ant += a.km;
+        }
+        return { cur, ant };
+    })();
 
     return <div className="tu-app">
         {tab === 'mapa' ? <>
@@ -2432,6 +2447,7 @@ export function App() {
             return <div className={done ? 'tu-callout tu-week done' : 'tu-callout tu-week'}>
                 <strong>{done ? t('Objetivo semanal cumplido') : t('Objetivo de la semana')} <small style={{ fontWeight: 400, opacity: 0.75 }}>{done ? t('a por la siguiente') : left === 0 ? t('hoy es el ultimo dia') : t(left === 1 ? 'quedan 1 dia' : 'quedan {n} dias', { n: left })}{weekStreak.count > 0 ? t(weekStreak.count === 1 ? ' - racha: {n} semana' : ' - racha: {n} semanas', { n: weekStreak.count }) : ''}</small></strong>
                 <p>{t('Desbloquea {t} territorios nuevos o conquista {p} cima antes del lunes.', { t: WEEK_TERR, p: WEEK_PEAK })}</p>
+                {(weekKmCmp.cur > 0 || weekKmCmp.ant > 0) ? <p className="tu-more">{t('Llevas {a} esta semana - la pasada a estas alturas: {b}', { a: fmtDist(weekKmCmp.cur), b: fmtDist(weekKmCmp.ant) })}</p> : null}
                 <div className="tu-weekbars">
                     <span className="tu-weeklbl">{t('Territorios')} {Math.min(terr, WEEK_TERR)}/{WEEK_TERR}</span>
                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, terr / WEEK_TERR * 100).toFixed(0) + '%' }} /></span>
