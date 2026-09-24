@@ -387,6 +387,9 @@ const EN: Record<string, string> = {
     "Caminar": "Walking",
     "Senderismo": "Hiking",
 
+    "Ritmo mensual": "Monthly pace",
+    "Distancia por mes de los ultimos 12 meses": "Distance per month for the last 12 months",
+
 };
 // v1.83: frances (tercer idioma)
 const FR: Record<string, string> = {
@@ -852,6 +855,9 @@ const FR: Record<string, string> = {
     "Ciclismo": "Cyclisme",
     "Caminar": "Marche",
     "Senderismo": "Randonnée",
+    "Ritmo mensual": "Rythme mensuel",
+    "Distancia por mes de los ultimos 12 meses": "Distance par mois sur les 12 derniers mois",
+
 };
 
 

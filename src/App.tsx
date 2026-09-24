@@ -2587,6 +2587,23 @@ export function App() {
     // v1.50: el ano en numeros (vs ano anterior)
     // v1.74: estadisticas del ano por deporte
     const [yearSport, setYearSport] = useState<Sport | null>(null);
+    // v1.84: ritmo mensual (barras de distancia de los ultimos 12 meses, respeta el filtro de deporte del ano)
+    const monthlyBars = useMemo(() => {
+        const now = new Date();
+        const out: { key: string; label: string; km: number; cur: boolean }[] = [];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            out.push({ key: d.getFullYear() + '-' + d.getMonth(), label: monthName(d.getMonth()), km: 0, cur: i === 0 });
+        }
+        const idx = new Map(out.map((m, i) => [m.key, i] as [string, number]));
+        for (const a of adventures) {
+            if (yearSport && advSport(a) !== yearSport) continue;
+            const d = new Date(a.start);
+            const i = idx.get(d.getFullYear() + '-' + d.getMonth());
+            if (i != null) out[i].km += a.km;
+        }
+        return out;
+    }, [adventures, yearSport]);
     const yearStats = (() => {
         const now = new Date();
         const yStart = new Date(now.getFullYear(), 0, 1).getTime();
@@ -3000,6 +3017,15 @@ export function App() {
             </> : null}
             </section> : null}
 
+            {monthlyBars.some((m) => m.km > 0) ? <section className="tu-group"><h2>{t('Ritmo mensual')}</h2>
+                <div className="tu-mbars" role="img" aria-label={t('Distancia por mes de los ultimos 12 meses')}>
+                    {(() => { const max = Math.max(0.1, ...monthlyBars.map((x) => x.km)); return monthlyBars.map((m) => (
+                        <div key={m.key} className="tu-mbar" title={m.label + ': ' + dec(m.km, 1) + ' km'}>
+                            <div className={'tu-mbar-fill' + (m.cur ? ' cur' : '')} style={{ height: Math.max(2, Math.round(m.km / max * 100)) + '%' }} />
+                            <small>{m.label.slice(0, 1).toUpperCase()}</small>
+                        </div>)); })()}
+                </div>
+            </section> : null}
             <section className="tu-group"><h2>{t('Actividad')}</h2>
                 {adventures.length ? <>
                     {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
