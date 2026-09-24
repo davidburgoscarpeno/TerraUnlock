@@ -2373,6 +2373,19 @@ export function App() {
         advRef.current = a; setAdv(a); saveJson(ADV_ACTIVE_KEY, a);
         setToast(t('Aventura empezada: sal a conquistar'));
     };
+    // v1.82: atajos de la app instalada (manifest shortcuts): ?accion=empezar|progreso
+    useEffect(() => {
+        try {
+            const q = new URLSearchParams(window.location.search);
+            const acc = q.get('accion');
+            if (!acc) return;
+            window.history.replaceState(null, '', window.location.pathname);
+            if (acc === 'empezar') { setTab('mapa'); if (!advRef.current) startAdventure(); }
+            else if (acc === 'progreso') setTab('progreso');
+        } catch { /* parametro ignorado */ }
+        // solo al montar
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const endAdventure = () => {
         const a = advRef.current;
         if (!a) return;
