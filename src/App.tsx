@@ -3032,7 +3032,7 @@ export function App() {
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">☀</div>
                     <h2>{t('Resumen de tu semana')}</h2>
-                    <strong>{t('{km} en {n} aventuras', { km: fmtDist(recap.km), n: recap.advs })}</strong>
+                    <strong>{recap.advs === 1 ? t('{km} en 1 aventura', { km: fmtDist(recap.km) }) : t('{km} en {n} aventuras', { km: fmtDist(recap.km), n: recap.advs })}</strong>
                     <p>{recap.terr > 0 ? t('{n} territorios nuevos', { n: recap.terr }) : t('Sin territorios nuevos')}{recap.peaks > 0 ? t(' - {n} cimas', { n: recap.peaks }) : ''}</p>
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
                         <button className="file-button is-compact" data-variant="primary" onClick={() => setRecap(null)}>{t('A por esta semana')}</button>

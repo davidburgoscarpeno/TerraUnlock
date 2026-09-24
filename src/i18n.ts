@@ -194,7 +194,7 @@ const EN: Record<string, string> = {
     'Objetivo de distancia': 'Distance goal', 'Kilometros por semana': 'Kilometers per week',
     'Te aviso cuando la alcances. Se reinicia cada lunes.': 'I will let you know when you reach it. Resets every Monday.',
     'Objetivo de distancia cumplido': 'Distance goal reached', 'Has recorrido {km} esta semana': 'You have covered {km} this week', 'No': 'Off',
-    'Resumen de tu semana': 'Your week in review', '{km} en {n} aventuras': '{km} in {n} adventures', 'Sin territorios nuevos': 'No new territories', ' - {n} cimas': ' - {n} peaks', 'A por esta semana': "Let's go this week",
+    'Resumen de tu semana': 'Your week in review', '{km} en {n} aventuras': '{km} in {n} adventures', '{km} en 1 aventura': '{km} in 1 adventure', 'Sin territorios nuevos': 'No new territories', ' - {n} cimas': ' - {n} peaks', 'A por esta semana': "Let's go this week",
     'Datos': 'Data',
     'Aqui aparece tu progreso para exportarlo; pega uno anterior para importarlo.': 'Your progress appears here for export; paste a previous one to import it.',
     'Exportar': 'Export', 'Importar': 'Import',
