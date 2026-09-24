@@ -263,9 +263,9 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'streak-3', title: 'En racha', hint: 'Revela territorio 3 dias seguidos', test: (p, st) => st.count >= 3 },
     { id: 'streak-7', title: 'Semana de conquista', hint: 'Revela territorio 7 dias seguidos', test: (p, st) => st.count >= 7 },
     { id: 'multi-3', title: 'Multideporte', hint: 'Registra aventuras de 3 deportes distintos', test: () => false },
-    { id: 'km-50', title: 'En ruta', hint: 'Recorre 50 km en aventuras', test: () => false },
-    { id: 'km-250', title: 'Viajero incansable', hint: 'Recorre 250 km en aventuras', test: () => false },
-    { id: 'km-1000', title: 'Mil kilometros', hint: 'Recorre 1.000 km en aventuras', test: () => false },
+    { id: 'dist-50', title: 'En ruta', hint: 'Recorre 50 km en aventuras', test: () => false },
+    { id: 'dist-250', title: 'Viajero incansable', hint: 'Recorre 250 km en aventuras', test: () => false },
+    { id: 'dist-1000', title: 'Mil kilometros', hint: 'Recorre 1.000 km en aventuras', test: () => false },
     { id: 'up-1000', title: 'Piernas de acero', hint: 'Acumula 1.000 m de desnivel', test: () => false },
     { id: 'up-5000', title: 'Altitud seria', hint: 'Acumula 5.000 m de desnivel', test: () => false },
     { id: 'up-8848', title: 'Everest', hint: 'Acumula 8.848 m de desnivel: la altura del Everest', test: () => false },
@@ -2103,7 +2103,7 @@ export function App() {
         for (const a of adventures) { const sp = advSport(a); if (sp) sports.add(sp); kmTot += a.km; upTot += a.profile?.up || 0; }
         const earned: string[] = [];
         if (sports.size >= 3) earned.push('multi-3');
-        for (const [id, th] of [['km-50', 50], ['km-250', 250], ['km-1000', 1000]] as [string, number][]) if (kmTot >= th) earned.push(id);
+        for (const [id, th] of [['dist-50', 50], ['dist-250', 250], ['dist-1000', 1000]] as [string, number][]) if (kmTot >= th) earned.push(id);
         for (const [id, th] of [['up-1000', 1000], ['up-5000', 5000], ['up-8848', 8848]] as [string, number][]) if (upTot >= th) earned.push(id);
         const fresh = earned.filter((id) => !achUnlocked[id]);
         if (!fresh.length) return;
@@ -2394,6 +2394,25 @@ export function App() {
         }
         return { cur, ant };
     })();
+    // v1.58: progreso hacia los logros bloqueados numericos
+    const achProgress = useMemo(() => {
+        let kmTot = 0, upTot = 0;
+        const sports = new Set<Sport>();
+        for (const a of adventures) { const sp = advSport(a); if (sp) sports.add(sp); kmTot += a.km; upTot += a.profile?.up || 0; }
+        const km2 = progress.cells.length * 1.1;
+        return {
+            'km-10': [km2, 10], 'km-100': [km2, 100], 'km-1000': [km2, 1000],
+            'country-5': [progress.countries.length, 5], 'country-10': [progress.countries.length, 10], 'country-25': [progress.countries.length, 25],
+            'ccaa-19': [progress.ccaa.length, 19],
+            'peak-10': [progress.peaks.length, 10], 'peak-25': [progress.peaks.length, 25],
+            'points-100': [progress.points.length, 100], 'points-1000': [progress.points.length, 1000],
+            'streak-3': [streak.count, 3], 'streak-7': [streak.count, 7],
+            'multi-3': [sports.size, 3],
+            'wstreak-2': [weekStreak.count, 2], 'wstreak-4': [weekStreak.count, 4], 'wstreak-8': [weekStreak.count, 8], 'wstreak-12': [weekStreak.count, 12],
+            'dist-50': [kmTot, 50], 'dist-250': [kmTot, 250], 'dist-1000': [kmTot, 1000],
+            'up-1000': [upTot, 1000], 'up-5000': [upTot, 5000], 'up-8848': [upTot, 8848],
+        } as Record<string, [number, number]>;
+    }, [adventures, progress, streak, weekStreak]);
 
     return <div className="tu-app">
         {tab === 'mapa' ? <>
@@ -2672,10 +2691,10 @@ export function App() {
 
             <section className="tu-group"><h2>{t('Logros')}</h2>
                 <div className="tu-ach-grid">
-                    {ACHIEVEMENTS.map((a) => { const at = achUnlocked[a.id]; return (
+                    {ACHIEVEMENTS.map((a) => { const at = achUnlocked[a.id]; const pr = !at ? achProgress[a.id] : undefined; return (
                         <div key={a.id} className={'tu-ach' + (at ? ' on' : '')}>
                             <b>{at ? '★ ' : ''}{t(a.title)}</b>
-                            <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}</small>
+                            <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}{pr ? ' - ' + (pr[0] < 10 ? dec(Math.min(pr[0], pr[1]), 1) : Math.floor(Math.min(pr[0], pr[1]))) + '/' + pr[1] : ''}</small>
                         </div>); })}
                 </div>
             </section>
