@@ -146,6 +146,7 @@ const ADV_ACTIVE_KEY = 'terraunlock.adventure.active.v1';
 const ADVS_KEY = 'terraunlock.adventures.v1';
 const STREAK_KEY = 'terraunlock.streak.v1';
 const WEEK_KEY = 'terraunlock.weekly.v1';
+const WEEKKM_DONE_KEY = 'terraunlock.weekkm.done.v1'; // v1.62: semana celebrada del objetivo de distancia
 const WEEK_TERR = 3; // territorios nuevos (pais + comunidad + provincia) para cumplir
 const WEEK_PEAK = 1; // o esta cantidad de cimas
 interface WeeklyGoal { week: string; countries0: string[]; ccaa0: string[]; prov0: string[]; peaks0: string[]; celebrated: boolean; }
@@ -286,7 +287,7 @@ function loadAch(): Record<string, string> | null {
 function saveAch(a: Record<string, string>) { try { localStorage.setItem(ACH_KEY, JSON.stringify(a)); } catch { /* sin espacio */ } }
 
 // Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
-interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; lang?: Lang; routes?: boolean; theme?: 'dark' | 'light'; }
+interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; lang?: Lang; routes?: boolean; theme?: 'dark' | 'light'; weekKm?: number; }
 const PREFS_KEY = 'terraunlock.prefs.v1';
 const AVATAR_KEY = 'terraunlock.avatar.v1';
 function loadPrefs(): Prefs {
@@ -2408,6 +2409,17 @@ export function App() {
         }
         return { cur, ant };
     })();
+    // v1.62: objetivo semanal de distancia (opcional; se configura en Ajustes)
+    const [weekKmDone, setWeekKmDone] = useState<string>(() => loadJson<string>(WEEKKM_DONE_KEY) || '');
+    useEffect(() => {
+        const goal = prefs.weekKm || 0;
+        if (goal <= 0) return;
+        const wk = weekKey(new Date());
+        if (weekKmCmp.cur >= goal && weekKmDone !== wk) {
+            setWeekKmDone(wk); saveJson(WEEKKM_DONE_KEY, wk);
+            setCelebration((c) => [...c, { id: 'weekkm-' + wk, title: t('Objetivo de distancia cumplido'), hint: t('Has recorrido {km} esta semana', { km: fmtDist(weekKmCmp.cur) }), test: () => true }]);
+        }
+    }, [weekKmCmp.cur, prefs.weekKm]);
     // v1.58: progreso hacia los logros bloqueados numericos
     const achProgress = useMemo(() => {
         let kmTot = 0, upTot = 0;
@@ -2486,6 +2498,10 @@ export function App() {
                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, terr / WEEK_TERR * 100).toFixed(0) + '%' }} /></span>
                     <span className="tu-weeklbl">{t('Cimas')} {Math.min(peaks, WEEK_PEAK)}/{WEEK_PEAK}</span>
                     <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#e8cd6e', width: Math.min(100, peaks / WEEK_PEAK * 100).toFixed(0) + '%' }} /></span>
+                    {(prefs.weekKm || 0) > 0 ? <>
+                        <span className="tu-weeklbl">{t('Distancia')} {fmtDist(Math.min(weekKmCmp.cur, prefs.weekKm || 0))}/{fmtDist(prefs.weekKm || 0)}</span>
+                        <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#8fb8d8', width: Math.min(100, weekKmCmp.cur / (prefs.weekKm || 1) * 100).toFixed(0) + '%' }} /></span>
+                    </> : null}
                 </div>
                 {newRegs.length ? <div className="tu-weekshapes">
                     {newRegs.slice(0, 6).map(({ rg, stroke }) => (
@@ -2881,6 +2897,18 @@ export function App() {
                     <div className="tu-controls" style={{ margin: 0 }}>
                         <button className="file-button is-compact" data-variant={imp ? 'secondary' : 'primary'} onClick={() => setPrefs({ units: 'metric' })}>km</button>
                         <button className="file-button is-compact" data-variant={imp ? 'primary' : 'secondary'} onClick={() => setPrefs({ units: 'imperial' })}>mi</button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="tu-group"><h2>{t('Objetivo de distancia')}</h2>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>{t('Kilometros por semana')}</b>
+                        <small>{t('Te aviso cuando la alcances. Se reinicia cada lunes.')}</small>
+                    </div>
+                    <div className="tu-controls" style={{ margin: 0 }}>
+                        {[0, 10, 25, 50, 100].map((n) => <button key={n} className="file-button is-compact" data-variant={(prefs.weekKm || 0) === n ? 'primary' : 'secondary'} onClick={() => setPrefs({ weekKm: n })}>{n === 0 ? t('No') : n}</button>)}
                     </div>
                 </div>
             </section>
