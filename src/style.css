@@ -273,3 +273,6 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-heatlegend { color: var(--heatleg); }
 [data-theme="light"] .tu-sportchip { color: #0b5f52; }
 [data-theme="light"] .tu-sportchip.on { color: #0b5f52; }
+.tu-ach { position: relative; }
+.tu-achshare { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text2); font-size: 14px; line-height: 1; cursor: pointer; }
+.tu-achshare:active { transform: scale(0.94); }

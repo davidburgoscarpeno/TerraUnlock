@@ -1458,6 +1458,33 @@ export function App() {
             setToast(t('Tarjeta descargada'));
         }
     };
+    // v1.80: tarjeta de logro para compartir (antes Compartir en un logro compartia la tarjeta del mapa)
+    const shareAchievementCard = async (a: Achievement) => {
+        try {
+            const W = 1080, H = 1080;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            g.beginPath(); g.arc(W / 2, 300, 130, 0, Math.PI * 2);
+            g.fillStyle = 'rgba(45,200,170,0.16)'; g.fill();
+            g.lineWidth = 6; g.strokeStyle = '#2dc8aa'; g.stroke();
+            g.fillStyle = '#2dc8aa'; g.font = '600 150px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillText('\u2605', W / 2, 312);
+            g.fillStyle = 'rgba(230,240,244,0.65)'; g.font = '600 34px system-ui, sans-serif';
+            g.fillText(t('Logro desbloqueado').toUpperCase(), W / 2, 520);
+            g.fillStyle = '#e6f0f4'; g.font = '700 64px system-ui, sans-serif';
+            g.fillText(t(a.title), W / 2, 620);
+            g.fillStyle = 'rgba(230,240,244,0.75)'; g.font = '400 34px system-ui, sans-serif';
+            g.fillText(t(a.hint), W / 2, 690);
+            const at = achUnlocked[a.id];
+            if (at) { g.fillStyle = 'rgba(45,200,170,0.9)'; g.font = '500 32px system-ui, sans-serif'; g.fillText(new Date(at).toLocaleDateString(dateLocale()), W / 2, 770); }
+            const who = prefs.nombre.trim();
+            g.fillStyle = 'rgba(230,240,244,0.55)'; g.font = '500 30px system-ui, sans-serif';
+            g.fillText(who ? who + ' - TerraUnlock' : 'TerraUnlock', W / 2, 950);
+            const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
+            if (blob) await shareBlob(blob, 'terraunlock-logro.png', t(a.title));
+        } catch { setToast(t('No se pudo crear la tarjeta')); }
+    };
     const shareWeekCard = async (prev?: unknown) => {
         try {
             // v1.66: prev === true -> tarjeta de la SEMANA PASADA (se usa desde el resumen semanal)
@@ -2990,6 +3017,7 @@ export function App() {
                         <div key={a.id} className={'tu-ach' + (at ? ' on' : '')}>
                             <b>{at ? '★ ' : ''}{t(a.title)}</b>
                             <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}{pr ? ' - ' + (Number.isInteger(pr[0]) ? String(Math.min(pr[0], pr[1])) : dec(Math.min(pr[0], pr[1]), 1)) + '/' + pr[1] : ''}</small>
+                            {at ? <button className="tu-achshare" title={t('Compartir logro')} aria-label={t('Compartir logro')} onClick={() => { void shareAchievementCard(a); }}>\u2197</button> : null}
                         </div>); })}
                 </div>
             </section>
@@ -3267,7 +3295,7 @@ export function App() {
                     <strong>{banners[0].title}</strong>
                     <small>{banners[0].sub}{banners.length > 1 ? t(' - +{n} mas a continuacion', { n: banners.length - 1 }).replace(' - ', ' · ') : ''}</small>
                 </div>
-                <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
+                <button className="file-button is-compact" data-variant="primary" onClick={() => { if (celebration.length === 1) void shareAchievementCard(celebration[0]); else void shareCard(); }}>{t('Compartir')}</button>
                 <button className="tu-terr-x" aria-label={t('Cerrar aviso')} onClick={() => setBanners((b) => b.slice(1))}>×</button>
             </div>
         ) : null}
