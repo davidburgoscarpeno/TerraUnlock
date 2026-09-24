@@ -225,6 +225,13 @@ function fmtPace(secPerUnit: number, perMile: boolean): string {
 // v1.41: tipo de actividad (emoji en el historial). Strava lo dice; el resto se infiere del ritmo medio.
 type Sport = 'run' | 'ride' | 'walk' | 'hike';
 function sportEmoji(s?: Sport): string { return s === 'run' ? '🏃' : s === 'ride' ? '🚴' : s === 'walk' ? '🚶' : s === 'hike' ? '🥾' : ''; }
+// v1.72: chip accesible (teclado + lector de pantalla) para los filtros
+function Chip({ on, label, onPick, title }: { on: boolean; label: string; onPick: () => void; title?: string }) {
+    return <span role="button" tabIndex={0} aria-pressed={on} title={title}
+        className={'tu-sportchip' + (on ? ' on' : '')} style={{ cursor: 'pointer' }}
+        onClick={onPick}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(); } }}>{label}</span>;
+}
 // <3 min/km (~20+ km/h) = bici; 3-7,5 = correr; 7,5-14 = caminar; >14 = senderismo (terreno lento)
 function inferSportSecPerKm(secPerKm: number): Sport { if (secPerKm < 180) return 'ride'; if (secPerKm < 450) return 'run'; if (secPerKm < 840) return 'walk'; return 'hike'; }
 function advSport(a: Adventure): Sport | undefined {
@@ -2775,8 +2782,8 @@ export function App() {
 
             {records || (recSport && sportsPresent.length > 1) ? <section className="tu-group"><h2>{t('Records')}</h2>
                 {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
-                    <span className={'tu-sportchip' + (recSport === null ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setRecSport(null)}>{t('Todos')}</span>
-                    {sportsPresent.map((sp) => <span key={sp} className={'tu-sportchip' + (recSport === sp ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setRecSport(recSport === sp ? null : sp)}>{sportEmoji(sp)}</span>)}
+                    <Chip on={recSport === null} label={t('Todos')} onPick={() => setRecSport(null)} />
+                    {sportsPresent.map((sp) => <Chip key={sp} on={recSport === sp} label={sportEmoji(sp)} onPick={() => setRecSport(recSport === sp ? null : sp)} />)}
                 </div> : null}
             {!records ? <div className="tu-callout"><strong>{t('Sin records de este deporte')}</strong><p>{t('Todavia no hay aventuras de este tipo.')}</p></div> : null}
             {records ? <>
@@ -2792,8 +2799,8 @@ export function App() {
             <section className="tu-group"><h2>{t('Actividad')}</h2>
                 {adventures.length ? <>
                     {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
-                        <span className={'tu-sportchip' + (heatSport === null ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setHeatSport(null)}>{t('Todos')}</span>
-                        {sportsPresent.map((sp) => <span key={sp} className={'tu-sportchip' + (heatSport === sp ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setHeatSport(heatSport === sp ? null : sp)}>{sportEmoji(sp)}</span>)}
+                        <Chip on={heatSport === null} label={t('Todos')} onPick={() => setHeatSport(null)} />
+                        {sportsPresent.map((sp) => <Chip key={sp} on={heatSport === sp} label={sportEmoji(sp)} onPick={() => setHeatSport(heatSport === sp ? null : sp)} />)}
                     </div> : null}
                     <div className="tu-heat">
                         {heatWeeks.map((w, wi) => <div key={wi} className="tu-heatcol">
@@ -2843,13 +2850,13 @@ export function App() {
                     </label>
                 </div>
                 {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
-                    <span className={'tu-sportchip' + (sportFilter === null ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setSportFilter(null)}>{t('Todos')}</span>
-                    {sportsPresent.map((sp) => <span key={sp} className={'tu-sportchip' + (sportFilter === sp ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setSportFilter(sportFilter === sp ? null : sp)}>{sportEmoji(sp)} {adventures.filter((a) => advSport(a) === sp).length}</span>)}
+                    <Chip on={sportFilter === null} label={t('Todos')} onPick={() => setSportFilter(null)} />
+                    {sportsPresent.map((sp) => <Chip key={sp} on={sportFilter === sp} label={sportEmoji(sp) + ' ' + adventures.filter((a) => advSport(a) === sp).length} onPick={() => setSportFilter(sportFilter === sp ? null : sp)} />)}
                 </div> : null}
                 {adventures.length >= 3 ? <input className="tu-input tu-input-full" type="search" style={{ marginBottom: 8 }} placeholder={t('Buscar por nombre, fecha o territorio')} value={advQuery} onChange={(e) => setAdvQuery(e.target.value)} /> : null}
                 {advFiltered.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
                     <small>{t('Ordenar')}</small>
-                    {([['rec', t('Recientes')], ['km', t('Distancia')], ['up', t('Desnivel')]] as ['rec' | 'km' | 'up', string][]).map(([k, lab]) => <span key={k} className={'tu-sportchip' + (advSort === k ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setAdvSort(k)}>{lab}</span>)}
+                    {([['rec', t('Recientes')], ['km', t('Distancia')], ['up', t('Desnivel')]] as ['rec' | 'km' | 'up', string][]).map(([k, lab]) => <Chip key={k} on={advSort === k} label={lab} onPick={() => setAdvSort(k)} />)}
                 </div> : null}
                 {adventures.length ? <ol className="tu-peaklist tu-advlist">
                     {advShown.slice(0, advLimit).map((a) => <li key={a.start} className="tu-advrow" onClick={() => setAdvOpen(advOpen === a.start ? null : a.start)}>

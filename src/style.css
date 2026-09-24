@@ -234,6 +234,7 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-heatlegend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text2); margin-top: 6px; }
 .tu-heatmonths { display: flex; gap: 3px; margin-top: 4px; }
 .tu-heatmonths span { width: 13px; flex: 0 0 auto; font-size: 9px; color: var(--text2); white-space: nowrap; overflow: visible; }
+.tu-sportchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tu-heatlegend .tu-heatcell { width: 10px; height: 10px; }
 
 /* v1.42: chips por deporte */
