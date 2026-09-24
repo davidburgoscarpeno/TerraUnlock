@@ -2694,7 +2694,7 @@ export function App() {
                     {ACHIEVEMENTS.map((a) => { const at = achUnlocked[a.id]; const pr = !at ? achProgress[a.id] : undefined; return (
                         <div key={a.id} className={'tu-ach' + (at ? ' on' : '')}>
                             <b>{at ? '★ ' : ''}{t(a.title)}</b>
-                            <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}{pr ? ' - ' + (pr[0] < 10 ? dec(Math.min(pr[0], pr[1]), 1) : Math.floor(Math.min(pr[0], pr[1]))) + '/' + pr[1] : ''}</small>
+                            <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}{pr ? ' - ' + (Number.isInteger(pr[0]) ? String(Math.min(pr[0], pr[1])) : dec(Math.min(pr[0], pr[1]), 1)) + '/' + pr[1] : ''}</small>
                         </div>); })}
                 </div>
             </section>
