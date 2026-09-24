@@ -2849,7 +2849,7 @@ export function App() {
                 <div className="tu-nextach-body">
                     <strong>{'★ '}{t(nextAch.a.title)}</strong>
                     <small className="tu-dim">{t(nextAch.a.hint)}</small>
-                    <span className="tu-bar tu-nextach-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, nextAch.cur / nextAch.tgt * 100).toFixed(0) + '%' }} /></span>
+                    <div className="tu-bar tu-nextach-bar"><div style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, nextAch.cur / nextAch.tgt * 100).toFixed(0) + '%' }} /></div>
                     <small className="tu-dim">{Number.isInteger(nextAch.cur) ? String(Math.min(nextAch.cur, nextAch.tgt)) : dec(Math.min(nextAch.cur, nextAch.tgt), 1)}/{nextAch.tgt}</small>
                 </div>
             </section> : null}
