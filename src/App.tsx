@@ -2670,6 +2670,19 @@ export function App() {
     // v1.68: resumen del mes pasado al primer arranque del mes
     const MRECAP_KEY = 'terraunlock.monthrecap.v1';
     const [mrecap, setMrecap] = useState<{ km: number; advs: number; terr: number; peaks: number; month: string } | null>(null);
+    // v1.81: Escape cierra la capa superior (la ultima del DOM pinta encima)
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            if (advSummary) { setAdvSummary(null); return; }
+            if (importBatch) { setImportBatch(null); return; }
+            if (celebration.length) { setCelebration([]); return; }
+            if (recap) { setRecap(null); return; }
+            if (mrecap) { setMrecap(null); return; }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [advSummary, importBatch, celebration, recap, mrecap]);
     useEffect(() => {
         const now = new Date();
         const mKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -3301,7 +3314,7 @@ export function App() {
         ) : null}
 
         {mrecap ? (
-            <div className="tu-celebration">
+            <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={t('Resumen de {mes}', { mes: mrecap.month })}>
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">☾</div>
                     <h2>{t('Resumen de {mes}', { mes: mrecap.month })}</h2>
@@ -3316,7 +3329,7 @@ export function App() {
         ) : null}
 
         {recap ? (
-            <div className="tu-celebration">
+            <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={t('Resumen de tu semana')}>
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">☀</div>
                     <h2>{t('Resumen de tu semana')}</h2>
@@ -3331,7 +3344,7 @@ export function App() {
         ) : null}
 
         {celebration.length ? (
-            <div className="tu-celebration">
+            <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={celebration.length > 1 ? t('{n} logros desbloqueados', { n: celebration.length }) : t('Logro desbloqueado')}>
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">★</div>
                     <h2>{celebration.length > 1 ? t('{n} logros desbloqueados', { n: celebration.length }) : t('Logro desbloqueado')}</h2>
@@ -3351,7 +3364,7 @@ export function App() {
         ) : null}
 
         {importBatch ? (
-            <div className="tu-celebration">
+            <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={t('Importar rutas')}>
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">⇪</div>
                     <h2>{t('Importar rutas')}</h2>
@@ -3375,7 +3388,7 @@ export function App() {
         ) : null}
 
         {advSummary ? (
-            <div className="tu-celebration">
+            <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={t('Aventura terminada')}>
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">⚑</div>
                     <h2>{t('Aventura terminada')}</h2>
