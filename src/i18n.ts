@@ -390,6 +390,13 @@ const EN: Record<string, string> = {
     "Ritmo mensual": "Monthly pace",
     "Distancia por mes de los ultimos 12 meses": "Distance per month for the last 12 months",
 
+    "Inicio": "Home",
+    "revelados": "revealed",
+    "dias seguidos": "days in a row",
+    "Siguiente logro": "Next achievement",
+    "Ir al mapa": "Go to map",
+    "Ver mi progreso": "See my progress",
+
 };
 // v1.83: frances (tercer idioma)
 const FR: Record<string, string> = {
@@ -857,6 +864,13 @@ const FR: Record<string, string> = {
     "Senderismo": "Randonnée",
     "Ritmo mensual": "Rythme mensuel",
     "Distancia por mes de los ultimos 12 meses": "Distance par mois sur les 12 derniers mois",
+
+    "Inicio": "Accueil",
+    "revelados": "révélés",
+    "dias seguidos": "jours de suite",
+    "Siguiente logro": "Prochain succès",
+    "Ir al mapa": "Aller à la carte",
+    "Ver mi progreso": "Voir ma progression",
 
 };
 

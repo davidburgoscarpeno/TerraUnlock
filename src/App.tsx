@@ -452,6 +452,41 @@ function regionZoom(rg: Region): number {
 }
 
 // silueta pequena para la fila de la semana
+// v1.87: mini mapa mundi del inicio (misma proyeccion equirectangular que las tarjetas)
+function MiniWorld({ cells, countries }: { cells: string[]; countries: string[] }) {
+    const ref = useRef<HTMLCanvasElement | null>(null);
+    useEffect(() => {
+        const cv = ref.current; if (!cv) return;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const w = cv.clientWidth, h = cv.clientHeight;
+        if (!w || !h) return;
+        cv.width = w * dpr; cv.height = h * dpr;
+        const g = cv.getContext('2d'); if (!g) return;
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, w, h);
+        const px = (lon: number) => (lon + 180) / 360 * w;
+        const py = (lat: number) => (80 - lat) / 160 * h;
+        g.lineWidth = 0.6;
+        for (const rg of COUNTRIES) {
+            const won = countries.includes(rg.n);
+            for (const ring of rg.r) {
+                g.beginPath();
+                for (let i = 0; i < ring.length; i += 2) { const x = px(ring[i]), y = py(ring[i + 1]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+                g.closePath();
+                if (won) { g.fillStyle = 'rgba(45,200,170,0.16)'; g.fill(); }
+                g.strokeStyle = 'rgba(110,140,155,0.45)'; g.stroke();
+            }
+        }
+        g.fillStyle = '#2dc8aa';
+        for (const ck of cells) {
+            const i = ck.indexOf(',');
+            const lat = +ck.slice(0, i) * CELL, lon = +ck.slice(i + 1) * CELL;
+            g.fillRect(px(lon) - 1.2, py(lat) - 1.2, 2.4, 2.4);
+        }
+    }, [cells, countries]);
+    return <canvas ref={ref} className="tu-hero-canvas" aria-hidden="true" />;
+}
+
 function WeekShape({ rg, stroke }: { rg: Region; stroke: string }) {
     const ref = useRef<HTMLCanvasElement | null>(null);
     useEffect(() => {
@@ -479,7 +514,7 @@ export function App() {
     const viewRef = useRef(view); viewRef.current = view;
     const [gpsOn, setGpsOn] = useState(false);
     const [simMode, setSimMode] = useState(false);
-    const [tab, setTab] = useState<'mapa' | 'progreso' | 'cimas' | 'ajustes'>('mapa');
+    const [tab, setTab] = useState<'inicio' | 'mapa' | 'progreso' | 'cimas' | 'ajustes'>('inicio');
     const [prefs, setPrefsState] = useState<Prefs>(() => { const p = loadPrefs(); setLang(p.lang || detectLang()); return p; });
     const prefsRef = useRef(prefs); prefsRef.current = prefs;
     const setPrefs = (patch: Partial<Prefs>) => {
@@ -1115,7 +1150,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs, focusAdv]);
+    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs, focusAdv, tab]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -1144,7 +1179,7 @@ export function App() {
         wrap.addEventListener('wheel', onWheel, { passive: false });
         return () => wrap.removeEventListener('wheel', onWheel);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [tab]);
 
     const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -2774,8 +2809,75 @@ export function App() {
             'up-1000': [upTot, 1000], 'up-5000': [upTot, 5000], 'up-8848': [upTot, 8848],
         } as Record<string, [number, number]>;
     }, [adventures, progress, streak, weekStreak]);
+    // v1.87: siguiente logro mas cercano (tarjeta de inicio)
+    const nextAch = useMemo(() => {
+        let best: { a: Achievement; cur: number; tgt: number } | null = null;
+        for (const a of ACHIEVEMENTS) {
+            if (achUnlocked[a.id]) continue;
+            const pr = achProgress[a.id] as [number, number] | undefined;
+            if (!pr || !pr[1]) continue;
+            const ratio = pr[0] / pr[1];
+            if (ratio <= 0) continue;
+            if (!best || ratio > best.cur / best.tgt) best = { a, cur: pr[0], tgt: pr[1] };
+        }
+        return best;
+    }, [achUnlocked, achProgress]);
 
     return <div className="tu-app">
+        {tab === 'inicio' ? <>
+            <section className="tu-hero">
+                <MiniWorld cells={progress.cells} countries={progress.countries} />
+                <div className="tu-hero-overlay">
+                    <h1 className="tu-hero-title">{avatar ? <img className="tu-avatar-sm" src={avatar} alt="" /> : null}{prefs.nombre ? t('Hola, {nombre}', { nombre: prefs.nombre }) : 'TerraUnlock'}</h1>
+                    <div className="tu-hero-stats">
+                        <span><b>{fmtAreaShort(progress.cells.length * 1.1)}</b><small>{t('revelados')}</small></span>
+                        <span><b>{progress.countries.length}</b><small>{t('Paises').toLowerCase()}</small></span>
+                        <span><b>{progress.peaks.length}</b><small>{t('Cimas').toLowerCase()}</small></span>
+                        {streak.count >= 2 ? <span><b>{streak.count}</b><small>{t('dias seguidos')}</small></span> : null}
+                    </div>
+                </div>
+            </section>
+
+            {adv ? <div className="tu-callout tu-advpanel">
+                <strong>{t('Aventura en curso')}</strong>
+                <p>{t('{km} - {elapsed} - {n} puntos - +{c} paises, +{a} CCAA, +{p} prov, +{k} cimas', { km: fmtDist(adv.km), elapsed: advElapsed, n: adv.points, c: progress.countries.length - adv.countries0.length, a: progress.ccaa.length - adv.ccaa0.length, p: progress.prov.length - adv.prov0.length, k: progress.peaks.length - adv.peaks0.length }).replace(/ - /g, ' · ')}</p>
+                <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={endAdventure}>{t('Terminar aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => setTab('mapa')}>{t('Ir al mapa')}</button></div>
+            </div> : <button className="tu-cta" onClick={() => { if (!gpsOn) setGpsOn(true); startAdventure(); setTab('mapa'); }}><span className="tu-cta-ico">▶</span>{t('Empezar aventura')}</button>}
+
+            {nextAch ? <section className="tu-group">
+                <h2>{t('Siguiente logro')}</h2>
+                <div className="tu-nextach-body">
+                    <strong>{'★ '}{t(nextAch.a.title)}</strong>
+                    <small className="tu-dim">{t(nextAch.a.hint)}</small>
+                    <span className="tu-bar tu-nextach-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, nextAch.cur / nextAch.tgt * 100).toFixed(0) + '%' }} /></span>
+                    <small className="tu-dim">{Number.isInteger(nextAch.cur) ? String(Math.min(nextAch.cur, nextAch.tgt)) : dec(Math.min(nextAch.cur, nextAch.tgt), 1)}/{nextAch.tgt}</small>
+                </div>
+            </section> : null}
+
+            {(() => {
+                const terr = Math.max(0, progress.countries.length + progress.ccaa.length + progress.prov.length - weekly.countries0.length - weekly.ccaa0.length - weekly.prov0.length);
+                const peaks = Math.max(0, progress.peaks.length - weekly.peaks0.length);
+                const done = terr >= WEEK_TERR || peaks >= WEEK_PEAK;
+                return <section className="tu-group">
+                    <h2>{done ? t('Objetivo semanal cumplido') : t('Objetivo de la semana')}</h2>
+                    <div className="tu-weekbars">
+                        <span className="tu-weeklbl">{t('Territorios')} {Math.min(terr, WEEK_TERR)}/{WEEK_TERR}</span>
+                        <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, terr / WEEK_TERR * 100).toFixed(0) + '%' }} /></span>
+                        <span className="tu-weeklbl">{t('Cimas')} {Math.min(peaks, WEEK_PEAK)}/{WEEK_PEAK}</span>
+                        <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#e8cd6e', width: Math.min(100, peaks / WEEK_PEAK * 100).toFixed(0) + '%' }} /></span>
+                        {(prefs.weekKm || 0) > 0 ? <>
+                            <span className="tu-weeklbl">{t('Distancia')} {fmtDist(Math.min(weekKmCmp.cur, prefs.weekKm || 0))}/{fmtDist(prefs.weekKm || 0)}</span>
+                            <span className="tu-bar"><span style={{ display: 'block', height: '100%', borderRadius: 3, background: '#8fb8d8', width: Math.min(100, weekKmCmp.cur / (prefs.weekKm || 1) * 100).toFixed(0) + '%' }} /></span>
+                        </> : null}
+                    </div>
+                </section>; })()}
+
+            <div className="tu-controls tu-home-actions">
+                <button className="file-button is-compact" data-variant="secondary" onClick={() => shareCard()}>{t('Compartir mi mapa')}</button>
+                <button className="file-button is-compact" data-variant="secondary" onClick={() => setTab('progreso')}>{t('Ver mi progreso')}</button>
+            </div>
+        </> : null}
+
         {tab === 'mapa' ? <>
             <header className="tu-header">
                 <div className="tu-header-row"><h1 className="tu-h1-av">{avatar ? <img className="tu-avatar-sm" src={avatar} alt="" /> : null}{prefs.nombre ? t('Hola, {nombre}', { nombre: prefs.nombre }) : 'TerraUnlock'}</h1><span className="tu-fact">{t('{km2} revelados', { km2: fmtAreaShort(progress.cells.length * 1.1) })}</span>{streak.count >= 2 ? <span className="tu-streak">{t('Racha: {n} dias', { n: streak.count })}</span> : null}</div>
@@ -3368,7 +3470,7 @@ export function App() {
                     <strong>{banners[0].title}</strong>
                     <small>{banners[0].sub}{banners.length > 1 ? t(' - +{n} mas a continuacion', { n: banners.length - 1 }).replace(' - ', ' · ') : ''}</small>
                 </div>
-                <button className="file-button is-compact" data-variant="primary" onClick={() => { if (celebration.length === 1) void shareAchievementCard(celebration[0]); else void shareCard(); }}>{t('Compartir')}</button>
+                <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
                 <button className="tu-terr-x" aria-label={t('Cerrar aviso')} onClick={() => setBanners((b) => b.slice(1))}>×</button>
             </div>
         ) : null}
@@ -3416,7 +3518,7 @@ export function App() {
                         {celebration.length > 6 ? <li><small>{t('y {n} mas', { n: celebration.length - 6 })}</small></li> : null}
                     </ul>}
                     <div className="tu-controls" style={{ justifyContent: 'center' }}>
-                        <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
+                        <button className="file-button is-compact" data-variant="primary" onClick={() => { if (celebration.length === 1) void shareAchievementCard(celebration[0]); else void shareCard(); }}>{t('Compartir')}</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setCelebration([])}>{t('Seguir explorando')}</button>
                     </div>
                 </div>
@@ -3478,6 +3580,7 @@ export function App() {
         <nav className="tu-nav">
             <div className="tu-brand">TerraUnlock</div>
             {([
+                ['inicio', '⌂', t('Inicio')],
                 ['mapa', '◉', t('Mapa')],
                 ['progreso', '◆', t('Progreso')],
                 ['cimas', '▲', t('Cimas')],

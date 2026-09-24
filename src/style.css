@@ -283,3 +283,16 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-mbar-fill.cur { background: var(--primary); }
 .tu-mbar small { color: var(--text3); font-size: 10px; line-height: 1; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.tu-hero { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid var(--input-bg); background: #0d141d; }
+.tu-hero-canvas { display: block; width: 100%; height: 300px; }
+.tu-hero-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 18px; background: linear-gradient(180deg, rgba(11,16,23,0.10) 0%, rgba(11,16,23,0.0) 40%, rgba(11,16,23,0.78) 100%); }
+.tu-hero-title { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+.tu-hero-stats { display: flex; gap: 22px; }
+.tu-hero-stats b { display: block; font-size: 22px; color: #e6f0f4; }
+.tu-hero-stats small { color: rgba(230,240,244,0.72); font-size: 12px; }
+.tu-cta { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; border: 0; border-radius: 16px; background: var(--primary); color: #fff; font: 700 17px/1 system-ui, -apple-system, sans-serif; cursor: pointer; margin: 12px 0 4px; }
+.tu-cta:active { transform: scale(0.98); }
+.tu-cta-ico { font-size: 14px; }
+.tu-nextach-body { display: flex; flex-direction: column; gap: 6px; }
+.tu-nextach-bar { width: 100%; }
+.tu-home-actions { margin-top: 4px; }
