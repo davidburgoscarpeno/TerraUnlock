@@ -303,3 +303,11 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-ach.on .tu-ach-ico { filter: none; opacity: 1; }
 .tu-ach.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 4px 18px -8px var(--primary); }
 .tu-ach-bar { flex-basis: auto; width: 100%; margin-top: 8px; }
+
+/* v1.91: hero de la pestana Cimas */
+.tu-peakhero { padding: 14px 16px; }
+.tu-peakhero-stats { justify-content: space-between; gap: 12px; }
+.tu-peakhero-stats > span { flex: 1; min-width: 0; }
+.tu-peakhero-stats b { font-size: 19px; }
+.tu-peakhero-stats b .tu-dim { font-size: 13px; font-weight: 400; }
+.tu-peakhero-stats small { display: block; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

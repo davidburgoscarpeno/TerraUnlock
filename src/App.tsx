@@ -2527,6 +2527,9 @@ export function App() {
 
     const km2 = (progress.cells.length * 1.1).toFixed(0);
     const conqueredPeaks = progress.peaks.map((id) => peakById.get(id)).filter((p): p is Peak => !!p).sort((a, b) => b[3] - a[3]);
+    // v1.91: resumen visual de la pestana Cimas
+    const peakSumEle = conqueredPeaks.reduce((sum, p) => sum + p[3], 0);
+    const peakTop = conqueredPeaks.length ? conqueredPeaks[0] : null;
     // v1.59: las 20 cimas mas altas aun sin conquistar
     const pendingTopPeaks = useMemo(() => {
         const won = new Set(progress.peaks);
@@ -3274,6 +3277,14 @@ export function App() {
         </> : null}
 
         {tab === 'cimas' ? <>
+            <section className="tu-group tu-peakhero">
+                <div className="tu-hero-stats tu-peakhero-stats">
+                    <span><b>{progress.peaks.length}<small className="tu-dim">/{allPeaks.length}</small></b><small>{t('Cimas conquistadas')}</small></span>
+                    <span><b>{peakTop ? peakTop[3].toLocaleString(dateLocale()) + ' m' : '-'}</b><small>{peakTop ? peakTop[0] : t('Tu cima mas alta')}</small></span>
+                    <span><b>{peakSumEle ? peakSumEle.toLocaleString(dateLocale()) + ' m' : '-'}</b><small>{t('Metros de cima')}</small></span>
+                </div>
+            </section>
+
             <section className="tu-group"><h2>{t('Buscar cimas')}</h2>
                 <input className="tu-input tu-input-full" type="search" placeholder={t('Nombre de la cima (min. 2 letras)')} value={peakQuery} onChange={(e) => setPeakQuery(e.target.value)} />
                 {peakQuery.trim().length >= 2 ? (
@@ -3316,9 +3327,13 @@ export function App() {
             <section className="tu-group"><h2>{t('Tus cimas')}</h2>
                 <div className="tu-callout"><strong>{t('{won} de {total} conquistadas', { won: progress.peaks.length, total: allPeaks.length })}</strong><p>{t('Toca cualquier triangulo del mapa para ver su ficha: altitud, si la has conquistado y rutas para subirla. Una cima cuenta cuando pasas a menos de 1 km.')}</p></div>
                 {conqueredPeaks.length > 0 ? (
-                    <ol className="tu-peaklist tu-peaklist-full">
-                        {conqueredPeaks.map((p, i) => <li key={peakId(p)}><span className="tu-num">{i + 1}</span><span className="tu-pkname">{p[0]}<small>{p[1].toFixed(3)}, {p[2].toFixed(3)}</small></span><span className="tu-pkele">{p[3]} m</span></li>)}
-                    </ol>
+                    <div className="tu-ach-grid">
+                        {conqueredPeaks.map((p) => <div key={peakId(p)} className="tu-ach on">
+                            <span className="tu-ach-ico" aria-hidden="true">⛰️</span>
+                            <b>{p[0]}</b>
+                            <small>{p[3].toLocaleString(dateLocale())} m</small>
+                        </div>)}
+                    </div>
                 ) : <div className="tu-callout"><strong>{t('Aun no tienes cimas')}</strong><p>{t('Tu primera cima aparecera aqui en cuanto pases cerca de una.')}</p></div>}
             </section>
         </> : null}
