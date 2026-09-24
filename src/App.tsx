@@ -598,6 +598,8 @@ export function App() {
     const tileCache = useRef(new Map<string, HTMLImageElement | 'loading' | 'error'>());
     const tileRaf = useRef(0);
     const [tileTick, setTileTick] = useState(0);
+    // v1.90: pulso visual en las celdas recien reveladas por GPS en vivo
+    const [flash, setFlash] = useState<{ key: string; t: number }[]>([]);
     const onTileLoad = () => {
         if (tileRaf.current) return;
         tileRaf.current = requestAnimationFrame(() => { tileRaf.current = 0; setTileTick((t) => t + 1); });
@@ -638,7 +640,7 @@ export function App() {
         try { localStorage.setItem(VIEW_KEY, JSON.stringify(v)); } catch { /* sin espacio */ }
     };
 
-    const addPoint = (lat: number, lon: number) => {
+    const addPoint = (lat: number, lon: number, live = false) => {
         const p = progressRef.current;
         const cellKey = Math.round(lat / CELL) + ',' + Math.round(lon / CELL);
         const cellSet = new Set(p.cells);
@@ -649,6 +651,7 @@ export function App() {
         const news: string[] = [];
         const next: Progress = { cells: p.cells, points: p.points, countries: p.countries, ccaa: p.ccaa, prov: p.prov, peaks: p.peaks };
         if (isNewCell) next.cells = [...p.cells, cellKey];
+        if (live && isNewCell) setFlash((f) => [...f.slice(-11), { key: cellKey, t: Date.now() }]);
         if (isNewPoint) next.points = [...pts.slice(-19999), [lat, lon]];
         const terr: TerrBanner[] = [];
         if (isNewPoint) {
@@ -853,12 +856,19 @@ export function App() {
         if (tparts.length) { setBanners((bb) => [...bb, { title: t('Territorio nuevo por importacion'), sub: '+' + tparts.join(', +') }]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
     };
 
+    // v1.90: motor de la animacion del pulso (solo mientras haya pulsos vivos)
+    useEffect(() => {
+        if (!flash.length) return;
+        const iv = setInterval(() => setFlash((f) => f.filter((x) => Date.now() - x.t < 1800)), 100);
+        return () => clearInterval(iv);
+    }, [flash.length]);
+
     // GPS real
     useEffect(() => {
         if (!gpsOn) return;
         if (!('geolocation' in navigator)) { setGpsMsg(t('Este navegador no expone GPS dentro de la pagina. Usa el modo prueba.')); setGpsOn(false); return; }
         const id = navigator.geolocation.watchPosition(
-            (pos) => { setGpsMsg(''); addPoint(pos.coords.latitude, pos.coords.longitude); },
+            (pos) => { setGpsMsg(''); addPoint(pos.coords.latitude, pos.coords.longitude, true); },
             (err) => { setGpsMsg(t('GPS no disponible: {msg}. Mientras, puedes usar el modo prueba.', { msg: err.message })); setGpsOn(false); },
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
         );
@@ -888,7 +898,7 @@ export function App() {
         if (!('geolocation' in navigator)) { setPrefs({ welcomed: true }); return; }
         try {
             navigator.geolocation.getCurrentPosition(
-                (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude); setGpsOn(true); setPrefs({ welcomed: true }); },
+                (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude, true); setGpsOn(true); setPrefs({ welcomed: true }); },
                 () => { setPrefs({ welcomed: true }); },
                 { enableHighAccuracy: true, timeout: 10000 }
             );
@@ -1019,6 +1029,29 @@ export function App() {
                 const x = sx(pt.x), y = sy(pt.y);
                 if (x < -r2 || x > w + r2 || y < -r2 || y > h + r2) continue;
                 ctx.beginPath(); ctx.arc(x, y, r2, 0, 7); ctx.fill();
+            }
+        }
+
+        // v1.90: anillo expansivo en las celdas recien reveladas (GPS en vivo)
+        if (flash.length) {
+            const mpp3 = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
+            const rb = Math.max(14, REVEAL_M / mpp3);
+            const now = Date.now();
+            for (const f of flash) {
+                const age = now - f.t;
+                if (age >= 1800) continue;
+                const ci = f.key.indexOf(',');
+                const pt = project(+f.key.slice(ci + 1) * CELL, +f.key.slice(0, ci) * CELL, z);
+                const x = sx(pt.x), y = sy(pt.y);
+                if (x < -rb || x > w + rb || y < -rb || y > h + rb) continue;
+                const k = age / 1800;
+                const rr = rb * (0.55 + 0.75 * k);
+                const al = 0.85 * (1 - k);
+                ctx.strokeStyle = 'rgba(45,200,170,' + al.toFixed(3) + ')';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.stroke();
+                ctx.fillStyle = 'rgba(45,200,170,' + (al * 0.25).toFixed(3) + ')';
+                ctx.beginPath(); ctx.arc(x, y, rr * 0.7, 0, 7); ctx.fill();
             }
         }
 
@@ -1155,7 +1188,7 @@ export function App() {
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs, focusAdv, tab]);
+    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs, focusAdv, tab, flash]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -1266,7 +1299,7 @@ export function App() {
         if (lastPos) { setViewPersist({ lon: lastPos[1], lat: lastPos[0], z: Math.max(viewRef.current.z, 12) }); return; }
         if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude); setViewPersist({ lon: pos.coords.longitude, lat: pos.coords.latitude, z: 13 }); },
+                (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude, true); setViewPersist({ lon: pos.coords.longitude, lat: pos.coords.latitude, z: 13 }); },
                 () => setToast(t('No se pudo obtener tu posicion')),
                 { enableHighAccuracy: true, timeout: 15000 }
             );
@@ -1313,7 +1346,7 @@ export function App() {
     const locateForNearby = () => {
         if (!('geolocation' in navigator)) { setToast(t('Tu navegador no soporta geolocalizacion')); return; }
         navigator.geolocation.getCurrentPosition(
-            (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude); setLastPos([pos.coords.latitude, pos.coords.longitude]); },
+            (pos) => { addPoint(pos.coords.latitude, pos.coords.longitude, true); setLastPos([pos.coords.latitude, pos.coords.longitude]); },
             () => setToast(t('No se pudo obtener tu posicion')),
             { enableHighAccuracy: true, timeout: 15000 }
         );
