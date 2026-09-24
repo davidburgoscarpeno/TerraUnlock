@@ -286,11 +286,11 @@ function loadAch(): Record<string, string> | null {
 function saveAch(a: Record<string, string>) { try { localStorage.setItem(ACH_KEY, JSON.stringify(a)); } catch { /* sin espacio */ } }
 
 // Preferencias de la app (ajustes): perfil visible, mapa, unidades, bienvenida
-interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; lang?: Lang; routes?: boolean; }
+interface Prefs { nombre: string; fog: number; peakLabels: boolean; units: 'metric' | 'imperial'; welcomed: boolean; lang?: Lang; routes?: boolean; theme?: 'dark' | 'light'; }
 const PREFS_KEY = 'terraunlock.prefs.v1';
 const AVATAR_KEY = 'terraunlock.avatar.v1';
 function loadPrefs(): Prefs {
-    const base: Prefs = { nombre: '', fog: 0.68, peakLabels: true, units: 'metric', welcomed: false };
+    const base: Prefs = { nombre: '', fog: 0.68, peakLabels: true, units: 'metric', welcomed: false, theme: 'dark' };
     try { const p = JSON.parse(localStorage.getItem(PREFS_KEY) || ''); if (p && typeof p === 'object') return { ...base, ...p }; } catch { /* sin prefs */ }
     return base;
 }
@@ -485,6 +485,15 @@ export function App() {
         window.addEventListener('tu-sw-update', onUpd);
         return () => window.removeEventListener('tu-sw-update', onUpd);
     }, []);
+    // v1.61: tema claro/oscuro (interfaz; el mapa sigue siendo imagen de satelite)
+    useEffect(() => {
+        const th = prefs.theme || 'dark';
+        try {
+            document.documentElement.dataset.theme = th;
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', th === 'light' ? '#eef2f6' : '#0b1017');
+        } catch { /* sin DOM */ }
+    }, [prefs.theme]);
     const imp = prefs.units === 'imperial';
     const fmtDist = (km: number) => imp ? dec(km * 0.621371) + ' mi' : dec(km) + ' km';
     const fmtAreaShort = (k2: number) => (imp ? dec(k2 * 0.386102, 0) + ' mi2' : dec(k2, 0) + ' km2');
@@ -2824,6 +2833,19 @@ export function App() {
                         <small>{t('Necesaria para sincronizar entre dispositivos y rankings.')}</small>
                     </div>
                     <button className="file-button is-compact" data-variant="secondary" disabled style={{ opacity: 0.5, cursor: 'default' }}>{t('Crear cuenta (proximamente)')}</button>
+                </div>
+            </section>
+
+            <section className="tu-group"><h2>{t('Apariencia')}</h2>
+                <div className="tu-setrow">
+                    <div className="l" style={{ flex: 1 }}>
+                        <b>{t('Tema')}</b>
+                        <small>{t('El aspecto de la interfaz. El mapa siempre usa imagen de satelite.')}</small>
+                    </div>
+                    <div className="tu-controls" style={{ margin: 0 }}>
+                        <button className="file-button is-compact" data-variant={(prefs.theme || 'dark') === 'dark' ? 'primary' : 'secondary'} onClick={() => setPrefs({ theme: 'dark' })}>{t('Oscuro')}</button>
+                        <button className="file-button is-compact" data-variant={prefs.theme === 'light' ? 'primary' : 'secondary'} onClick={() => setPrefs({ theme: 'light' })}>{t('Claro')}</button>
+                    </div>
                 </div>
             </section>
 

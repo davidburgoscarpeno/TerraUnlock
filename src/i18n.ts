@@ -186,6 +186,8 @@ const EN: Record<string, string> = {
     'Bienvenida': 'Welcome',
     'Vuelve a mostrar la pantalla de inicio al abrir la app.': 'Shows the welcome screen again when opening the app.',
     'Mostrar de nuevo': 'Show again',
+    'Apariencia': 'Appearance', 'Tema': 'Theme', 'Oscuro': 'Dark', 'Claro': 'Light',
+    'El aspecto de la interfaz. El mapa siempre usa imagen de satelite.': 'The interface look. The map always uses satellite imagery.',
     'Idioma': 'Language',
     'El idioma de la interfaz. Por defecto se usa el del navegador.': 'The interface language. Defaults to your browser language.',
     'Unidades': 'Units', 'Distancias y superficie': 'Distances and area',
