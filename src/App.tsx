@@ -2410,11 +2410,15 @@ export function App() {
         return { cur: agg(yStart, now.getTime() + 60000), prev: agg(pStart, yStart), year: now.getFullYear() };
     })();
     // v1.53: records personales
+    // v1.70: records por deporte
+    const [recSport, setRecSport] = useState<Sport | null>(null);
     const records = (() => {
         if (!adventures.length) return null;
+        const recList = recSport ? adventures.filter((a) => advSport(a) === recSport) : adventures;
+        if (!recList.length) return null;
         const byDay = new Map<string, { terr: number; first: Adventure }>();
         let larga: Adventure | null = null, desnivel: Adventure | null = null, ritmo: { a: Adventure; pace: number } | null = null;
-        for (const a of adventures) {
+        for (const a of recList) {
             if (!larga || a.km > larga.km) larga = a;
             if ((a.profile?.up || 0) > (desnivel?.profile?.up || 0)) desnivel = a;
             const ps = paceStats(a, imp);
@@ -2757,13 +2761,20 @@ export function App() {
                 <div className="tu-controls"><button className="file-button" data-variant="primary" onClick={shareYearCard}>{t('Compartir mi ano')}</button></div>
             </section> : null}
 
-            {records ? <section className="tu-group"><h2>{t('Records')}</h2>
+            {records || (recSport && sportsPresent.length > 1) ? <section className="tu-group"><h2>{t('Records')}</h2>
+                {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
+                    <span className={'tu-sportchip' + (recSport === null ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setRecSport(null)}>{t('Todos')}</span>
+                    {sportsPresent.map((sp) => <span key={sp} className={'tu-sportchip' + (recSport === sp ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setRecSport(recSport === sp ? null : sp)}>{sportEmoji(sp)}</span>)}
+                </div> : null}
+            {!records ? <div className="tu-callout"><strong>{t('Sin records de este deporte')}</strong><p>{t('Todavia no hay aventuras de este tipo.')}</p></div> : null}
+            {records ? <>
                 <ol className="tu-peaklist">
                     {records.larga ? <li className="tu-advrow" onClick={() => setAdvOpen(records.larga!.start)}><span className="tu-pkname">{t('Aventura mas larga')}<small>{records.larga.name || new Date(records.larga.start).toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">{fmtDist(records.larga.km)}</span></li> : null}
                     {records.desnivel && (records.desnivel.profile?.up || 0) > 0 ? <li className="tu-advrow" onClick={() => setAdvOpen(records.desnivel!.start)}><span className="tu-pkname">{t('Mayor desnivel')}<small>{records.desnivel.name || new Date(records.desnivel.start).toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">+{records.desnivel.profile!.up} m</span></li> : null}
                     {records.ritmo ? <li className="tu-advrow" onClick={() => setAdvOpen(records.ritmo!.a.start)}><span className="tu-pkname">{t('Mejor ritmo medio')}<small>{records.ritmo.a.name || new Date(records.ritmo.a.start).toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">{fmtPace(records.ritmo.pace, imp)}</span></li> : null}
                     {records.diaBest ? <li className="tu-advrow" onClick={() => setAdvOpen(records.diaBest!.first.start)}><span className="tu-pkname">{t('Dia con mas territorios')}<small>{new Date(records.diaBest.day + 'T12:00:00').toLocaleDateString(dateLocale())}</small></span><span className="tu-pkele">+{records.diaBest.terr}</span></li> : null}
                 </ol>
+            </> : null}
             </section> : null}
 
             <section className="tu-group"><h2>{t('Actividad')}</h2>
