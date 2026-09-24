@@ -3200,7 +3200,7 @@ export function App() {
                             <b>{t(a.title)}</b>
                             <small>{at ? new Date(at).toLocaleDateString(dateLocale()) : t(a.hint)}{pr ? ' - ' + (Number.isInteger(pr[0]) ? String(Math.min(pr[0], pr[1])) : dec(Math.min(pr[0], pr[1]), 1)) + '/' + pr[1] : ''}</small>
                             {!at && pr ? <div className="tu-bar tu-ach-bar"><div style={{ width: Math.min(100, pr[0] / pr[1] * 100).toFixed(0) + '%' }} /></div> : null}
-                            {at ? <button className="tu-achshare" title={t('Compartir logro')} aria-label={t('Compartir logro')} onClick={() => { void shareAchievementCard(a); }}>\u2197</button> : null}
+                            {at ? <button className="tu-achshare" title={t('Compartir logro')} aria-label={t('Compartir logro')} onClick={() => { void shareAchievementCard(a); }}>↗</button> : null}
                         </div>); })}
                 </div>
             </section>
