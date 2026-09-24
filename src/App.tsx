@@ -2333,9 +2333,12 @@ export function App() {
         return [...m.entries()].map(([s, v]) => ({ s, ...v })).sort((x, y) => y.km - x.km);
     }, [adventures]);
     // v1.38: calendario de actividad (km por dia, ultimas 20 semanas)
+    // v1.69: filtro por deporte del calendario
+    const [heatSport, setHeatSport] = useState<Sport | null>(null);
     const heatWeeks = useMemo(() => {
         const days = new Map<string, number>();
         for (const a of adventures) {
+            if (heatSport && advSport(a) !== heatSport) continue;
             const d = new Date(a.start);
             if (!isFinite(d.getTime())) continue;
             const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -2360,7 +2363,7 @@ export function App() {
             weeks.push(col);
         }
         return weeks;
-    }, [adventures]);
+    }, [adventures, heatSport]);
 
     const fmtDurTotal = (ms: number) => {
         const m = Math.round(ms / 60000);
@@ -2765,6 +2768,10 @@ export function App() {
 
             <section className="tu-group"><h2>{t('Actividad')}</h2>
                 {adventures.length ? <>
+                    {sportsPresent.length > 1 ? <div className="tu-sportrow" style={{ marginBottom: 8 }}>
+                        <span className={'tu-sportchip' + (heatSport === null ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setHeatSport(null)}>{t('Todos')}</span>
+                        {sportsPresent.map((sp) => <span key={sp} className={'tu-sportchip' + (heatSport === sp ? ' on' : '')} style={{ cursor: 'pointer' }} onClick={() => setHeatSport(heatSport === sp ? null : sp)}>{sportEmoji(sp)}</span>)}
+                    </div> : null}
                     <div className="tu-heat">
                         {heatWeeks.map((w, wi) => <div key={wi} className="tu-heatcol">
                             {w.map((d, di) => d
