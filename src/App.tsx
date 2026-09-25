@@ -3387,6 +3387,7 @@ export function App() {
                         <label className="file-button is-compact" data-variant="primary">{t('Subir foto')}
                             <input type="file" accept="image/*" aria-label={t('Subir foto de perfil')} style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }} onChange={(e) => { const f = e.currentTarget.files?.[0]; if (f) processAvatar(f); e.currentTarget.value = ''; }} />
                         </label>
+                        {strava && strava.athlete && strava.athlete.profile && avatar !== strava.athlete.profile ? <button className="file-button is-compact" data-variant="secondary" onClick={() => { if (strava.athlete && strava.athlete.profile) { setAvatar(strava.athlete.profile); setToast(t('Foto de Strava aplicada')); } }}>{t('Usar foto de Strava')}</button> : null}
                         {avatar ? <button className="file-button is-compact" data-variant="secondary" onClick={() => setAvatar('')}>{t('Quitar')}</button> : null}
                     </div>
                 </div>
