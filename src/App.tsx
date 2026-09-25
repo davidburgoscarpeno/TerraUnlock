@@ -3696,6 +3696,7 @@ export function App() {
 
         {advSummary ? (
             <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={t('Aventura terminada')}>
+                {[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? <div className="tu-confetti" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} />)}</div> : null}
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">{sportEmoji(advSport(advSummary)) || '⚑'}</div>
                     <h2>{t('Aventura terminada')}</h2>
