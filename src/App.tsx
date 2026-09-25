@@ -2926,6 +2926,17 @@ export function App() {
                 <div className="tu-controls"><button className="file-button is-compact" data-variant="primary" onClick={endAdventure}>{t('Terminar aventura')}</button><button className="file-button is-compact" data-variant="secondary" onClick={() => setTab('mapa')}>{t('Ir al mapa')}</button></div>
             </div> : <button className="tu-cta" onClick={() => { if (!gpsOn) setGpsOn(true); startAdventure(); setTab('mapa'); }}><span className="tu-cta-ico">▶</span>{t('Empezar aventura')}</button>}
 
+            {nearestPeak ? <section className="tu-group">
+                <h2>{t('Tu cima mas cercana')}</h2>
+                <div className="tu-nextach-body">
+                    <strong>{'⛰️ '}{nearestPeak.p[0]} <small className="tu-dim">{nearestPeak.p[3]} m</small></strong>
+                    <small className="tu-dim">{t('A {d} de ti: pasando a menos de 250 m de la cima la conquistas.', { d: fmtDist(nearestPeak.d / 1000) })}</small>
+                    <div className="tu-controls" style={{ marginTop: 6 }}>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => { setSelectedPeak(nearestPeak.p); setSelectedRegion(null); setViewPersist({ lon: nearestPeak.p[2], lat: nearestPeak.p[1], z: 11 }); setTab('mapa'); }}>{t('Ver')}</button>
+                    </div>
+                </div>
+            </section> : null}
+
             {nextAch ? <section className="tu-group">
                 <h2>{t('Siguiente logro')}</h2>
                 <div className="tu-nextach-body">
