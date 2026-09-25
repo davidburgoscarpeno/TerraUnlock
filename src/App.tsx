@@ -75,7 +75,7 @@ function regionAt(regions: Region[], lon: number, lat: number) {
     }
     return null;
 }
-type TerrBanner = { title: string; sub: string; kind?: 'c' | 'a' | 'pv' };
+type TerrBanner = { title: string; sub: string; kind?: 'c' | 'a' | 'pv' | 'pk' };
 
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
@@ -683,12 +683,11 @@ export function App() {
                     const id = peakId(pk);
                     if (!pkSet.has(id) && distM([pk[1], pk[2]], [lat, lon]) <= PEAK_M) {
                         next.peaks = [...next.peaks, id]; pkSet.add(id);
-                        news.push(t('Cima conquistada: {n} ({e} m)', { n: pk[0], e: pk[3] }));
+                        terr.push({ kind: 'pk', title: t('Cima conquistada: {n}', { n: pk[0] }), sub: pk[3] + ' m · ' + t('Cimas') + ' ' + next.peaks.length });
                     }
                 }
             }
         }
-        if (news.length) setToast(news[news.length - 1] + (news.length > 1 ? t(' (+{n} mas)', { n: news.length - 1 }) : ''));
         if (terr.length) { setBanners((b) => [...b, ...terr]); try { navigator.vibrate?.(80); } catch { /* sin vibracion */ } }
         if (isNewCell || isNewPoint || news.length) { setProgress(next); saveProgress(next); }
         setLastPos([lat, lon]);
@@ -2916,7 +2915,7 @@ export function App() {
             {nextAch ? <section className="tu-group">
                 <h2>{t('Siguiente logro')}</h2>
                 <div className="tu-nextach-body">
-                    <strong>{'★ '}{t(nextAch.a.title)}</strong>
+                    <strong>{nextAch.a.ico + ' '}{t(nextAch.a.title)}</strong>
                     <small className="tu-dim">{t(nextAch.a.hint)}</small>
                     <div className="tu-bar tu-nextach-bar"><div style={{ display: 'block', height: '100%', borderRadius: 3, background: '#2dc8aa', width: Math.min(100, nextAch.cur / nextAch.tgt * 100).toFixed(0) + '%' }} /></div>
                     <small className="tu-dim">{Number.isInteger(nextAch.cur) ? String(Math.min(nextAch.cur, nextAch.tgt)) : dec(Math.min(nextAch.cur, nextAch.tgt), 1)}/{nextAch.tgt}</small>
@@ -3551,7 +3550,7 @@ export function App() {
 
         {banners.length ? (
             <div className="tu-territory" role="status">
-                <div className="tu-terr-ico">{banners[0].kind === 'c' ? '🚩' : banners[0].kind === 'a' ? '🏠' : banners[0].kind === 'pv' ? '📍' : '⚑'}</div>
+                <div className="tu-terr-ico">{banners[0].kind === 'c' ? '🚩' : banners[0].kind === 'a' ? '🏠' : banners[0].kind === 'pv' ? '📍' : banners[0].kind === 'pk' ? '⛰️' : '⚑'}</div>
                 <div className="tu-terr-body">
                     <strong>{banners[0].title}</strong>
                     <small>{banners[0].sub}{banners.length > 1 ? t(' - +{n} mas a continuacion', { n: banners.length - 1 }).replace(' - ', ' · ') : ''}</small>
