@@ -554,25 +554,38 @@ export function App() {
     // v1.39: Strava
     const [strava, setStrava] = useState<StravaConn | null>(() => loadStrava());
     const [stravaBusy, setStravaBusy] = useState(false);
-    const importFromStrava = async () => {
+    const importFromStrava = async (auto = false) => {
         if (stravaBusy) return;
         setStravaBusy(true);
         try {
-            const r = await fetchStravaTracks((d, tot) => setToast(t('Descargando de Strava: {d}/{tot}', { d, tot })));
+            const r = await fetchStravaTracks((d, tot) => { if (!auto) setToast(t('Descargando de Strava: {d}/{tot}', { d, tot })); });
             const c = loadStrava();
             if (c) { c.lastSync = new Date().toISOString(); saveStrava(c); }
             setStrava(loadStrava());
             if (!r.tracks.length) {
-                setToast(r.rateLimited ? t('Strava ha llegado a su limite de peticiones: prueba de nuevo en 15 minutos') : t('No hay actividades nuevas con GPS en tu Strava'));
+                if (!auto) setToast(r.rateLimited ? t('Strava ha llegado a su limite de peticiones: prueba de nuevo en 15 minutos') : t('No hay actividades nuevas con GPS en tu Strava'));
                 return;
             }
             const ok = buildBatchFromTracks(r.tracks, r.tracks.length, 0);
-            if (ok && r.rateLimited) setToast(t('Strava limito la descarga: faltan actividades por traer. Repite en 15 minutos.'));
+            if (ok && r.rateLimited && !auto) setToast(t('Strava limito la descarga: faltan actividades por traer. Repite en 15 minutos.'));
         } catch (e) {
             setStrava(loadStrava());
-            setToast(t('Error con Strava: {msg}', { msg: e instanceof Error ? e.message : 'error' }));
+            if (!auto) setToast(t('Error con Strava: {msg}', { msg: e instanceof Error ? e.message : 'error' }));
         } finally { setStravaBusy(false); }
     };
+    // v1.98: auto-sync de Strava al abrir la app (1 vez por sesion, si la ultima sync tiene >20 h)
+    const stravaAutoRef = useRef(false);
+    useEffect(() => {
+        if (stravaAutoRef.current) return;
+        stravaAutoRef.current = true;
+        const c = loadStrava();
+        if (!c || !c.access_token) return;
+        if (c.lastSync && Date.now() - new Date(c.lastSync).getTime() < 20 * 3600e3) return;
+        try { if (!navigator.onLine) return; } catch { /* ok */ }
+        const tmr = setTimeout(() => { void importFromStrava(true); }, 1500);
+        return () => clearTimeout(tmr);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     // v1.44: al volver del OAuth de Strava, conectar y lanzar la primera importacion sin mas toques
     useEffect(() => {
         const q = new URLSearchParams(window.location.search);
