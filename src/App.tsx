@@ -1185,11 +1185,22 @@ export function App() {
         if (lastPos) {
             const pt = project(lastPos[1], lastPos[0], z);
             const x = sx(pt.x), y = sy(pt.y);
+            // v1.93: radio de revelado visible con el GPS activo (lo que despejas al caminar)
+            if (gpsOn) {
+                const mpp = 156543.03392 * Math.cos(lastPos[0] * Math.PI / 180) / Math.pow(2, z);
+                const rr = REVEAL_M / mpp;
+                ctx.fillStyle = 'rgba(45,200,170,0.05)';
+                ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.fill();
+                ctx.setLineDash([8, 7]);
+                ctx.strokeStyle = 'rgba(45,200,170,0.45)'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.stroke();
+                ctx.setLineDash([]);
+            }
             ctx.beginPath(); ctx.arc(x, y, 10, 0, 7); ctx.fillStyle = 'rgba(45,200,170,0.25)'; ctx.fill();
             ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#2dc8aa'; ctx.fill();
             ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
         }
-    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs, focusAdv, tab, flash]);
+    }, [view, progress, lastPos, tileTick, importBatch, allPeaks, selectedPeak, prefs, focusAdv, tab, flash, gpsOn]);
 
     // Gestion de punteros (arrastre, pellizco, toque en modo prueba)
     const pointers = useRef(new Map<number, { x: number; y: number }>());
