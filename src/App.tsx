@@ -1305,15 +1305,16 @@ export function App() {
                     dragStart.current = null;
                     return;
                 }
-                // Hit-test de cimas: la mas cercana al toque dentro de 20 px
+                // Hit-test de cimas: radio segun altitud, acorde al tamano del marcador (v1.110)
                 if (v.z >= 5.5) {
-                    let best: Peak | null = null, bestD = 20;
+                    let best: Peak | null = null, bestD = Infinity;
                     for (const pk of allPeaksRef.current) {
                         const pt = project(pk[2], pk[1], v.z);
                         const x = pt.x - pc.x + w / 2, y = pt.y - pc.y + h / 2;
-                        if (x < -20 || x > w + 20 || y < -20 || y > h + 20) continue;
+                        if (x < -26 || x > w + 26 || y < -26 || y > h + 26) continue;
                         const d = Math.hypot(x - mx, y - (my - 1));
-                        if (d < bestD) { bestD = d; best = pk; }
+                        const r = pk[3] >= 3000 ? 26 : pk[3] >= 2000 ? 23 : pk[3] >= 1000 ? 20 : 18;
+                        if (d < r && d < bestD) { bestD = d; best = pk; }
                     }
                     if (best) { setSelectedPeak(best); setSelectedRegion(null); dragStart.current = null; return; }
                 }
