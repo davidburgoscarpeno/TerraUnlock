@@ -116,7 +116,8 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-ach.on b { color: var(--accent2); }
 .tu-celebration { position: fixed; inset: 0; z-index: 110; background: rgba(6,10,16,0.88); display: flex; align-items: center; justify-content: center; padding: 24px; }
 .tu-celeb-card { background: var(--panel); border: 1px solid var(--border2); border-radius: 16px; padding: 28px 24px; max-width: 340px; width: 100%; text-align: center; }
-.tu-celeb-ico { font-size: 44px; color: var(--gold); margin-bottom: 8px; }
+.tu-celeb-ico { font-size: 44px; color: var(--gold); margin-bottom: 8px; animation: tu-celeb-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes tu-celeb-pop { 0% { transform: scale(0.2); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 .tu-celeb-card h2 { font-size: 13px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 6px; }
 .tu-celeb-card strong { font-size: 24px; color: var(--accent2); display: block; margin-bottom: 6px; }
 .tu-celeb-card p { color: var(--text2); font-size: 14px; margin: 0 0 8px; }
