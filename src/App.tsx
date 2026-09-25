@@ -3051,7 +3051,7 @@ export function App() {
                 <strong>{selectedPeak[0]} <small style={{ fontWeight: 400, opacity: 0.75 }}>{selectedPeak[3]} m</small></strong>
                 <p>{progress.peaks.includes(peakId(selectedPeak))
                     ? t('Cima conquistada. Buen trabajo.')
-                    : t('Aun sin conquistar: pasa a menos de 1 km de la cima para que cuente.')}</p>
+                    : t('Aun sin conquistar: pasa a menos de 250 m de la cima para que cuente.')}</p>
                 <div className="tu-controls">
                     <a className="file-button is-compact" data-variant="primary" href={wikilocMapUrl(selectedPeak)} target="_blank" rel="noopener noreferrer">{t('Rutas en Wikiloc')}</a>
                     <a className="file-button is-compact" data-variant="secondary" href={'https://www.google.com/maps/dir/?api=1&destination=' + selectedPeak[1] + ',' + selectedPeak[2]} target="_blank" rel="noopener noreferrer">{t('Como llegar')}</a>
@@ -3352,7 +3352,7 @@ export function App() {
             </section>
 
             <section className="tu-group"><h2>{t('Tus cimas')}</h2>
-                <div className="tu-callout"><strong>{t('{won} de {total} conquistadas', { won: progress.peaks.length, total: allPeaks.length })}</strong><p>{t('Toca cualquier triangulo del mapa para ver su ficha: altitud, si la has conquistado y rutas para subirla. Una cima cuenta cuando pasas a menos de 1 km.')}</p></div>
+                <div className="tu-callout"><strong>{t('{won} de {total} conquistadas', { won: progress.peaks.length, total: allPeaks.length })}</strong><p>{t('Toca cualquier triangulo del mapa para ver su ficha: altitud, si la has conquistado y rutas para subirla. Una cima cuenta cuando pasas a menos de 250 m.')}</p></div>
                 {conqueredPeaks.length > 0 ? (
                     <div className="tu-ach-grid">
                         {conqueredPeaks.map((p) => <div key={peakId(p)} className="tu-ach on">
