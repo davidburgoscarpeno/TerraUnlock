@@ -315,3 +315,6 @@ input[type="range"] { accent-color: var(--accent); }
 /* v1.92: tarjetas de aventura con miniatura del track */
 .tu-advsum { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .tu-advthumb { width: 64px; height: 44px; border-radius: 8px; background: #0a0f16; border: 1px solid var(--input-bg); flex: none; }
+
+/* v1.94: distintivo Strava en aventuras importadas */
+.tu-stravabadge { display: inline-block; margin-top: 3px; padding: 1px 7px; border-radius: 99px; background: rgba(252,76,2,0.16); color: #fc6c2f; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; width: fit-content; }
