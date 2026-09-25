@@ -3471,7 +3471,8 @@ export function App() {
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
                         <b>{strava ? t('Strava conectado{who}', { who: strava.athlete && strava.athlete.firstname ? ' - ' + strava.athlete.firstname : '' }) : t('Conecta tu Strava')}</b>
-                        <small>{strava ? t('{n} actividades importadas', { n: strava.importedIds.length }) + (strava.lastSync ? ' · ' + t('Ultima sync {d}', { d: new Date(strava.lastSync).toLocaleDateString(dateLocale()) }) : '') : t('Autoriza una vez y trae tus actividades con GPS, sin exportar archivos.')}</small>
+                        <small>{strava ? t('Trae tus actividades con GPS directamente desde tu cuenta.') : t('Autoriza una vez y trae tus actividades con GPS, sin exportar archivos.')}</small>
+                        {strava ? <small className="tu-dim" style={{ display: 'block', marginTop: 6 }}>{t('{n} actividades importadas', { n: strava.importedIds.length })}{strava.lastSync ? ' · ' + t('Ultima sync {d}', { d: new Date(strava.lastSync).toLocaleDateString(dateLocale()) }) : ''}</small> : null}
                         {!strava ? <small className="tu-dim" style={{ display: 'block', marginTop: 6 }}>{t('Si Strava te da Error 403 de limite de deportistas, el cupo de conexion esta lleno y ya lo estamos ampliando. Mientras tanto, importa tus rutas con GPX, FIT o el ZIP de exportacion de Strava desde la seccion Importar rutas.')}</small> : null}
                     </div>
                     <div className="tu-controls" style={{ margin: 0 }}>
