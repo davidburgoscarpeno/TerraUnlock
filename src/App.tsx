@@ -3605,6 +3605,7 @@ export function App() {
 
         {celebration.length ? (
             <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={celebration.length > 1 ? t('{n} logros desbloqueados', { n: celebration.length }) : t('Logro desbloqueado')}>
+                <div className="tu-confetti" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} />)}</div>
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">{celebration.length === 1 ? celebration[0].ico : '★'}</div>
                     <h2>{celebration.length > 1 ? t('{n} logros desbloqueados', { n: celebration.length }) : t('Logro desbloqueado')}</h2>
