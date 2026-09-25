@@ -235,6 +235,16 @@ function Chip({ on, label, onPick, title }: { on: boolean; label: string; onPick
 }
 // <3 min/km (~20+ km/h) = bici; 3-7,5 = correr; 7,5-14 = caminar; >14 = senderismo (terreno lento)
 function inferSportSecPerKm(secPerKm: number): Sport { if (secPerKm < 180) return 'ride'; if (secPerKm < 450) return 'run'; if (secPerKm < 840) return 'walk'; return 'hike'; }
+// v1.117: deporte de un track escaneado (metadatos del archivo o inferido por ritmo)
+function scanSport(sc: TrackScan): Sport | undefined {
+    if (sc.sport === 'run' || sc.sport === 'ride' || sc.sport === 'walk' || sc.sport === 'hike') return sc.sport;
+    const ts = (sc.times || []).filter((x): x is string => !!x);
+    if (ts.length >= 2 && sc.km > 0.05) {
+        const dur = (new Date(ts[ts.length - 1]).getTime() - new Date(ts[0]).getTime()) / 1000;
+        if (dur > 0) return inferSportSecPerKm(dur / sc.km);
+    }
+    return undefined;
+}
 function advSport(a: Adventure): Sport | undefined {
     const s = a.sport;
     if (s === 'run' || s === 'ride' || s === 'walk' || s === 'hike') return s;
@@ -3707,14 +3717,14 @@ export function App() {
                 <div className="tu-celeb-card">
                     <div className="tu-celeb-ico">⇪</div>
                     <h2>{t('Importar rutas')}</h2>
-                    <strong>{importBatch.tracksOk > 1 ? t('{n} actividades listas', { n: importBatch.tracksOk }) : importBatch.scans[0]?.name}</strong>
+                    <strong>{importBatch.tracksOk > 1 ? t('{n} actividades listas', { n: importBatch.tracksOk }) : (importBatch.scans[0] ? [sportEmoji(scanSport(importBatch.scans[0])), importBatch.scans[0].name].filter(Boolean).join(' ') : '')}</strong>
                     <p>{importBatch.tracksOk > 1 ? t('{km} km en total', { km: dec(importBatch.totalKm) }) : importBatch.scans[0] ? t('{n} puntos, {km} km', { n: importBatch.scans[0].pts.length, km: dec(importBatch.scans[0].km) }) : ''}. {t('Va a revelar la niebla de todo el recorrido y desbloqueara: {lista}.', { lista: (() => {
                         const p0 = progress;
                         const names = [...new Set([...importBatch.work.countries.slice(p0.countries.length), ...importBatch.work.ccaa.slice(p0.ccaa.length), ...importBatch.work.prov.slice(p0.prov.length)])];
                         const pk = importBatch.work.peaks.length - p0.peaks.length;
                         return names.length + pk ? names.join(', ') + (pk ? t(' y {n} cimas', { n: pk }) : '') : t('nada nuevo (zona ya desbloqueada)');
                     })() })}</p>
-                    {importBatch.tracksOk > 1 ? <small>{importBatch.scans.slice(0, 6).map((sc) => sc.name + ' · ' + fmtDist(sc.km)).join(' · ')}{importBatch.tracksOk > 6 ? ' …' : ''}</small> : null}
+                    {importBatch.tracksOk > 1 ? <small>{importBatch.scans.slice(0, 6).map((sc) => [sportEmoji(scanSport(sc)), sc.name].filter(Boolean).join(' ') + ' · ' + fmtDist(sc.km)).join(' · ')}{importBatch.tracksOk > 6 ? ' …' : ''}</small> : null}
                     {importBatch.dups ? <small>{t('{n} ya las tenias importadas: las he saltado', { n: importBatch.dups })}</small> : null}
                     {importBatch.scans.length <= 20 ? <small>{t('Cada actividad se guardara como aventura en tu historial.')}</small> : null}
                     {importBatch.failed ? <small>{t('({n} archivos no se pudieron leer)', { n: importBatch.failed })}</small> : null}
