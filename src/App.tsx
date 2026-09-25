@@ -3637,7 +3637,7 @@ export function App() {
         {advSummary ? (
             <div className="tu-celebration" role="dialog" aria-modal="true" aria-label={t('Aventura terminada')}>
                 <div className="tu-celeb-card">
-                    <div className="tu-celeb-ico">⚑</div>
+                    <div className="tu-celeb-ico">{sportEmoji(advSport(advSummary)) || '⚑'}</div>
                     <h2>{t('Aventura terminada')}</h2>
                     <strong>{fmtDist(advSummary.km)}</strong>
                     <p>{t('{n} puntos GPS', { n: advSummary.points })}{[...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].length ? t(' - Desbloqueos: ').replace(' - ', ' · ') + [...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov].join(', ') : ''}{advSummary.peaks.length ? ' · ' + t('{n} cimas', { n: advSummary.peaks.length }) : ''}{![...advSummary.countries, ...advSummary.ccaa, ...advSummary.prov, ...advSummary.peaks].length ? t(' - Sin desbloqueos nuevos esta vez').replace(' - ', ' · ') : ''}</p>
@@ -3649,6 +3649,7 @@ export function App() {
                         {advSummary.track && advSummary.track.length >= 2 ? <button className="file-button is-compact" data-variant="secondary" onClick={() => { setAdvSummary(null); showAdvOnMap(advSummary); }}>{t('Ver en el mapa')}</button> : null}
                         <button className="file-button is-compact" data-variant="primary" onClick={() => shareAdventureCard(advSummary)}>{t('Compartir aventura')}</button>
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => exportGpx(advSummary)}>{t('Exportar GPX')}</button>
+                        {advSummary.stravaId ? <a className="file-button is-compact" data-variant="secondary" href={'https://www.strava.com/activities/' + advSummary.stravaId} target="_blank" rel="noreferrer">{t('Ver en Strava')}</a> : null}
                         <button className="file-button is-compact" data-variant="secondary" onClick={() => setAdvSummary(null)}>{t('Cerrar')}</button>
                     </div>
                 </div>
