@@ -75,7 +75,7 @@ function regionAt(regions: Region[], lon: number, lat: number) {
     }
     return null;
 }
-type TerrBanner = { title: string; sub: string };
+type TerrBanner = { title: string; sub: string; kind?: 'c' | 'a' | 'pv' };
 
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
@@ -659,9 +659,9 @@ export function App() {
         const terr: TerrBanner[] = [];
         if (isNewPoint) {
             const rg = regionsCached(lon, lat);
-            if (rg.c && !next.countries.includes(rg.c)) { next.countries = [...next.countries, rg.c]; terr.push({ title: t('Pais nuevo: {n}', { n: rg.c }), sub: t('Ya llevas {n} de 177', { n: next.countries.length }) }); }
-            if (rg.a && !next.ccaa.includes(rg.a)) { next.ccaa = [...next.ccaa, rg.a]; terr.push({ title: t('Comunidad nueva: {n}', { n: rg.a }), sub: t('Ya llevas {n} de 19', { n: next.ccaa.length }) }); }
-            if (rg.pv && !next.prov.includes(rg.pv)) { next.prov = [...next.prov, rg.pv]; terr.push({ title: t('Provincia nueva: {n}', { n: rg.pv }), sub: t('Ya llevas {n} de 52', { n: next.prov.length }) }); }
+            if (rg.c && !next.countries.includes(rg.c)) { next.countries = [...next.countries, rg.c]; terr.push({ kind: 'c', title: t('Pais nuevo: {n}', { n: rg.c }), sub: t('Ya llevas {n} de 177', { n: next.countries.length }) }); }
+            if (rg.a && !next.ccaa.includes(rg.a)) { next.ccaa = [...next.ccaa, rg.a]; terr.push({ kind: 'a', title: t('Comunidad nueva: {n}', { n: rg.a }), sub: t('Ya llevas {n} de 19', { n: next.ccaa.length }) }); }
+            if (rg.pv && !next.prov.includes(rg.pv)) { next.prov = [...next.prov, rg.pv]; terr.push({ kind: 'pv', title: t('Provincia nueva: {n}', { n: rg.pv }), sub: t('Ya llevas {n} de 52', { n: next.prov.length }) }); }
             const pkSet = new Set(next.peaks);
             const gi = Math.floor(lat * 2), gj = Math.floor(lon * 2);
             for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
@@ -3538,7 +3538,7 @@ export function App() {
 
         {banners.length ? (
             <div className="tu-territory" role="status">
-                <div className="tu-terr-ico">⚑</div>
+                <div className="tu-terr-ico">{banners[0].kind === 'c' ? '🚩' : banners[0].kind === 'a' ? '🏠' : banners[0].kind === 'pv' ? '📍' : '⚑'}</div>
                 <div className="tu-terr-body">
                     <strong>{banners[0].title}</strong>
                     <small>{banners[0].sub}{banners.length > 1 ? t(' - +{n} mas a continuacion', { n: banners.length - 1 }).replace(' - ', ' · ') : ''}</small>
