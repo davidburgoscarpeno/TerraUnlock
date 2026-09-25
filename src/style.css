@@ -311,3 +311,7 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-peakhero-stats b { font-size: 19px; }
 .tu-peakhero-stats b .tu-dim { font-size: 13px; font-weight: 400; }
 .tu-peakhero-stats small { display: block; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* v1.92: tarjetas de aventura con miniatura del track */
+.tu-advsum { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.tu-advthumb { width: 64px; height: 44px; border-radius: 8px; background: #0a0f16; border: 1px solid var(--input-bg); flex: none; }
