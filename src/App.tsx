@@ -3598,6 +3598,9 @@ export function App() {
         </> : null}
 
         {banners.length ? (
+            <div key={banners[0].title + banners.length} className="tu-confetti tu-confetti-fixed" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} />)}</div>
+        ) : null}
+        {banners.length ? (
             <div className="tu-territory" role="status">
                 <div className="tu-terr-ico">{banners[0].kind === 'c' ? '🚩' : banners[0].kind === 'a' ? '🏠' : banners[0].kind === 'pv' ? '📍' : banners[0].kind === 'pk' ? '⛰️' : '⚑'}</div>
                 <div className="tu-terr-body">
