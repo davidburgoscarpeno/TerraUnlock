@@ -322,4 +322,5 @@ input[type="range"] { accent-color: var(--accent); }
 
 /* v1.95c: la fila de Strava apila texto sobre botones en movil */
 .tu-stravarow { flex-wrap: wrap; }
+.tu-strava-av { width: 30px; height: 30px; border-radius: 50%; vertical-align: -9px; margin-right: 8px; border: 2px solid rgba(252,82,0,0.55); }
 .tu-stravarow .l { flex: 1 1 100%; margin-bottom: 10px; }

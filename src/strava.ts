@@ -8,7 +8,7 @@ export type StravaConn = {
     access_token: string;
     refresh_token: string;
     expires_at: number; // unix seconds
-    athlete: { id: number; firstname: string } | null;
+    athlete: { id: number; firstname: string; profile?: string } | null;
     importedIds: number[];
     lastSync?: string;
 };
