@@ -120,6 +120,7 @@ input[type="range"] { accent-color: var(--accent); }
 @keyframes tu-celeb-pop { 0% { transform: scale(0.2); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 .tu-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .tu-confetti-fixed { position: fixed; z-index: 104; }
+.tu-won { color: #f0b429; font-weight: 600; }
 .tu-confetti i { position: absolute; top: -14px; width: 8px; height: 12px; border-radius: 2px; opacity: 0; animation: tu-confetti-fall 2.6s ease-in forwards; }
 @keyframes tu-confetti-fall { 0% { transform: translateY(-14px) rotate(0deg); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(80vh) rotate(560deg); opacity: 0; } }
 .tu-confetti i:nth-child(1) { left: 6%; background: #2dc8aa; animation-delay: 0.05s; }

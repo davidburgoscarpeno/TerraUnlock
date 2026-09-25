@@ -3409,7 +3409,7 @@ export function App() {
                 {peakQuery.trim().length >= 2 ? (
                     peakResults.length ? <ol className="tu-peaklist tu-peaklist-full">
                         {peakResults.map((p) => <li key={peakId(p)}>
-                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? t('Conquistada') : t('Sin conquistar')}{' · '}{(() => { const dKm = distM(lastPos || [view.lat, view.lon], [p[1], p[2]]) / 1000; return lastPos ? t('A {d} de ti', { d: fmtDist(dKm) }) : t('A {d} del centro del mapa', { d: fmtDist(dKm) }); })()}</small></span>
+                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? <span className="tu-won">{t('Conquistada')}</span> : t('Sin conquistar')}{' · '}{(() => { const dKm = distM(lastPos || [view.lat, view.lon], [p[1], p[2]]) / 1000; return lastPos ? t('A {d} de ti', { d: fmtDist(dKm) }) : t('A {d} del centro del mapa', { d: fmtDist(dKm) }); })()}</small></span>
                             <span className="tu-pkele">{p[3]} m</span>
                             <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
                         </li>)}
