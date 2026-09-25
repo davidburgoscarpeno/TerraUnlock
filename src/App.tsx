@@ -3543,6 +3543,7 @@ export function App() {
                         {!strava ? (
                             <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => { setStravaBusy(true); beginStravaConnect().catch(() => { setStravaBusy(false); setToast(t('No se pudo conectar con Strava')); }); }}>{stravaBusy ? t('Conectando...') : t('Conectar Strava')}</button>
                         ) : (<>
+                            {strava.athlete && strava.athlete.id ? <a className="file-button is-compact" data-variant="secondary" href={'https://www.strava.com/athletes/' + strava.athlete.id} target="_blank" rel="noreferrer">{t('Mi perfil')}</a> : null}
                             <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => void importFromStrava()}>{stravaBusy ? t('Importando...') : t('Importar de Strava')}</button>
                             <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                                 if (!confirmStravaOff) { setConfirmStravaOff(true); return; }
