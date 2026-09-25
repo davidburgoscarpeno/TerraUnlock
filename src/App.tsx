@@ -549,6 +549,7 @@ export function App() {
     const [swUpdate, setSwUpdate] = useState(false);
     const [ioText, setIoText] = useState('');
     const [confirmReset, setConfirmReset] = useState(false);
+    const [confirmStravaOff, setConfirmStravaOff] = useState(false);
     type ImportBatch = { scans: TrackScan[]; files: number; tracksOk: number; failed: number; totalKm: number; work: Progress; dups: number };
     const [importBatch, setImportBatch] = useState<ImportBatch | null>(null);
     // v1.39: Strava
@@ -3542,7 +3543,10 @@ export function App() {
                             <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => { setStravaBusy(true); beginStravaConnect().catch(() => { setStravaBusy(false); setToast(t('No se pudo conectar con Strava')); }); }}>{stravaBusy ? t('Conectando...') : t('Conectar Strava')}</button>
                         ) : (<>
                             <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => void importFromStrava()}>{stravaBusy ? t('Importando...') : t('Importar de Strava')}</button>
-                            <button className="file-button is-compact" data-variant="secondary" onClick={() => { saveStrava(null); setStrava(null); setToast(t('Strava desconectado')); }}>{t('Desconectar')}</button>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => {
+                                if (!confirmStravaOff) { setConfirmStravaOff(true); return; }
+                                setConfirmStravaOff(false); saveStrava(null); setStrava(null); setToast(t('Strava desconectado. Tus actividades importadas se quedan.'));
+                            }}>{confirmStravaOff ? t('Seguro? Toca otra vez') : t('Desconectar')}</button>
                         </>)}
                     </div>
                 </div>
