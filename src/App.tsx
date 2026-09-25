@@ -3468,7 +3468,7 @@ export function App() {
             </section>
 
             <section className="tu-group"><h2>Strava</h2>
-                <div className="tu-setrow">
+                <div className="tu-setrow tu-stravarow">
                     <div className="l" style={{ flex: 1 }}>
                         <b>{strava ? t('Strava conectado{who}', { who: strava.athlete && strava.athlete.firstname ? ' - ' + strava.athlete.firstname : '' }) : t('Conecta tu Strava')}</b>
                         <small>{strava ? t('Trae tus actividades con GPS directamente desde tu cuenta.') : t('Autoriza una vez y trae tus actividades con GPS, sin exportar archivos.')}</small>

@@ -318,3 +318,7 @@ input[type="range"] { accent-color: var(--accent); }
 
 /* v1.94: distintivo Strava en aventuras importadas */
 .tu-stravabadge { display: inline-block; margin-top: 3px; padding: 1px 7px; border-radius: 99px; background: rgba(252,76,2,0.16); color: #fc6c2f; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; width: fit-content; }
+
+/* v1.95c: la fila de Strava apila texto sobre botones en movil */
+.tu-stravarow { flex-wrap: wrap; }
+.tu-stravarow .l { flex: 1 1 100%; margin-bottom: 10px; }
