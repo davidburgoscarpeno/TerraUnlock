@@ -1173,8 +1173,10 @@ export function App() {
             }
             const shown = [...grid.values()];
             for (const m of shown) {
+                // v1.106: tamano segun altitud para dar jerarquia al mapa
+                const sc = m.pk[3] >= 3000 ? 1.55 : m.pk[3] >= 2000 ? 1.3 : m.pk[3] >= 1000 ? 1.1 : 1;
                 ctx.beginPath();
-                ctx.moveTo(m.x, m.y - 5); ctx.lineTo(m.x - 4.5, m.y + 3.5); ctx.lineTo(m.x + 4.5, m.y + 3.5); ctx.closePath();
+                ctx.moveTo(m.x, m.y - 5 * sc); ctx.lineTo(m.x - 4.5 * sc, m.y + 3.5 * sc); ctx.lineTo(m.x + 4.5 * sc, m.y + 3.5 * sc); ctx.closePath();
                 ctx.fillStyle = m.won ? '#f0b429' : 'rgba(200,212,222,0.6)';
                 ctx.fill();
             }
