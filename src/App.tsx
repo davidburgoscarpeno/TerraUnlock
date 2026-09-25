@@ -1220,6 +1220,7 @@ export function App() {
     const pointers = useRef(new Map<number, { x: number; y: number }>());
     const dragStart = useRef<{ x: number; y: number; wx: number; wy: number; moved: boolean } | null>(null);
     const pinchStart = useRef<{ d: number; z: number } | null>(null);
+    const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
 
     const zoomAt = (mx: number, my: number, delta: number) => {
         const v = viewRef.current, wrap = wrapRef.current; if (!wrap) return;
@@ -1291,6 +1292,17 @@ export function App() {
                 const pc = project(v.lon, v.lat, v.z);
                 const mx = e.clientX - rect.left, my = e.clientY - rect.top;
                 const w = wrap.clientWidth, h = wrap.clientHeight;
+                // v1.104: doble toque para acercar (como los mapas habituales)
+                const nowT = Date.now();
+                const lt = lastTapRef.current;
+                lastTapRef.current = { t: nowT, x: mx, y: my };
+                if (lt && nowT - lt.t < 320 && Math.hypot(mx - lt.x, my - lt.y) < 40) {
+                    lastTapRef.current = null;
+                    setSelectedPeak(null);
+                    zoomAt(mx, my, 1);
+                    dragStart.current = null;
+                    return;
+                }
                 // Hit-test de cimas: la mas cercana al toque dentro de 20 px
                 if (v.z >= 5.5) {
                     let best: Peak | null = null, bestD = 20;
