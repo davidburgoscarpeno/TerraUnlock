@@ -75,7 +75,7 @@ function regionAt(regions: Region[], lon: number, lat: number) {
     }
     return null;
 }
-type TerrBanner = { title: string; sub: string; kind?: 'c' | 'a' | 'pv' | 'pk' };
+type TerrBanner = { title: string; sub: string; kind?: 'c' | 'a' | 'pv' | 'pk'; peak?: Peak };
 
 function peakId(p: Peak) { return p[0] + '|' + p[1] + '|' + p[2]; }
 
@@ -684,7 +684,7 @@ export function App() {
                     const id = peakId(pk);
                     if (!pkSet.has(id) && distM([pk[1], pk[2]], [lat, lon]) <= PEAK_M) {
                         next.peaks = [...next.peaks, id]; pkSet.add(id);
-                        terr.push({ kind: 'pk', title: t('Cima conquistada: {n}', { n: pk[0] }), sub: pk[3] + ' m · ' + t('Cimas') + ' ' + next.peaks.length });
+                        terr.push({ kind: 'pk', peak: pk, title: t('Cima conquistada: {n}', { n: pk[0] }), sub: pk[3] + ' m · ' + t('Cimas') + ' ' + next.peaks.length });
                     }
                 }
             }
@@ -1598,6 +1598,36 @@ export function App() {
             g.fillText(who ? who + ' - TerraUnlock' : 'TerraUnlock', W / 2, 950);
             const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
             if (blob) await shareBlob(blob, 'terraunlock-logro.png', t(a.title));
+        } catch { setToast(t('No se pudo crear la tarjeta')); }
+    };
+    // v1.116: tarjeta PNG de una cima conquistada (ambar, a juego con el marcador)
+    const sharePeakCard = async (pk: Peak) => {
+        try {
+            const W = 1080, H = 1080;
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d'); if (!g) return;
+            g.fillStyle = '#0b1017'; g.fillRect(0, 0, W, H);
+            g.beginPath(); g.arc(W / 2, 300, 130, 0, Math.PI * 2);
+            g.fillStyle = 'rgba(240,180,41,0.16)'; g.fill();
+            g.lineWidth = 6; g.strokeStyle = '#f0b429'; g.stroke();
+            g.fillStyle = '#f0b429';
+            g.beginPath(); g.moveTo(W / 2, 222); g.lineTo(W / 2 - 85, 362); g.lineTo(W / 2 + 85, 362); g.closePath(); g.fill();
+            g.fillStyle = '#0b1017';
+            g.beginPath(); g.moveTo(W / 2, 252); g.lineTo(W / 2 - 30, 314); g.lineTo(W / 2 - 9, 300); g.lineTo(W / 2 + 10, 318); g.lineTo(W / 2 + 31, 303); g.closePath(); g.fill();
+            g.fillStyle = 'rgba(230,240,244,0.65)'; g.font = '600 34px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillText(t('Cima conquistada').toUpperCase(), W / 2, 520);
+            g.fillStyle = '#e6f0f4'; g.font = '700 ' + (pk[0].length > 28 ? 44 : pk[0].length > 18 ? 54 : 64) + 'px system-ui, sans-serif';
+            g.fillText(pk[0], W / 2, 620);
+            g.fillStyle = '#f0b429'; g.font = '700 54px system-ui, sans-serif';
+            g.fillText(pk[3].toLocaleString(dateLocale()) + ' m', W / 2, 705);
+            const adv = adventures.find((a) => a.peaks.includes(peakId(pk)));
+            g.fillStyle = 'rgba(45,200,170,0.9)'; g.font = '500 32px system-ui, sans-serif';
+            g.fillText((adv ? new Date(adv.start) : new Date()).toLocaleDateString(dateLocale()), W / 2, 785);
+            const who = prefs.nombre.trim();
+            g.fillStyle = 'rgba(230,240,244,0.55)'; g.font = '500 30px system-ui, sans-serif';
+            g.fillText(who ? who + ' - TerraUnlock' : 'TerraUnlock', W / 2, 950);
+            const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
+            if (blob) await shareBlob(blob, 'terraunlock-cima.png', pk[0]);
         } catch { setToast(t('No se pudo crear la tarjeta')); }
     };
     const shareWeekCard = async (prev?: unknown) => {
@@ -3094,6 +3124,7 @@ export function App() {
                 <div className="tu-controls">
                     <a className="file-button is-compact" data-variant="primary" href={wikilocMapUrl(selectedPeak)} target="_blank" rel="noopener noreferrer">{t('Rutas en Wikiloc')}</a>
                     <a className="file-button is-compact" data-variant="secondary" href={'https://www.google.com/maps/dir/?api=1&destination=' + selectedPeak[1] + ',' + selectedPeak[2]} target="_blank" rel="noopener noreferrer">{t('Como llegar')}</a>
+                    {progress.peaks.includes(peakId(selectedPeak)) ? <button className="file-button is-compact" data-variant="secondary" onClick={() => void sharePeakCard(selectedPeak)}>{t('Compartir')}</button> : null}
                     <button className="file-button is-compact" data-variant="secondary" onClick={() => setSelectedPeak(null)}>{t('Cerrar')}</button>
                 </div>
                 <TerrainCard peak={selectedPeak} />
@@ -3614,7 +3645,7 @@ export function App() {
                     <strong>{banners[0].title}</strong>
                     <small>{banners[0].sub}{banners.length > 1 ? t(' - +{n} mas a continuacion', { n: banners.length - 1 }).replace(' - ', ' · ') : ''}</small>
                 </div>
-                <button className="file-button is-compact" data-variant="primary" onClick={() => shareCard()}>{t('Compartir')}</button>
+                <button className="file-button is-compact" data-variant="primary" onClick={() => { if (banners[0].kind === 'pk' && banners[0].peak) void sharePeakCard(banners[0].peak); else void shareCard(); }}>{t('Compartir')}</button>
                 <button className="tu-terr-x" aria-label={t('Cerrar aviso')} onClick={() => setBanners((b) => b.slice(1))}>×</button>
             </div>
         ) : null}
