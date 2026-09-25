@@ -2347,6 +2347,17 @@ export function App() {
         }
         return best;
     }, [rlat, rlon, allPeaks, progress.peaks]);
+    // v1.108: las 5 cimas sin conquistar mas cercanas al centro del mapa
+    const nearPeaks = useMemo(() => {
+        const out: { p: Peak; d: number }[] = [];
+        for (const p of allPeaks) {
+            if (Math.abs(p[1] - rlat) > 0.4 || Math.abs(p[2] - rlon) > 0.6) continue;
+            if (progress.peaks.includes(peakId(p))) continue;
+            const d = distM([rlat, rlon], [p[1], p[2]]);
+            if (d < 40000) out.push({ p, d });
+        }
+        return out.sort((a, b) => a.d - b.d).slice(0, 5);
+    }, [rlat, rlon, allPeaks, progress.peaks]);
 
     // v1.6: que me falta cerca (territorios sin conquistar alrededor)
     const nearMissing = useMemo(() => {
@@ -3336,6 +3347,18 @@ export function App() {
                     <span><b>{peakSumEle ? peakSumEle.toLocaleString(dateLocale()) + ' m' : '-'}</b><small>{t('Metros de cima')}</small></span>
                 </div>
             </section>
+
+            {nearPeaks.length ? <section className="tu-group"><h2>{t('Cimas cercanas a ti')}</h2>
+                <div className="tu-terrnote" style={{ marginBottom: 6 }}>{t('Sin conquistar, ordenadas por distancia al centro de tu mapa.')}</div>
+                <ol className="tu-peaklist">
+                    {nearPeaks.map((np, i) => <li key={peakId(np.p)}>
+                        <span className="tu-num">{i + 1}</span>
+                        <span className="tu-pkname">{np.p[0]}<small>{t('A {d}', { d: fmtDist(np.d / 1000) })}</small></span>
+                        <span className="tu-pkele">{np.p[3]} m</span>
+                        <button className="file-button is-compact" data-variant="secondary" onClick={() => { setSelectedPeak(np.p); setSelectedRegion(null); setViewPersist({ lon: np.p[2], lat: np.p[1], z: 11 }); setTab('mapa'); }}>{t('Ver')}</button>
+                    </li>)}
+                </ol>
+            </section> : null}
 
             <section className="tu-group"><h2>{t('Buscar cimas')}</h2>
                 <input className="tu-input tu-input-full" type="search" placeholder={t('Nombre de la cima (min. 2 letras)')} value={peakQuery} onChange={(e) => setPeakQuery(e.target.value)} />
