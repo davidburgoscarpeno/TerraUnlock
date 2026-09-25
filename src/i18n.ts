@@ -401,6 +401,8 @@ const EN: Record<string, string> = {
     'Conexion con Strava cancelada': 'Strava connection cancelled',
     'Tu cima mas alta': 'Your highest peak',
     'Metros de cima': 'Peak meters',
+    '{n} actividades importadas': '{n} activities imported',
+    'Ultima sync {d}': 'Last sync {d}',
 };
 // v1.83: frances (tercer idioma)
 const FR: Record<string, string> = {
@@ -880,6 +882,8 @@ const FR: Record<string, string> = {
     'Conexion con Strava cancelada': 'Connexion Strava annulee',
     'Tu cima mas alta': 'Ton plus haut sommet',
     'Metros de cima': 'Metres de sommet',
+    '{n} actividades importadas': '{n} activites importees',
+    'Ultima sync {d}': 'Derniere synchro {d}',
 };
 
 

@@ -559,6 +559,8 @@ export function App() {
         setStravaBusy(true);
         try {
             const r = await fetchStravaTracks((d, tot) => setToast(t('Descargando de Strava: {d}/{tot}', { d, tot })));
+            const c = loadStrava();
+            if (c) { c.lastSync = new Date().toISOString(); saveStrava(c); }
             setStrava(loadStrava());
             if (!r.tracks.length) {
                 setToast(r.rateLimited ? t('Strava ha llegado a su limite de peticiones: prueba de nuevo en 15 minutos') : t('No hay actividades nuevas con GPS en tu Strava'));
@@ -3469,7 +3471,7 @@ export function App() {
                 <div className="tu-setrow">
                     <div className="l" style={{ flex: 1 }}>
                         <b>{strava ? t('Strava conectado{who}', { who: strava.athlete && strava.athlete.firstname ? ' - ' + strava.athlete.firstname : '' }) : t('Conecta tu Strava')}</b>
-                        <small>{strava ? t('Trae tus actividades con GPS directamente desde tu cuenta.') : t('Autoriza una vez y trae tus actividades con GPS, sin exportar archivos.')}</small>
+                        <small>{strava ? t('{n} actividades importadas', { n: strava.importedIds.length }) + (strava.lastSync ? ' · ' + t('Ultima sync {d}', { d: new Date(strava.lastSync).toLocaleDateString(dateLocale()) }) : '') : t('Autoriza una vez y trae tus actividades con GPS, sin exportar archivos.')}</small>
                         {!strava ? <small className="tu-dim" style={{ display: 'block', marginTop: 6 }}>{t('Si Strava te da Error 403 de limite de deportistas, el cupo de conexion esta lleno y ya lo estamos ampliando. Mientras tanto, importa tus rutas con GPX, FIT o el ZIP de exportacion de Strava desde la seccion Importar rutas.')}</small> : null}
                     </div>
                     <div className="tu-controls" style={{ margin: 0 }}>

@@ -10,6 +10,7 @@ export type StravaConn = {
     expires_at: number; // unix seconds
     athlete: { id: number; firstname: string } | null;
     importedIds: number[];
+    lastSync?: string;
 };
 
 export function loadStrava(): StravaConn | null {
