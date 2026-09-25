@@ -3087,6 +3087,7 @@ export function App() {
         {selectedPeak ? (
             <div className="tu-callout">
                 <strong>{selectedPeak[0]} <small style={{ fontWeight: 400, opacity: 0.75 }}>{selectedPeak[3]} m</small></strong>
+                <small className="tu-dim" style={{ display: 'block', marginTop: 2 }}>{lastPos ? t('A {d} de ti', { d: fmtDist(distM(lastPos, [selectedPeak[1], selectedPeak[2]]) / 1000) }) : t('A {d} del centro del mapa', { d: fmtDist(distM([view.lat, view.lon], [selectedPeak[1], selectedPeak[2]]) / 1000) })}</small>
                 <p>{progress.peaks.includes(peakId(selectedPeak))
                     ? t('Cima conquistada. Buen trabajo.')
                     : t('Aun sin conquistar: pasa a menos de 250 m de la cima para que cuente.')}</p>
