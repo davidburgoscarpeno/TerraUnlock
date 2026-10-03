@@ -2468,6 +2468,7 @@ export function App() {
     const deferredInstall = useRef<{ prompt: () => void; userChoice: Promise<{ outcome: string }> } | null>(null);
     const [canInstall, setCanInstall] = useState(false);
     const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream, []);
+    const isAndroid = useMemo(() => /Android/.test(navigator.userAgent), []);
     const isStandalone = useMemo(() => window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true, []);
     useEffect(() => {
         const onBIP = (e: Event) => { e.preventDefault(); deferredInstall.current = e as unknown as { prompt: () => void; userChoice: Promise<{ outcome: string }> }; setCanInstall(true); };
@@ -3458,9 +3459,11 @@ export function App() {
         </> : null}
 
         {tab === 'ajustes' ? <>
-            {!isStandalone && (canInstall || isIOS) ? <section className="tu-group"><h2>{t('Instalar la app')}</h2>
+            {!isStandalone && (canInstall || isIOS || isAndroid) ? <section className="tu-group"><h2>{t('Instalar la app')}</h2>
                 {canInstall ? <button className="file-button is-compact" data-variant="primary" style={{ alignSelf: 'flex-start' }} onClick={() => { void installApp(); }}>{t('Instalar TerraUnlock en este dispositivo')}</button> : null}
                 {isIOS ? <small className="tu-dim">{t('En iPhone o iPad: abre TerraUnlock en Safari, pulsa Compartir y elige Anadir a pantalla de inicio.')}</small> : null}
+                {isAndroid && !canInstall ? <small className="tu-dim">{t('En Android: abre TerraUnlock en Chrome, toca el menu de tres puntos y elige Instalar app (no "Anadir a pantalla de inicio" como acceso directo). Asi aparece en el cajon de apps y en el buscador.')}</small> : null}
+                {isAndroid && canInstall ? <small className="tu-dim">{t('Pulsa el boton para instalarla como app de verdad: saldra en el cajon de apps y en el buscador.')}</small> : null}
             </section> : null}
             <section className="tu-group"><h2>{t('Perfil')}</h2>
                 <div className="tu-setrow">
