@@ -419,6 +419,17 @@ const EN: Record<string, string> = {
     'Metros de cima': 'Peak meters',
     '{n} actividades importadas': '{n} activities imported',
     'Ultima sync {d}': 'Last sync {d}',
+    "Strava ha llegado a su limite de peticiones (unas 100 cada 15 minutos). Espera 15 minutos y pulsa Continuar: retoma donde lo dejo.": "Strava hit its request limit (about 100 per 15 minutes). Wait 15 minutes and tap Continue: it resumes where it stopped.",
+    "Importacion cancelada.": "Import cancelled.",
+    "Se corto la conexion con {n} actividades por traer. Pulsa Continuar para seguir.": "Connection dropped with {n} activities left. Tap Continue to resume.",
+    "Strava limito la descarga: faltan {n} actividades por traer. Espera 15 minutos y pulsa Continuar.": "Strava limited the download: {n} activities still to fetch. Wait 15 minutes and tap Continue.",
+    "Cancelado: se aplican las {n} descargadas; el resto queda pendiente.": "Cancelled: the {n} downloaded are applied; the rest stays pending.",
+    "Leyendo tu lista de actividades (pagina {p}, {n} encontradas)...": "Reading your activity list (page {p}, {n} found)...",
+    "Descargando actividad {d} de {tot} - {got} con GPS": "Downloading activity {d} of {tot} - {got} with GPS",
+    "quedan unos {m}": "about {m} left",
+    "Strava limita las peticiones: con muchas actividades puede tardar varios minutos. No cierres esta pantalla.": "Strava limits requests: with many activities it can take several minutes. Keep this screen open.",
+    "Continuar importacion": "Continue import",
+    "{n} actividades descargadas en esta tanda": "{n} activities downloaded in this batch",
 };
 // v1.83: frances (tercer idioma)
 const FR: Record<string, string> = {
@@ -916,6 +927,17 @@ const FR: Record<string, string> = {
     'Metros de cima': 'Metres de sommet',
     '{n} actividades importadas': '{n} activites importees',
     'Ultima sync {d}': 'Derniere synchro {d}',
+    "Strava ha llegado a su limite de peticiones (unas 100 cada 15 minutos). Espera 15 minutos y pulsa Continuar: retoma donde lo dejo.": "Strava a atteint sa limite de requêtes (environ 100 toutes les 15 minutes). Attends 15 minutes et touche Continuer : ça reprend où ça s'est arrêté.",
+    "Importacion cancelada.": "Import annulé.",
+    "Se corto la conexion con {n} actividades por traer. Pulsa Continuar para seguir.": "Connexion coupée, {n} activités restantes. Touche Continuer pour reprendre.",
+    "Strava limito la descarga: faltan {n} actividades por traer. Espera 15 minutos y pulsa Continuar.": "Strava a limité le téléchargement : {n} activités restantes. Attends 15 minutes et touche Continuer.",
+    "Cancelado: se aplican las {n} descargadas; el resto queda pendiente.": "Annulé : les {n} téléchargées sont appliquées ; le reste reste en attente.",
+    "Leyendo tu lista de actividades (pagina {p}, {n} encontradas)...": "Lecture de ta liste d'activités (page {p}, {n} trouvées)...",
+    "Descargando actividad {d} de {tot} - {got} con GPS": "Téléchargement de l'activité {d} sur {tot} - {got} avec GPS",
+    "quedan unos {m}": "il reste environ {m}",
+    "Strava limita las peticiones: con muchas actividades puede tardar varios minutos. No cierres esta pantalla.": "Strava limite les requêtes : avec beaucoup d'activités, cela peut prendre plusieurs minutes. Garde cet écran ouvert.",
+    "Continuar importacion": "Continuer l'import",
+    "{n} actividades descargadas en esta tanda": "{n} activités téléchargées dans ce lot",
 };
 
 

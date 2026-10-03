@@ -16,7 +16,7 @@ import { t, setLang, detectLang, dateLocale, monthName, dec, compass8, LANGS, ty
 import { APP_VERSION } from './version';
 import type { Adventure, AdventureProfile } from './types';
 import TrackThumb from './TrackThumb';
-import { beginStravaConnect, completeStravaConnect, fetchStravaTracks, loadStrava, saveStrava, type StravaConn } from './strava';
+import { beginStravaConnect, completeStravaConnect, fetchStravaTracks, loadStrava, saveStrava, type StravaConn, type StravaProg } from './strava';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
 const TILE_URL = (tz: number, j: number, i: number) => 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + tz + '/' + j + '/' + i;
@@ -565,24 +565,34 @@ export function App() {
     // v1.39: Strava
     const [strava, setStrava] = useState<StravaConn | null>(() => loadStrava());
     const [stravaBusy, setStravaBusy] = useState(false);
+    // v1.121: progreso visible, cancelar, error persistente con reintento
+    const [stravaProg, setStravaProg] = useState<StravaProg | null>(null);
+    const [stravaMsg, setStravaMsg] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
+    const stravaCtl = useRef({ cancelled: false });
     const importFromStrava = async (auto = false) => {
         if (stravaBusy) return;
         setStravaBusy(true);
+        stravaCtl.current = { cancelled: false };
+        if (!auto) { setStravaMsg(null); setStravaProg({ phase: 'list', page: 1, listed: 0, done: 0, total: 0, got: 0, noGps: 0 }); }
         try {
-            const r = await fetchStravaTracks((d, tot) => { if (!auto) setToast(t('Descargando de Strava: {d}/{tot}', { d, tot })); });
+            const r = await fetchStravaTracks((p) => { if (!auto) setStravaProg(p); }, stravaCtl.current);
             const c = loadStrava();
             if (c) { c.lastSync = new Date().toISOString(); saveStrava(c); }
             setStrava(loadStrava());
             if (!r.tracks.length) {
-                if (!auto) setToast(r.rateLimited ? t('Strava ha llegado a su limite de peticiones: prueba de nuevo en 15 minutos') : t('No hay actividades nuevas con GPS en tu Strava'));
+                if (!auto) setStravaMsg(r.error ? { kind: 'error', text: t('Error con Strava: {msg}', { msg: r.error }) } : r.rateLimited ? { kind: 'error', text: t('Strava ha llegado a su limite de peticiones (unas 100 cada 15 minutos). Espera 15 minutos y pulsa Continuar: retoma donde lo dejo.') } : r.cancelled ? { kind: 'info', text: t('Importacion cancelada.') } : { kind: 'info', text: t('No hay actividades nuevas con GPS en tu Strava') });
                 return;
             }
             const ok = buildBatchFromTracks(r.tracks, r.tracks.length, 0);
-            if (ok && r.rateLimited && !auto) setToast(t('Strava limito la descarga: faltan actividades por traer. Repite en 15 minutos.'));
+            if (!auto && ok) {
+                if (r.error) setStravaMsg({ kind: 'error', text: t('Se corto la conexion con {n} actividades por traer. Pulsa Continuar para seguir.', { n: r.pending }) });
+                else if (r.rateLimited) setStravaMsg({ kind: 'error', text: t('Strava limito la descarga: faltan {n} actividades por traer. Espera 15 minutos y pulsa Continuar.', { n: r.pending }) });
+                else if (r.cancelled) setStravaMsg({ kind: 'info', text: t('Cancelado: se aplican las {n} descargadas; el resto queda pendiente.', { n: r.tracks.length }) });
+            }
         } catch (e) {
             setStrava(loadStrava());
-            if (!auto) setToast(t('Error con Strava: {msg}', { msg: e instanceof Error ? e.message : 'error' }));
-        } finally { setStravaBusy(false); }
+            if (!auto) setStravaMsg({ kind: 'error', text: t('Error con Strava: {msg}', { msg: e instanceof Error ? e.message : 'error' }) });
+        } finally { setStravaBusy(false); setStravaProg(null); }
     };
     // v1.98: auto-sync de Strava al abrir la app (1 vez por sesion, si la ultima sync tiene >20 h)
     const stravaAutoRef = useRef(false);
@@ -3580,7 +3590,15 @@ export function App() {
                     <div className="l" style={{ flex: 1 }}>
                         <b>{strava && strava.athlete && strava.athlete.profile ? <img className="tu-strava-av" src={strava.athlete.profile} alt="" referrerPolicy="no-referrer" /> : null}{strava ? t('Strava conectado{who}', { who: strava.athlete && strava.athlete.firstname ? ' - ' + strava.athlete.firstname : '' }) : t('Conecta tu Strava')}</b>
                         <small>{strava ? t('Trae tus actividades con GPS directamente desde tu cuenta.') : t('Autoriza una vez y trae tus actividades con GPS, sin exportar archivos.')}</small>
-                        {strava ? <small className="tu-dim" style={{ display: 'block', marginTop: 6 }}>{t('{n} actividades importadas', { n: strava.importedIds.length })}{strava.lastSync ? ' · ' + t('Ultima sync {d}', { d: new Date(strava.lastSync).toLocaleDateString(dateLocale()) }) : ''}</small> : null}
+                        {strava ? <small className="tu-dim" style={{ display: 'block', marginTop: 6 }}>{stravaBusy && stravaProg && stravaProg.phase === 'streams' ? t('{n} actividades descargadas en esta tanda', { n: stravaProg.got }) : t('{n} actividades importadas', { n: strava.importedIds.length })}{strava.lastSync ? ' · ' + t('Ultima sync {d}', { d: new Date(strava.lastSync).toLocaleDateString(dateLocale()) }) : ''}</small> : null}
+                        {strava && stravaBusy && stravaProg ? <div className="tu-stravaprog" role="status" aria-live="polite">
+                            <div className="tu-stravabar"><i style={{ width: stravaProg.phase === 'streams' && stravaProg.total ? Math.max(3, Math.round(100 * stravaProg.done / stravaProg.total)) + '%' : '8%' }} className={stravaProg.phase === 'list' ? 'is-indet' : ''} /></div>
+                            <small className="tu-dim">{stravaProg.phase === 'list'
+                                ? t('Leyendo tu lista de actividades (pagina {p}, {n} encontradas)...', { p: stravaProg.page || 1, n: stravaProg.listed || 0 })
+                                : t('Descargando actividad {d} de {tot} - {got} con GPS', { d: Math.min(stravaProg.done + 1, stravaProg.total), tot: stravaProg.total, got: stravaProg.got }) + (stravaProg.etaSec != null ? ' - ' + t('quedan unos {m}', { m: stravaProg.etaSec >= 90 ? Math.round(stravaProg.etaSec / 60) + ' min' : stravaProg.etaSec + ' s' }) : '')}</small>
+                            <small className="tu-dim" style={{ display: 'block' }}>{t('Strava limita las peticiones: con muchas actividades puede tardar varios minutos. No cierres esta pantalla.')}</small>
+                        </div> : null}
+                        {strava && stravaMsg ? <small className={stravaMsg.kind === 'error' ? 'tu-stravaerr' : 'tu-dim'} style={{ display: 'block', marginTop: 6 }}>{stravaMsg.text}</small> : null}
                         {!strava ? <small className="tu-dim" style={{ display: 'block', marginTop: 6 }}>{t('Si Strava te da Error 403 de limite de deportistas, el cupo de conexion esta lleno y ya lo estamos ampliando. Mientras tanto, importa tus rutas con GPX, FIT o el ZIP de exportacion de Strava desde la seccion Importar rutas.')}</small> : null}
                     </div>
                     <div className="tu-controls" style={{ margin: 0 }}>
@@ -3588,7 +3606,8 @@ export function App() {
                             <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => { setStravaBusy(true); beginStravaConnect().catch(() => { setStravaBusy(false); setToast(t('No se pudo conectar con Strava')); }); }}>{stravaBusy ? t('Conectando...') : t('Conectar Strava')}</button>
                         ) : (<>
                             {strava.athlete && strava.athlete.id ? <a className="file-button is-compact" data-variant="secondary" href={'https://www.strava.com/athletes/' + strava.athlete.id} target="_blank" rel="noreferrer">{t('Mi perfil')}</a> : null}
-                            <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => void importFromStrava()}>{stravaBusy ? t('Importando...') : t('Importar de Strava')}</button>
+                            <button className="file-button is-compact" data-variant="primary" disabled={stravaBusy} onClick={() => void importFromStrava()}>{stravaBusy ? t('Importando...') : stravaMsg && stravaMsg.kind === 'error' ? t('Continuar importacion') : t('Importar de Strava')}</button>
+                            {stravaBusy ? <button className="file-button is-compact" data-variant="secondary" onClick={() => { stravaCtl.current.cancelled = true; }}>{t('Cancelar')}</button> : null}
                             <button className="file-button is-compact" data-variant="secondary" onClick={() => {
                                 if (!confirmStravaOff) { setConfirmStravaOff(true); return; }
                                 setConfirmStravaOff(false); saveStrava(null); setStrava(null); setToast(t('Strava desconectado. Tus actividades importadas se quedan.'));

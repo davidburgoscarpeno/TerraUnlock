@@ -343,3 +343,11 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-stravarow { flex-wrap: wrap; }
 .tu-strava-av { width: 30px; height: 30px; border-radius: 50%; vertical-align: -9px; margin-right: 8px; border: 2px solid rgba(252,82,0,0.55); }
 .tu-stravarow .l { flex: 1 1 100%; margin-bottom: 10px; }
+
+/* v1.121: progreso de importacion Strava */
+.tu-stravaprog { margin-top: 10px; }
+.tu-stravabar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; margin-bottom: 6px; }
+.tu-stravabar i { display: block; height: 100%; background: #2dc8aa; border-radius: 4px; transition: width .3s ease; }
+.tu-stravabar i.is-indet { animation: tu-indet 1.2s ease-in-out infinite alternate; }
+@keyframes tu-indet { from { margin-left: 0; } to { margin-left: 70%; } }
+.tu-stravaerr { color: #ffb86b; }
