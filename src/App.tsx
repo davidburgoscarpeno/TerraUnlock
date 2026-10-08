@@ -659,6 +659,10 @@ export function App() {
     }, [worldPeaks]);
     const allPeaksRef = useRef(allPeaks);
     useEffect(() => { allPeaksRef.current = allPeaks; }, [allPeaks]);
+    // v1.122: filtro de cimas por altitud minima y estado (se recuerda)
+    const [peakMinEle, setPeakMinEle] = useState<number>(() => { const v = loadJson<{ m: number; p: boolean }>('terraunlock.peakfilter.v1'); return v && typeof v.m === 'number' ? v.m : 0; });
+    const [peakPendOnly, setPeakPendOnly] = useState<boolean>(() => { const v = loadJson<{ m: number; p: boolean }>('terraunlock.peakfilter.v1'); return !!(v && v.p); });
+    useEffect(() => { saveJson('terraunlock.peakfilter.v1', { m: peakMinEle, p: peakPendOnly }); }, [peakMinEle, peakPendOnly]);
     const [selectedPeak, setSelectedPeak] = useState<Peak | null>(null);
     const [selectedRegion, setSelectedRegion] = useState<{ c: string | null; a: string | null; pv: string | null } | null>(null);
 
@@ -1374,15 +1378,15 @@ export function App() {
     const peakResults = useMemo(() => {
         const q = normTxt(peakQuery.trim());
         if (q.length < 2) return [];
-        return allPeaks.filter((p) => normTxt(p[0]).includes(q)).sort((a, b) => b[3] - a[3]).slice(0, 50);
-    }, [peakQuery, allPeaks]);
+        return allPeaks.filter((p) => p[3] >= peakMinEle && normTxt(p[0]).includes(q) && (!peakPendOnly || !progress.peaks.includes(peakId(p)))).sort((a, b) => b[3] - a[3]).slice(0, 50);
+    }, [peakQuery, allPeaks, peakMinEle, peakPendOnly, progress.peaks]);
     const nearbyPeaks = useMemo(() => {
         if (!lastPos) return [] as { p: Peak; d: number }[];
-        return allPeaks.map((p) => ({ p, d: distM(lastPos, [p[1], p[2]]) }))
+        return allPeaks.filter((p) => p[3] >= peakMinEle && (!peakPendOnly || !progress.peaks.includes(peakId(p)))).map((p) => ({ p, d: distM(lastPos, [p[1], p[2]]) }))
             .filter((x) => x.d <= 100000)
             .sort((a, b) => a.d - b.d)
             .slice(0, 10);
-    }, [lastPos, allPeaks]);
+    }, [lastPos, allPeaks, peakMinEle, peakPendOnly, progress.peaks]);
     const ccaaRanking = useMemo(() => {
         if (!progress.cells.length) return [] as { n: string; c: number[]; pct: number }[];
         return CCAA.map((rg) => ({ n: rg.n, c: rg.c, pct: Math.min(100, regionRevealedCells(rg, progress.cells) / regionTotalCells(rg) * 100) }))
@@ -2393,12 +2397,12 @@ export function App() {
         let best: { p: Peak; d: number } | null = null;
         for (const p of allPeaks) {
             if (Math.abs(p[1] - rlat) > 0.25 || Math.abs(p[2] - rlon) > 0.4) continue;
-            if (progress.peaks.includes(peakId(p))) continue;
+            if (progress.peaks.includes(peakId(p)) || p[3] < peakMinEle) continue;
             const d = distM([rlat, rlon], [p[1], p[2]]);
             if (d < 25000 && (!best || d < best.d)) best = { p, d };
         }
         return best;
-    }, [rlat, rlon, allPeaks, progress.peaks]);
+    }, [rlat, rlon, allPeaks, progress.peaks, peakMinEle]);
     // v1.108: las 5 cimas sin conquistar mas cercanas al centro del mapa
     const nearPeaks = useMemo(() => {
         const out: { p: Peak; d: number }[] = [];
@@ -2637,8 +2641,16 @@ export function App() {
     // v1.59: las 20 cimas mas altas aun sin conquistar
     const pendingTopPeaks = useMemo(() => {
         const won = new Set(progress.peaks);
-        return allPeaks.filter((pk) => !won.has(peakId(pk))).sort((a, b) => b[3] - a[3]).slice(0, 20);
-    }, [allPeaks, progress.peaks]);
+        return allPeaks.filter((pk) => !won.has(peakId(pk)) && pk[3] >= peakMinEle).sort((a, b) => b[3] - a[3]).slice(0, 20);
+    }, [allPeaks, progress.peaks, peakMinEle]);
+    const peakFilterOn = peakMinEle > 0 || peakPendOnly;
+    const peakFilterStats = useMemo(() => { const won = new Set(progress.peaks); let tot = 0, w = 0; for (const pk of allPeaks) { if (pk[3] < peakMinEle) continue; tot++; if (won.has(peakId(pk))) w++; } return { tot, w }; }, [allPeaks, progress.peaks, peakMinEle]);
+    const peakFilteredList = useMemo(() => {
+        if (!peakFilterOn) return [] as { p: Peak; d: number }[];
+        const won = new Set(progress.peaks); const ref: [number, number] = lastPos || [view.lat, view.lon];
+        return allPeaks.filter((pk) => pk[3] >= peakMinEle && (!peakPendOnly || !won.has(peakId(pk)))).map((pk) => ({ p: pk, d: distM(ref, [pk[1], pk[2]]) })).sort((a, b) => a.d - b.d).slice(0, 30);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [peakFilterOn, allPeaks, progress.peaks, peakMinEle, peakPendOnly, lastPos, Math.round(view.lat * 10), Math.round(view.lon * 10)]);
 
     // v1.23: estadisticas del mes actual vs el anterior (a partir de las aventuras)
     // v1.37: totales historicos de aventuras (tiempo en movimiento y desnivel)
@@ -3401,6 +3413,27 @@ export function App() {
                     <span><b>{peakTop ? peakTop[3].toLocaleString(dateLocale()) + ' m' : '-'}</b><small>{peakTop ? peakTop[0] : t('Tu cima mas alta')}</small></span>
                     <span><b>{peakSumEle ? peakSumEle.toLocaleString(dateLocale()) + ' m' : '-'}</b><small>{t('Metros de cima')}</small></span>
                 </div>
+            </section>
+
+            <section className="tu-group tu-peakfilter"><h2>{t('Filtrar cimas por altura')}</h2>
+                <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6 }}>
+                    {[0, 1000, 2000, 3000, 4000].map((m) => <Chip key={m} on={peakMinEle === m} label={m ? t('Mas de {m} m', { m: m.toLocaleString(dateLocale()) }) : t('Todas')} onPick={() => setPeakMinEle(m)} />)}
+                </div>
+                <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    <Chip on={!peakPendOnly} label={t('Todas')} onPick={() => setPeakPendOnly(false)} />
+                    <Chip on={peakPendOnly} label={t('Solo sin conquistar')} onPick={() => setPeakPendOnly(true)} />
+                </div>
+                {peakMinEle > 0 ? <div className="tu-terrnote" style={{ marginTop: 6 }}>{t('{w} de {tot} cimas de mas de {m} m conquistadas', { w: peakFilterStats.w, tot: peakFilterStats.tot, m: peakMinEle.toLocaleString(dateLocale()) })}</div> : null}
+                {peakFilterOn ? <>
+                    <div className="tu-terrnote" style={{ margin: '8px 0 6px' }}>{t('Las 30 mas cercanas con este filtro.')}</div>
+                    {peakFilteredList.length ? <ol className="tu-peaklist tu-peaklist-full">
+                        {peakFilteredList.map(({ p, d }) => <li key={peakId(p)}>
+                            <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? <span className="tu-won">{t('Conquistada')}</span> : t('Sin conquistar')}{' · '}{lastPos ? t('A {d} de ti', { d: fmtDist(d / 1000) }) : t('A {d} del centro del mapa', { d: fmtDist(d / 1000) })}</small></span>
+                            <span className="tu-pkele">{p[3]} m</span>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
+                        </li>)}
+                    </ol> : <div className="tu-callout"><strong>{t('Sin resultados')}</strong></div>}
+                </> : null}
             </section>
 
             {nearPeaks.length ? <section className="tu-group"><h2>{t('Cimas cercanas a ti')}</h2>

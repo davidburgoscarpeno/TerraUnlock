@@ -351,3 +351,5 @@ input[type="range"] { accent-color: var(--accent); }
 .tu-stravabar i.is-indet { animation: tu-indet 1.2s ease-in-out infinite alternate; }
 @keyframes tu-indet { from { margin-left: 0; } to { margin-left: 70%; } }
 .tu-stravaerr { color: #ffb86b; }
+
+.tu-peakfilter .tu-sportchip { padding: 6px 12px; }

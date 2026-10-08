@@ -430,6 +430,12 @@ const EN: Record<string, string> = {
     "Strava limita las peticiones: con muchas actividades puede tardar varios minutos. No cierres esta pantalla.": "Strava limits requests: with many activities it can take several minutes. Keep this screen open.",
     "Continuar importacion": "Continue import",
     "{n} actividades descargadas en esta tanda": "{n} activities downloaded in this batch",
+    "Filtrar cimas por altura": "Filter peaks by height",
+    "Mas de {m} m": "Over {m} m",
+    "Todas": "All",
+    "Solo sin conquistar": "Only unconquered",
+    "{w} de {tot} cimas de mas de {m} m conquistadas": "{w} of {tot} peaks over {m} m conquered",
+    "Las 30 mas cercanas con este filtro.": "The 30 closest with this filter.",
 };
 // v1.83: frances (tercer idioma)
 const FR: Record<string, string> = {
