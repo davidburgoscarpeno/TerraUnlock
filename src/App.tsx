@@ -16,6 +16,7 @@ import { t, setLang, detectLang, dateLocale, monthName, dec, compass8, LANGS, ty
 import { APP_VERSION } from './version';
 import type { Adventure, AdventureProfile } from './types';
 import TrackThumb from './TrackThumb';
+import { fetchPeakTrails, type PeakTrails } from './osmTrails';
 import { beginStravaConnect, completeStravaConnect, fetchStravaTracks, loadStrava, saveStrava, type StravaConn, type StravaProg } from './strava';
 
 const CELL = 0.01; // grados, ~1,1 km de lado
@@ -659,10 +660,26 @@ export function App() {
     }, [worldPeaks]);
     const allPeaksRef = useRef(allPeaks);
     useEffect(() => { allPeaksRef.current = allPeaks; }, [allPeaks]);
-    // v1.122: filtro de cimas por altitud minima y estado (se recuerda)
-    const [peakMinEle, setPeakMinEle] = useState<number>(() => { const v = loadJson<{ m: number; p: boolean }>('terraunlock.peakfilter.v1'); return v && typeof v.m === 'number' ? v.m : 0; });
-    const [peakPendOnly, setPeakPendOnly] = useState<boolean>(() => { const v = loadJson<{ m: number; p: boolean }>('terraunlock.peakfilter.v1'); return !!(v && v.p); });
-    useEffect(() => { saveJson('terraunlock.peakfilter.v1', { m: peakMinEle, p: peakPendOnly }); }, [peakMinEle, peakPendOnly]);
+    // v1.122/v1.123: filtro de cimas por altitud (min y max), nombre, orden y solo sin conquistar (se recuerda)
+    type PeakFilterSaved = { m: number; x?: number; p: boolean; o?: string };
+    const [peakMinEle, setPeakMinEle] = useState<number>(() => { const v = loadJson<PeakFilterSaved>('terraunlock.peakfilter.v1'); return v && typeof v.m === 'number' ? v.m : 0; });
+    const [peakMaxEle, setPeakMaxEle] = useState<number>(() => { const v = loadJson<PeakFilterSaved>('terraunlock.peakfilter.v1'); return v && typeof v.x === 'number' ? v.x : 0; });
+    const [peakPendOnly, setPeakPendOnly] = useState<boolean>(() => { const v = loadJson<PeakFilterSaved>('terraunlock.peakfilter.v1'); return !!(v && v.p); });
+    const [peakSort, setPeakSort] = useState<'near' | 'high' | 'low'>(() => { const v = loadJson<PeakFilterSaved>('terraunlock.peakfilter.v1'); return v && (v.o === 'high' || v.o === 'low') ? v.o : 'near'; });
+    const [peakFName, setPeakFName] = useState('');
+    useEffect(() => { saveJson('terraunlock.peakfilter.v1', { m: peakMinEle, x: peakMaxEle, p: peakPendOnly, o: peakSort }); }, [peakMinEle, peakMaxEle, peakPendOnly, peakSort]);
+    // v1.123: etiquetas de senderos de OpenStreetMap cerca de una cima (bajo demanda)
+    const [trailsOpen, setTrailsOpen] = useState<string | null>(null);
+    const [trailsData, setTrailsData] = useState<Record<string, PeakTrails | 'loading' | 'error'>>({});
+    const loadTrails = (pk: Peak) => {
+        const id = peakId(pk);
+        if (trailsOpen === id) { setTrailsOpen(null); return; }
+        setTrailsOpen(id);
+        const cur = trailsData[id];
+        if (cur && cur !== 'error') return;
+        setTrailsData((m) => ({ ...m, [id]: 'loading' }));
+        fetchPeakTrails(pk[1], pk[2]).then((r) => setTrailsData((m) => ({ ...m, [id]: r }))).catch(() => setTrailsData((m) => ({ ...m, [id]: 'error' })));
+    };
     const [selectedPeak, setSelectedPeak] = useState<Peak | null>(null);
     const [selectedRegion, setSelectedRegion] = useState<{ c: string | null; a: string | null; pv: string | null } | null>(null);
 
@@ -1378,15 +1395,15 @@ export function App() {
     const peakResults = useMemo(() => {
         const q = normTxt(peakQuery.trim());
         if (q.length < 2) return [];
-        return allPeaks.filter((p) => p[3] >= peakMinEle && normTxt(p[0]).includes(q) && (!peakPendOnly || !progress.peaks.includes(peakId(p)))).sort((a, b) => b[3] - a[3]).slice(0, 50);
-    }, [peakQuery, allPeaks, peakMinEle, peakPendOnly, progress.peaks]);
+        return allPeaks.filter((p) => p[3] >= peakMinEle && (!peakMaxEle || p[3] <= peakMaxEle) && normTxt(p[0]).includes(q) && (!peakPendOnly || !progress.peaks.includes(peakId(p)))).sort((a, b) => b[3] - a[3]).slice(0, 50);
+    }, [peakQuery, allPeaks, peakMinEle, peakMaxEle, peakPendOnly, progress.peaks]);
     const nearbyPeaks = useMemo(() => {
         if (!lastPos) return [] as { p: Peak; d: number }[];
-        return allPeaks.filter((p) => p[3] >= peakMinEle && (!peakPendOnly || !progress.peaks.includes(peakId(p)))).map((p) => ({ p, d: distM(lastPos, [p[1], p[2]]) }))
+        return allPeaks.filter((p) => p[3] >= peakMinEle && (!peakMaxEle || p[3] <= peakMaxEle) && (!peakPendOnly || !progress.peaks.includes(peakId(p)))).map((p) => ({ p, d: distM(lastPos, [p[1], p[2]]) }))
             .filter((x) => x.d <= 100000)
             .sort((a, b) => a.d - b.d)
             .slice(0, 10);
-    }, [lastPos, allPeaks, peakMinEle, peakPendOnly, progress.peaks]);
+    }, [lastPos, allPeaks, peakMinEle, peakMaxEle, peakPendOnly, progress.peaks]);
     const ccaaRanking = useMemo(() => {
         if (!progress.cells.length) return [] as { n: string; c: number[]; pct: number }[];
         return CCAA.map((rg) => ({ n: rg.n, c: rg.c, pct: Math.min(100, regionRevealedCells(rg, progress.cells) / regionTotalCells(rg) * 100) }))
@@ -2397,12 +2414,12 @@ export function App() {
         let best: { p: Peak; d: number } | null = null;
         for (const p of allPeaks) {
             if (Math.abs(p[1] - rlat) > 0.25 || Math.abs(p[2] - rlon) > 0.4) continue;
-            if (progress.peaks.includes(peakId(p)) || p[3] < peakMinEle) continue;
+            if (progress.peaks.includes(peakId(p)) || p[3] < peakMinEle || (peakMaxEle && p[3] > peakMaxEle)) continue;
             const d = distM([rlat, rlon], [p[1], p[2]]);
             if (d < 25000 && (!best || d < best.d)) best = { p, d };
         }
         return best;
-    }, [rlat, rlon, allPeaks, progress.peaks, peakMinEle]);
+    }, [rlat, rlon, allPeaks, progress.peaks, peakMinEle, peakMaxEle]);
     // v1.108: las 5 cimas sin conquistar mas cercanas al centro del mapa
     const nearPeaks = useMemo(() => {
         const out: { p: Peak; d: number }[] = [];
@@ -2641,16 +2658,19 @@ export function App() {
     // v1.59: las 20 cimas mas altas aun sin conquistar
     const pendingTopPeaks = useMemo(() => {
         const won = new Set(progress.peaks);
-        return allPeaks.filter((pk) => !won.has(peakId(pk)) && pk[3] >= peakMinEle).sort((a, b) => b[3] - a[3]).slice(0, 20);
-    }, [allPeaks, progress.peaks, peakMinEle]);
-    const peakFilterOn = peakMinEle > 0 || peakPendOnly;
-    const peakFilterStats = useMemo(() => { const won = new Set(progress.peaks); let tot = 0, w = 0; for (const pk of allPeaks) { if (pk[3] < peakMinEle) continue; tot++; if (won.has(peakId(pk))) w++; } return { tot, w }; }, [allPeaks, progress.peaks, peakMinEle]);
+        return allPeaks.filter((pk) => !won.has(peakId(pk)) && pk[3] >= peakMinEle && (!peakMaxEle || pk[3] <= peakMaxEle)).sort((a, b) => b[3] - a[3]).slice(0, 20);
+    }, [allPeaks, progress.peaks, peakMinEle, peakMaxEle]);
+    const peakFNameN = normTxt(peakFName.trim());
+    const peakFilterOn = peakMinEle > 0 || peakMaxEle > 0 || peakPendOnly || peakFNameN.length >= 2 || peakSort !== 'near';
+    const peakFilterStats = useMemo(() => { const won = new Set(progress.peaks); let tot = 0, w = 0; for (const pk of allPeaks) { if (pk[3] < peakMinEle || (peakMaxEle && pk[3] > peakMaxEle)) continue; tot++; if (won.has(peakId(pk))) w++; } return { tot, w }; }, [allPeaks, progress.peaks, peakMinEle, peakMaxEle]);
     const peakFilteredList = useMemo(() => {
         if (!peakFilterOn) return [] as { p: Peak; d: number }[];
         const won = new Set(progress.peaks); const ref: [number, number] = lastPos || [view.lat, view.lon];
-        return allPeaks.filter((pk) => pk[3] >= peakMinEle && (!peakPendOnly || !won.has(peakId(pk)))).map((pk) => ({ p: pk, d: distM(ref, [pk[1], pk[2]]) })).sort((a, b) => a.d - b.d).slice(0, 30);
+        const rows = allPeaks.filter((pk) => pk[3] >= peakMinEle && (!peakMaxEle || pk[3] <= peakMaxEle) && (!peakPendOnly || !won.has(peakId(pk))) && (peakFNameN.length < 2 || normTxt(pk[0]).includes(peakFNameN))).map((pk) => ({ p: pk, d: distM(ref, [pk[1], pk[2]]) }));
+        rows.sort(peakSort === 'high' ? (x, y) => y.p[3] - x.p[3] : peakSort === 'low' ? (x, y) => x.p[3] - y.p[3] : (x, y) => x.d - y.d);
+        return rows.slice(0, 30);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [peakFilterOn, allPeaks, progress.peaks, peakMinEle, peakPendOnly, lastPos, Math.round(view.lat * 10), Math.round(view.lon * 10)]);
+    }, [peakFilterOn, allPeaks, progress.peaks, peakMinEle, peakMaxEle, peakPendOnly, peakSort, peakFNameN, lastPos, Math.round(view.lat * 10), Math.round(view.lon * 10)]);
 
     // v1.23: estadisticas del mes actual vs el anterior (a partir de las aventuras)
     // v1.37: totales historicos de aventuras (tiempo en movimiento y desnivel)
@@ -3415,22 +3435,45 @@ export function App() {
                 </div>
             </section>
 
-            <section className="tu-group tu-peakfilter"><h2>{t('Filtrar cimas por altura')}</h2>
+            <section className="tu-group tu-peakfilter"><h2>{t('Buscar y filtrar cimas')}</h2>
+                <input className="tu-input tu-input-full" type="search" placeholder={t('Nombre de la cima (opcional)')} value={peakFName} onChange={(e) => setPeakFName(e.target.value)} />
+                <div className="tu-terrnote" style={{ margin: '8px 0 4px' }}>{t('Altura minima')}</div>
                 <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6 }}>
                     {[0, 1000, 2000, 3000, 4000].map((m) => <Chip key={m} on={peakMinEle === m} label={m ? t('Mas de {m} m', { m: m.toLocaleString(dateLocale()) }) : t('Todas')} onPick={() => setPeakMinEle(m)} />)}
                 </div>
-                <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                    <Chip on={!peakPendOnly} label={t('Todas')} onPick={() => setPeakPendOnly(false)} />
-                    <Chip on={peakPendOnly} label={t('Solo sin conquistar')} onPick={() => setPeakPendOnly(true)} />
+                <div className="tu-terrnote" style={{ margin: '8px 0 4px' }}>{t('Altura maxima')}</div>
+                <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6 }}>
+                    {[0, 1500, 2000, 2500, 3000].map((m) => <Chip key={m} on={peakMaxEle === m} label={m ? t('Hasta {m} m', { m: m.toLocaleString(dateLocale()) }) : t('Sin tope')} onPick={() => setPeakMaxEle(m)} />)}
                 </div>
-                {peakMinEle > 0 ? <div className="tu-terrnote" style={{ marginTop: 6 }}>{t('{w} de {tot} cimas de mas de {m} m conquistadas', { w: peakFilterStats.w, tot: peakFilterStats.tot, m: peakMinEle.toLocaleString(dateLocale()) })}</div> : null}
+                <div className="tu-terrnote" style={{ margin: '8px 0 4px' }}>{t('Orden')}</div>
+                <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6 }}>
+                    <Chip on={peakSort === 'near'} label={t('Mas cercanas')} onPick={() => setPeakSort('near')} />
+                    <Chip on={peakSort === 'high'} label={t('Mas altas')} onPick={() => setPeakSort('high')} />
+                    <Chip on={peakSort === 'low'} label={t('Mas bajas')} onPick={() => setPeakSort('low')} />
+                    <Chip on={peakPendOnly} label={t('Solo sin conquistar')} onPick={() => setPeakPendOnly(!peakPendOnly)} />
+                </div>
+                {peakMinEle > 0 || peakMaxEle > 0 ? <div className="tu-terrnote" style={{ marginTop: 6 }}>{t('{w} de {tot} cimas en este rango de altura conquistadas', { w: peakFilterStats.w, tot: peakFilterStats.tot })}</div> : null}
                 {peakFilterOn ? <>
-                    <div className="tu-terrnote" style={{ margin: '8px 0 6px' }}>{t('Las 30 mas cercanas con este filtro.')}</div>
+                    <div className="tu-terrnote" style={{ margin: '8px 0 6px' }}>{peakSort === 'near' ? t('Las 30 mas cercanas con este filtro.') : peakSort === 'high' ? t('Las 30 mas altas con este filtro.') : t('Las 30 mas bajas con este filtro.')}</div>
                     {peakFilteredList.length ? <ol className="tu-peaklist tu-peaklist-full">
-                        {peakFilteredList.map(({ p, d }) => <li key={peakId(p)}>
+                        {peakFilteredList.map(({ p, d }) => <li key={peakId(p)} style={{ flexWrap: 'wrap' }}>
                             <span className="tu-pkname">{p[0]}<small>{progress.peaks.includes(peakId(p)) ? <span className="tu-won">{t('Conquistada')}</span> : t('Sin conquistar')}{' · '}{lastPos ? t('A {d} de ti', { d: fmtDist(d / 1000) }) : t('A {d} del centro del mapa', { d: fmtDist(d / 1000) })}</small></span>
                             <span className="tu-pkele">{p[3]} m</span>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => loadTrails(p)}>{trailsOpen === peakId(p) ? t('Ocultar senderos') : t('Senderos')}</button>
                             <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
+                            {trailsOpen === peakId(p) ? <div className="tu-trails" style={{ flex: '1 1 100%' }}>{(() => {
+                                const td = trailsData[peakId(p)];
+                                if (!td || td === 'loading') return <small className="tu-dim">{t('Consultando OpenStreetMap...')}</small>;
+                                if (td === 'error') return <small className="tu-stravaerr">{t('No se pudo consultar OpenStreetMap ahora. Prueba de nuevo en un rato.')}</small>;
+                                return <>
+                                    {td.ways === 0 ? <small className="tu-dim" style={{ display: 'block' }}>{t('Sin senderos etiquetados en OpenStreetMap a menos de {r} m de la cima. No hay datos de terreno.', { r: td.radius })}</small> : <>
+                                        <small className="tu-dim" style={{ display: 'block' }}>{t('{n} tramos de camino a menos de {r} m de la cima (OpenStreetMap).', { n: td.ways, r: td.radius })}</small>
+                                        {td.sac.length ? <small className="tu-dim" style={{ display: 'block' }}>{'sac_scale: '}{td.sac.map((x) => x.v + ' (' + x.n + ')').join(', ')}{td.sacMissing ? ' · ' + t('{n} sin etiquetar', { n: td.sacMissing }) : ''}</small> : <small className="tu-dim" style={{ display: 'block' }}>{t('Ningun tramo tiene sac_scale (dificultad) en OpenStreetMap.')}</small>}
+                                        {td.surface.length ? <small className="tu-dim" style={{ display: 'block' }}>{'surface: '}{td.surface.map((x) => x.v + ' (' + x.n + ')').join(', ')}</small> : null}
+                                    </>}
+                                    <small className="tu-dim" style={{ display: 'block', marginTop: 4, opacity: 0.8 }}>{t('Son etiquetas de caminos cercanos, no una ruta identificada hasta la cumbre: pueden ser caminos distintos o sin conexion. No indican si la subida es segura ni sin piedra.')}</small>
+                                </>;
+                            })()}</div> : null}
                         </li>)}
                     </ol> : <div className="tu-callout"><strong>{t('Sin resultados')}</strong></div>}
                 </> : null}
