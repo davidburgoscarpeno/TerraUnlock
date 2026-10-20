@@ -2655,6 +2655,23 @@ export function App() {
     // v1.91: resumen visual de la pestana Cimas
     const peakSumEle = conqueredPeaks.reduce((sum, p) => sum + p[3], 0);
     const peakTop = conqueredPeaks.length ? conqueredPeaks[0] : null;
+    // v1.124: apartado de cimas conquistadas. Fecha/aventura solo si una aventura guardada la registro como nueva; si no, se dice que no consta.
+    const [wonSort, setWonSort] = useState<'high' | 'recent' | 'az'>('high');
+    const [wonAll, setWonAll] = useState(false);
+    const wonInfo = useMemo(() => {
+        const m = new Map<string, { date: string; name: string }>();
+        for (const ad of [...adventures].sort((x, y) => x.start.localeCompare(y.start))) for (const id of ad.peaks || []) if (!m.has(id)) m.set(id, { date: ad.start, name: ad.name || '' });
+        return m;
+    }, [adventures]);
+    const wonList = useMemo(() => {
+        const rows = conqueredPeaks.map((pk) => ({ p: pk, info: wonInfo.get(peakId(pk)) }));
+        if (wonSort === 'high') rows.sort((x, y) => y.p[3] - x.p[3]);
+        else if (wonSort === 'az') rows.sort((x, y) => x.p[0].localeCompare(y.p[0]));
+        else rows.sort((x, y) => (y.info ? y.info.date : '').localeCompare(x.info ? x.info.date : '') || y.p[3] - x.p[3]);
+        return rows;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [progress.peaks, wonInfo, wonSort, peakById]);
+    const wonTiers = [1000, 2000, 3000].map((m) => ({ m, n: conqueredPeaks.filter((pk) => pk[3] >= m).length }));
     // v1.59: las 20 cimas mas altas aun sin conquistar
     const pendingTopPeaks = useMemo(() => {
         const won = new Set(progress.peaks);
@@ -3433,6 +3450,28 @@ export function App() {
                     <span><b>{peakTop ? peakTop[3].toLocaleString(dateLocale()) + ' m' : '-'}</b><small>{peakTop ? peakTop[0] : t('Tu cima mas alta')}</small></span>
                     <span><b>{peakSumEle ? peakSumEle.toLocaleString(dateLocale()) + ' m' : '-'}</b><small>{t('Metros de cima')}</small></span>
                 </div>
+            </section>
+
+            <section className="tu-group tu-won-sec"><h2>{t('Cimas conquistadas')}</h2>
+                {conqueredPeaks.length ? <>
+                    <div className="tu-terrnote" style={{ marginBottom: 8 }}>{t('Cuenta una cima cuando tu recorrido GPS pasa a menos de {m} m de ella. No prueba que llegaras a la cumbre.', { m: PEAK_M })}</div>
+                    <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        {wonTiers.map((x) => <span key={x.m} className="tu-chip">{t('Mas de {m} m', { m: x.m.toLocaleString(dateLocale()) })}: {x.n}</span>)}
+                    </div>
+                    <div className="tu-controls" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        <Chip on={wonSort === 'high'} label={t('Mas altas')} onPick={() => setWonSort('high')} />
+                        <Chip on={wonSort === 'recent'} label={t('Recientes')} onPick={() => setWonSort('recent')} />
+                        <Chip on={wonSort === 'az'} label="A-Z" onPick={() => setWonSort('az')} />
+                    </div>
+                    <ol className="tu-peaklist tu-peaklist-full">
+                        {(wonAll ? wonList : wonList.slice(0, 15)).map(({ p, info }) => <li key={peakId(p)}>
+                            <span className="tu-pkname">⛰️ {p[0]}<small>{info ? t('Conquistada el {d}', { d: new Date(info.date).toLocaleDateString(dateLocale()) }) + (info.name ? ' · ' + info.name : '') : t('Fecha no registrada')}</small></span>
+                            <span className="tu-pkele">{p[3].toLocaleString(dateLocale())} m</span>
+                            <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
+                        </li>)}
+                    </ol>
+                    {wonList.length > 15 ? <button className="file-button is-compact" data-variant="secondary" style={{ marginTop: 8 }} onClick={() => setWonAll(!wonAll)}>{wonAll ? t('Ver menos') : t('Ver las {n}', { n: wonList.length })}</button> : null}
+                </> : <div className="tu-callout"><strong>{t('Aun no tienes cimas')}</strong><p>{t('Tu primera cima aparecera aqui en cuanto pases cerca de una.')}</p></div>}
             </section>
 
             <section className="tu-group tu-peakfilter"><h2>{t('Buscar y filtrar cimas')}</h2>

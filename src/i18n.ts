@@ -458,6 +458,11 @@ const EN: Record<string, string> = {
     "{n} sin etiquetar": "{n} untagged",
     "Ningun tramo tiene sac_scale (dificultad) en OpenStreetMap.": "No segment has a sac_scale (difficulty) tag in OpenStreetMap.",
     "Son etiquetas de caminos cercanos, no una ruta identificada hasta la cumbre: pueden ser caminos distintos o sin conexion. No indican si la subida es segura ni sin piedra.": "These are tags of nearby paths, not an identified route to the summit: they may be different or unconnected paths. They do not say whether the climb is safe or free of rock.",
+    "Cuenta una cima cuando tu recorrido GPS pasa a menos de {m} m de ella. No prueba que llegaras a la cumbre.": "A peak counts when your GPS track passes within {m} m of it. It does not prove you reached the summit.",
+    "Conquistada el {d}": "Conquered on {d}",
+    "Fecha no registrada": "Date not recorded",
+    "Ver menos": "Show less",
+    "Ver las {n}": "Show all {n}",
 };
 // v1.83: frances (tercer idioma)
 const FR: Record<string, string> = {
@@ -988,6 +993,11 @@ const FR: Record<string, string> = {
     "{n} sin etiquetar": "{n} sans étiquette",
     "Ningun tramo tiene sac_scale (dificultad) en OpenStreetMap.": "Aucun tronçon n'a de sac_scale (difficulté) dans OpenStreetMap.",
     "Son etiquetas de caminos cercanos, no una ruta identificada hasta la cumbre: pueden ser caminos distintos o sin conexion. No indican si la subida es segura ni sin piedra.": "Ce sont des étiquettes de chemins proches, pas un itinéraire identifié jusqu'au sommet : ils peuvent être distincts ou non connectés. Ils n'indiquent pas si la montée est sûre ou sans rocher.",
+    "Cuenta una cima cuando tu recorrido GPS pasa a menos de {m} m de ella. No prueba que llegaras a la cumbre.": "Un sommet compte quand ton tracé GPS passe à moins de {m} m. Cela ne prouve pas que tu as atteint le sommet.",
+    "Conquistada el {d}": "Conquis le {d}",
+    "Fecha no registrada": "Date non enregistrée",
+    "Ver menos": "Voir moins",
+    "Ver las {n}": "Voir les {n}",
 };
 
 
