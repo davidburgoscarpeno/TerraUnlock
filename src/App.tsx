@@ -3465,7 +3465,7 @@ export function App() {
                     </div>
                     <ol className="tu-peaklist tu-peaklist-full">
                         {(wonAll ? wonList : wonList.slice(0, 15)).map(({ p, info }) => <li key={peakId(p)}>
-                            <span className="tu-pkname">⛰️ {p[0]}<small>{info ? t('Conquistada el {d}', { d: new Date(info.date).toLocaleDateString(dateLocale()) }) + (info.name ? ' · ' + info.name : '') : t('Fecha no registrada')}</small></span>
+                            <span className="tu-pkname">⛰️ {p[0]}<small>{info ? t('Cerca en la aventura del {d}', { d: new Date(info.date).toLocaleDateString(dateLocale()) }) + (info.name ? ' · ' + info.name : '') : t('Fecha no registrada')}</small></span>
                             <span className="tu-pkele">{p[3].toLocaleString(dateLocale())} m</span>
                             <button className="file-button is-compact" data-variant="secondary" onClick={() => showPeakOnMap(p)}>{t('Ver')}</button>
                         </li>)}
